@@ -1,4 +1,4 @@
-import database, pymongo, util, re, itertools
+import database, pymongo, util, re
 
 class MongoDb:
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
