@@ -157,7 +157,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		MongoDb.__init__(self, database, host, port)
 
 	def create_object(self, guid, source):
-		self.save("objects", { "guid": guid, "source": source, "locked": False })
+		self.save("objects", { "guid": guid, "source": source, "locked": False, "timestamp": util.now() })
 
 	def lock_object(self, guid, locked):
 		self.update("objects", { "guid": guid }, { "$set": { "locked": locked } })
@@ -176,7 +176,8 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 	def get_object(self, guid):
 		return self.find_one("objects", { "guid": guid })
 
-	def get_objects(self, page = 0, page_size = 10): return None
+	def get_objects(self, page = 0, page_size = 10):
+		return self.find("objects", sorting = [ "timestamp", False ], limit = page_size, skip = page * page_size)
 
 	def get_popular_objects(self, page = 0, page_size = 10): return None
 
