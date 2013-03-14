@@ -97,4 +97,10 @@ class ObjectDb(object):
 	def is_favorite(self, guid, username): return False
 
 	@abc.abstractmethod
-	def get_favorites(self, username, page = 0): return None
+	def get_favorites(self, username, page = 0, page_size = 10): return None
+
+	@abc.abstractmethod
+	def recommend(self, guid, username, receivers): return
+
+	@abc.abstractmethod
+	def get_recommendations(self, username, page = 0, page_size = 10): return None
