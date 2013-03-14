@@ -151,3 +151,43 @@ class MongoUserDb(MongoDb, database.UserDb):
 
 	def username_requested(self, username):
 		return bool(self.count("user_requests", { "name": username }))
+
+class MongoObjectDb(MongoDb, database.ObjectDb):
+	def __init__(self, database, host = "127.0.0.1", port = 27017):
+		MongoDb.__init__(self, database, host, port)
+
+	def create_object(self, guid, source): return
+
+	def lock_object(self, guid): return
+
+	def is_locked(self, guid): return False
+
+	def remove_object(self, guid): return
+
+	def get_object(self, guid): return None
+
+	def get_objects(self, page = 0, page_size = 10): return None
+
+	def get_popular_objects(self, page = 0, page_size = 10): return None
+
+	def get_random_objects(self, page = 0, page_size = 10): return None
+
+	def add_tags(self, guid, tags): return
+
+	def rate(self, guid, username, up = True): return
+
+	def user_can_rate(self, guid, username): return False
+
+	def add_comment(self, guid, username, text): return
+
+	def get_comments(self, guid, page = 0, page_size = 10): return None
+
+	def favor_object(self, guid, username, favor = True): return
+
+	def is_favorite(self, guid, username): return False
+
+	def get_favorites(self, username, page = 0, page_size = 10): return None
+
+	def recommend(self, guid, username, receivers): return
+
+	def get_recommendations(self, username, page = 0, page_size = 10): return None
