@@ -147,36 +147,3 @@ class TestMongoUserDb(unittest.TestCase):
 
 if __name__ == "__main__":
 	unittest.main()
-
-"""
-import factory, util
-import json
-from bson import json_util
-"""
-
-#db = factory.create_user_db()
-
-#db.create_user("Karl", "karl@voncosel.de", "Karl", "von Cosel", util.hash("test"), "m");
-#db.create_user("sf", "lord-kefir@arcor.de", "Sebastian", "Fedrau", util.hash("test"), "m");
-
-#db.block_user("sf", False)
-
-#db.update_password("sf", util.hash("foo"))
-
-#print db.email_assigned("lord-kefir@arcor.de")
-
-#for u in db.find("users"):
-#	print u
-
-#print db.get_user("sf")
-
-#print util.generate_junk(8)
-
-#print json.dumps(db.get_user("sf"), sort_keys = True, default = json_util.default)
-
-#db.create_user_request("_sf", "lord-kefir@arcor.de", "123")
-
-"""
-for u in db.search_user("sf"):
-	print u
-"""
