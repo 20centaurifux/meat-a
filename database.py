@@ -47,3 +47,54 @@ class UserDb(object):
 
 	@abc.abstractmethod
 	def username_requested(self, username): return False
+
+class ObjectDb(object):
+	__metaclass__ = abc.ABCMeta
+
+	@abc.abstractmethod
+	def create_object(self, guid, source): return
+
+	@abc.abstractmethod
+	def lock_object(self, guid): return
+
+	@abc.abstractmethod
+	def is_locked(self, guid): return False
+
+	@abc.abstractmethod
+	def remove_object(self, guid): return
+
+	@abc.abstractmethod
+	def get_object(self, guid): return None
+
+	@abc.abstractmethod
+	def get_objects(self, page = 0, page_size = 10): return None
+
+	@abc.abstractmethod
+	def get_popular_objects(self, page = 0, page_size = 10): return None
+
+	@abc.abstractmethod
+	def get_random_objects(self, page = 0, page_size = 10): return None
+
+	@abc.abstractmethod
+	def add_tags(self, guid, tags): return
+
+	@abc.abstractmethod
+	def rate(self, guid, username, up = True): return
+
+	@abc.abstractmethod
+	def user_can_rate(self, guid, username): return False
+
+	@abc.abstractmethod
+	def add_comment(self, guid, username, text): return
+
+	@abc.abstractmethod
+	def get_comments(self, guid, page = 0, page_size = 10): return None
+
+	@abc.abstractmethod
+	def favor_object(self, guid, username, favor = True): return
+
+	@abc.abstractmethod
+	def is_favorite(self, guid, username): return False
+
+	@abc.abstractmethod
+	def get_favorites(self, username, page = 0): return None
