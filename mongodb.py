@@ -156,15 +156,25 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
 		MongoDb.__init__(self, database, host, port)
 
-	def create_object(self, guid, source): return
+	def create_object(self, guid, source):
+		self.save("objects", { "guid": guid, "source": source, "locked": False })
 
-	def lock_object(self, guid): return
+	def lock_object(self, guid, locked):
+		self.update("objects", { "guid": guid }, { "$set": { "locked": locked } })
 
-	def is_locked(self, guid): return False
+	def is_locked(self, guid):
+		flag = self.find_one("objects", { "guid": guid }, [ "locked" ])
 
-	def remove_object(self, guid): return
+		if flag is None:
+			return False
 
-	def get_object(self, guid): return None
+		return flag["locked"]
+
+	def remove_object(self, guid):
+		self.remove("objects", { "guid": guid })
+
+	def get_object(self, guid):
+		return self.find_one("objects", { "guid": guid })
 
 	def get_objects(self, page = 0, page_size = 10): return None
 

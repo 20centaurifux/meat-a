@@ -55,7 +55,7 @@ class ObjectDb(object):
 	def create_object(self, guid, source): return
 
 	@abc.abstractmethod
-	def lock_object(self, guid): return
+	def lock_object(self, guid, locked = True): return
 
 	@abc.abstractmethod
 	def is_locked(self, guid): return False
