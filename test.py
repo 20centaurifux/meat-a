@@ -1,6 +1,6 @@
 import unittest, factory, util, random
 
-class TestMongoUserDb(unittest.TestCase):
+class TestUserDb(unittest.TestCase):
 	def setUp(self):
 		# connect to database:
 		self.db = self.__connect_and_prepare__()
@@ -22,7 +22,7 @@ class TestMongoUserDb(unittest.TestCase):
 
 	def test_01_get_users(self):
 		# test if non-existing users can be found:
-		for user in self.__generate_users__(10):
+		for user in self.__generate_users__(10, self.default_text_length * 2):
 			self.assertFalse(self.db.user_exists(user["name"]))
 			self.assertIsNone(self.db.get_user(user["name"]))
 			self.assertIsNone(self.db.get_user_password(user["name"]))
@@ -154,5 +154,108 @@ class TestMongoUserDb(unittest.TestCase):
 		         "gender": gender,
 		         "avatar": None }
 
+db = factory.create_object_db()
+
+class TestObjectDb(unittest.TestCase):
+	def setUp(self):
+		# connect to database:
+		self.db = self.__connect_and_prepare__()
+
+	def tearDown(self):
+		self.__clear_tables__(self.db)
+
+	def test_00_create_objects(self):
+		objs = self.__generate_and_store_objects__(100, 64)
+		self.assertEqual(len(objs), self.db.count("objects"))
+
+	def test_01_get_objects(self):
+		# create objects:
+		objs = self.__generate_and_store_objects__(100, 64)
+
+		# test if non-existing objects can be found:
+		for obj in self.__generate_objects__(10, 128):
+			self.assertIsNone(self.db.get_object(obj["guid"]))
+
+		# get details of each object & compare fields:
+		for obj in objs:
+			details = self.db.get_object(obj["guid"])
+			self.assertIsNot(details, None)
+
+			for key in obj:
+				self.assertEqual(obj[key], details[key])
+
+	def test_02_remove_objects(self):
+		objs = self.__generate_and_store_objects__(100, 64)
+
+		# remove objects:
+		for i in range(100):
+			if i % 3 == 1:
+				self.db.remove_object(objs[i]["guid"])
+
+		# test object count:
+		self.assertEqual(len(objs) - len(objs) / 3, self.db.count("objects"))
+
+		# test if correct objects have been deleted:
+		for i in range(100):
+			if i % 3 == 1:
+				deleted = True
+			else:
+				deleted = False
+
+			if self.db.get_object(objs[i]["guid"]) is None:
+				exists = False
+			else:
+				exists = True
+
+			self.assertNotEqual(exists, deleted)
+
+	def test_03_lock_objects(self):
+		objs = self.__generate_and_store_objects__(100, 64)
+
+		for i in range(100):
+			if i % 5 == 1:
+				self.db.lock_object(objs[i]["guid"], True)
+			else:
+				self.db.lock_object(objs[i]["guid"], False)
+
+		for i in range(100):
+			if i % 5 == 1:
+				self.assertTrue(self.db.is_locked(objs[i]["guid"]))
+			else:
+				self.assertFalse(self.db.is_locked(objs[i]["guid"]))
+
+	def __connect_and_prepare__(self):
+		db = factory.create_object_db()
+		self.__clear_tables__(db)
+
+		return db
+
+	def __clear_tables__(self, db):
+		db.remove("objects")
+		db.remove("user_ratings")
+		db.remove("user_favorites")
+
+	def __generate_and_store_objects__(self, count, text_length):
+		objs = self.__generate_objects__(count, text_length)
+
+		for obj in objs:
+			self.db.create_object(obj["guid"], obj["source"])
+
+		return objs
+
+	def __generate_objects__(self, count, text_length = 64):
+		objs = []
+
+		for i in range(count):
+			objs.append(self.__generate_object__(text_length))
+
+		return objs
+
+	def __generate_object__(self, text_length):
+		return { "guid": util.generate_junk(text_length), "source": util.generate_junk(text_length) }
+
 if __name__ == "__main__":
-	unittest.main()
+	#unittest.main()
+	#suite = unittest.TestLoader().loadTestsFromTestCase(TestUserDb)
+	suite = unittest.TestLoader().loadTestsFromTestCase(TestObjectDb)
+	unittest.TextTestRunner(verbosity=2).run(suite)
