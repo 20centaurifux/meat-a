@@ -1,6 +1,16 @@
 import unittest, factory, util, random
+from time import sleep
 
-class TestUserDb(unittest.TestCase):
+class TestCase:
+	def __cursor_to_array__(self, cur):
+		a = []
+
+		for i in cur:
+			a.append(i)
+
+		return a
+
+class TestUserDb(unittest.TestCase, TestCase):
 	def setUp(self):
 		# connect to database:
 		self.db = self.__connect_and_prepare__()
@@ -104,10 +114,7 @@ class TestUserDb(unittest.TestCase):
 			queries.append("%s, %s" % (user["lastname"], user["firstname"]))
 
 			for query in queries:
-				result = []
-
-				for entry in self.db.search_user(query):
-					result.append(entry)
+				result = self.__cursor_to_array__(self.db.search_user(query))
 
 				# test if search result contains at least one user:
 				self.assertTrue(len(result) >= 1)
@@ -156,7 +163,7 @@ class TestUserDb(unittest.TestCase):
 
 db = factory.create_object_db()
 
-class TestObjectDb(unittest.TestCase):
+class TestObjectDb(unittest.TestCase, TestCase):
 	def setUp(self):
 		# connect to database:
 		self.db = self.__connect_and_prepare__()
@@ -183,6 +190,25 @@ class TestObjectDb(unittest.TestCase):
 
 			for key in obj:
 				self.assertEqual(obj[key], details[key])
+
+		# delete all objects:
+		self.db.remove("objects")
+
+		# create new test records:
+		objs = self.__generate_objects__(12, 64)
+
+		for obj in objs:
+			self.db.create_object(obj["guid"], obj["source"])
+			sleep(1)
+
+		# test paging:
+		page = self.__cursor_to_array__(self.db.get_objects(0, 5))
+		self.assertEqual(len(page), 5)
+		self.assertEqual(objs[11]["guid"], page[0]["guid"])
+
+		page = self.__cursor_to_array__(self.db.get_objects(2, 5))
+		self.assertEqual(len(page), 2)
+		self.assertEqual(objs[0]["guid"], page[1]["guid"])
 
 	def test_02_remove_objects(self):
 		objs = self.__generate_and_store_objects__(100, 64)
@@ -254,8 +280,10 @@ class TestObjectDb(unittest.TestCase):
 	def __generate_object__(self, text_length):
 		return { "guid": util.generate_junk(text_length), "source": util.generate_junk(text_length) }
 
-if __name__ == "__main__":
-	#unittest.main()
-	#suite = unittest.TestLoader().loadTestsFromTestCase(TestUserDb)
-	suite = unittest.TestLoader().loadTestsFromTestCase(TestObjectDb)
+def run_test_case(case):
+	suite = unittest.TestLoader().loadTestsFromTestCase(case)
 	unittest.TextTestRunner(verbosity=2).run(suite)
+
+if __name__ == "__main__":
+	for case in [ TestUserDb, TestObjectDb ]:
+		run_test_case(case)
