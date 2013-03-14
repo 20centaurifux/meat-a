@@ -54,7 +54,7 @@ class TestMongoUserDb(unittest.TestCase):
 		for user in self.users:
 			# update user details:
 			for key in user:
-				if key != "name" and key != "gender" and key != "password":
+				if key != "name" and key != "gender" and key != "password" and key != "avatar":
 					user[key] = util.generate_junk(self.default_text_length * 2)
 				elif key == "gender":
 					if random.randint(0, 1) == 1:
@@ -77,6 +77,14 @@ class TestMongoUserDb(unittest.TestCase):
 
 			# test if password has been changed:
 			self.assertEqual(user["password"], self.db.get_user_password(user["name"]))
+
+			# update avatar:
+			user["avatar"] = util.generate_junk(self.default_text_length * 2)
+			self.db.update_avatar(user["name"], user["avatar"])
+
+			# test if avatar has been changed:
+			details = self.db.get_user(user["name"])
+			self.assertEqual(details["avatar"], details["avatar"])
 
 	def test_04_email_assigned(self):
 		for user in self.users:
@@ -143,7 +151,8 @@ class TestMongoUserDb(unittest.TestCase):
 		         "firstname": util.generate_junk(text_length),
 		         "lastname": util.generate_junk(text_length),
 		         "password": util.generate_junk(text_length),
-		         "gender": gender }
+		         "gender": gender,
+		         "avatar": None }
 
 if __name__ == "__main__":
 	unittest.main()
