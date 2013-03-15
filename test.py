@@ -250,6 +250,35 @@ class TestObjectDb(unittest.TestCase, TestCase):
 			else:
 				self.assertFalse(self.db.is_locked(objs[i]["guid"]))
 
+	def test_04_add_tags(self):
+		# create two arrays containing tags:
+		tags = [ [], [] ]
+
+		for i in range(100):
+			tags[0].append(util.generate_junk(64))
+
+			if i % 2 == 1:
+				tags[1].append(util.generate_junk(128))
+
+		# create two test objects:
+		objs = self.__generate_and_store_objects__(2, 32)
+
+		# assign each array to one object:
+		for i in range(2):
+			self.db.add_tags(objs[i]["guid"], tags[i])
+			details = self.db.get_object(objs[i]["guid"])
+
+			self.assertTrue(details.has_key("tags"))
+			self.assertEqual(len(details["tags"]), len(tags[i]))
+
+		# assign both arrays to first object:
+		self.db.add_tags(objs[0]["guid"], tags[0])
+		self.db.add_tags(objs[0]["guid"], tags[1])
+
+		details = self.db.get_object(objs[0]["guid"])
+		self.assertTrue(details.has_key("tags"))
+		self.assertEqual(len(details["tags"]), len(tags[0]) + len(tags[1]))
+
 	def __connect_and_prepare__(self):
 		db = factory.create_object_db()
 		self.__clear_tables__(db)
