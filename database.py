@@ -79,6 +79,12 @@ class ObjectDb(object):
 	def add_tags(self, guid, tags): return
 
 	@abc.abstractmethod
+	def build_tag_statistic(self): return
+
+	@abc.abstractmethod
+	def get_tags(self, limit = None): return None
+
+	@abc.abstractmethod
 	def rate(self, guid, username, up = True): return
 
 	@abc.abstractmethod
