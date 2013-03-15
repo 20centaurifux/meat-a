@@ -183,7 +183,8 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def get_random_objects(self, page = 0, page_size = 10): return None
 
-	def add_tags(self, guid, tags): return
+	def add_tags(self, guid, tags):
+		self.update("objects", { "guid": guid }, { "$addToSet": { "tags": { "$each": tags } } })
 
 	def rate(self, guid, username, up = True): return
 
