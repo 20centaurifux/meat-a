@@ -279,6 +279,42 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.assertTrue(details.has_key("tags"))
 		self.assertEqual(len(details["tags"]), len(tags[0]) + len(tags[1]))
 
+	def test_tag_statistic(self):
+		# create test objects:
+		objs = self.__generate_and_store_objects__(5, 64)
+
+		# insert tags:
+		self.db.add_tags(objs[0]["guid"], [ "1", "2", "4", "5" ])
+		self.db.add_tags(objs[1]["guid"], [ "2", "5" ])
+		self.db.add_tags(objs[2]["guid"], [ "8", "6", "1" ])
+		self.db.add_tags(objs[3]["guid"], [ "7", "5", "2" ])
+		self.db.add_tags(objs[4]["guid"], [ "1", "2", "7", "3" ])
+
+		# update statistic:
+		self.db.build_tag_statistic()
+
+		# get statistic:
+		statistic = self.__cursor_to_array__(self.db.get_tags(2))
+		self.assertIsNotNone(statistic)
+		self.assertEqual(len(statistic), 2)
+		self.assertEqual(statistic[0]["count"], 4)
+		self.assertEqual(statistic[0]["tag"], "2")
+		self.assertEqual(statistic[1]["count"], 3)
+		self.assertEqual(statistic[1]["tag"], "1")
+
+		statistic = self.__cursor_to_array__(self.db.get_tags())
+		self.assertIsNotNone(statistic)
+		self.assertEqual(len(statistic), 8)
+		self.assertEqual(statistic[0]["count"], 4)
+		self.assertEqual(statistic[0]["tag"], "2")
+		self.assertEqual(statistic[1]["count"], 3)
+		self.assertEqual(statistic[2]["count"], 3)
+		self.assertEqual(statistic[3]["count"], 2)
+		self.assertEqual(statistic[3]["tag"], "7")
+
+		for i in range(4, 7):
+			self.assertEqual(statistic[i]["count"], 1)
+
 	def __connect_and_prepare__(self):
 		db = factory.create_object_db()
 		self.__clear_tables__(db)
@@ -287,8 +323,6 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 	def __clear_tables__(self, db):
 		db.remove("objects")
-		db.remove("user_ratings")
-		db.remove("user_favorites")
 
 	def __generate_and_store_objects__(self, count, text_length):
 		objs = self.__generate_objects__(count, text_length)
@@ -314,5 +348,5 @@ def run_test_case(case):
 	unittest.TextTestRunner(verbosity=2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb ]:
+	for case in [ TestObjectDb ]:
 		run_test_case(case)
