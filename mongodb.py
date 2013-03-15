@@ -1,4 +1,5 @@
 import database, pymongo, util, re
+from bson.code import Code
 
 class MongoDb:
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
@@ -44,6 +45,9 @@ class MongoDb:
 	def count(self, collection, filter = None):
 		# pymongo doesn't support a filter in the count() method :(
 		return self.find(collection, filter).count()
+
+	def map_reduce(self, source, map_function, reduce_function, destination):
+		return self.__db[source].map_reduce(map_function, reduce_function, destination)
 
 class MongoUserDb(MongoDb, database.UserDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
@@ -185,6 +189,26 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def add_tags(self, guid, tags):
 		self.update("objects", { "guid": guid }, { "$addToSet": { "tags": { "$each": tags } } })
+
+	def build_tag_statistic(self):
+		map_function = Code("function() {"
+		                    "	if(!this.tags) return;"
+	                            "	for(var i in this.tags) {"
+		                    "		emit(this.tags[i], 1);"
+		                    "	}"
+		                    "}")
+
+		reduce_function = Code("function(key, values) { return values.length; }")
+
+		self.map_reduce("objects", map_function, reduce_function, "tag_statistic")
+
+	def get_tags(self, limit = None):
+		tags = []
+
+		for tag in self.find("tag_statistic", sorting = [ "value", False ], fields = [ "_id", "value" ], limit = limit):
+			tags.append( { "tag": tag["_id"], "count": tag["value"] } )
+
+		return tags
 
 	def rate(self, guid, username, up = True): return
 
