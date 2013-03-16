@@ -343,8 +343,45 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		for i in range(4, 7):
 			self.assertEqual(statistic[i]["count"], 1)
 
-	def test_get_objects_by_tag(self):
-		return
+	def test_05_get_tagged_objects(self):
+		# create test objects:
+		objs = self.__generate_objects__(3, 64)
+
+		for obj in objs:
+			self.db.create_object(obj["guid"], obj["source"])
+			sleep(1)
+
+		# tag objects:
+		self.db.add_tags(objs[0]["guid"], [ "1", "4", "5" ])
+		self.db.add_tags(objs[1]["guid"], [ "3", "5", "1" ])
+		self.db.add_tags(objs[2]["guid"], [ "6", "2", "1" ])
+
+		# get objects:
+		result = self.__cursor_to_array__(self.db.get_tagged_objects("1"))
+		self.assertEqual(len(result), 3)
+		self.assertEqual(result[0]["guid"], objs[2]["guid"])
+		self.assertEqual(result[1]["guid"], objs[1]["guid"])
+		self.assertEqual(result[2]["guid"], objs[0]["guid"])
+		map(self.__test_object_structure__, result)
+
+		result = self.__cursor_to_array__(self.db.get_tagged_objects("1", page = 0, page_size = 2))
+		self.assertEqual(len(result), 2)
+		self.assertEqual(result[0]["guid"], objs[2]["guid"])
+		self.assertEqual(result[1]["guid"], objs[1]["guid"])
+		map(self.__test_object_structure__, result)
+
+		result = self.__cursor_to_array__(self.db.get_tagged_objects("1", page = 1, page_size = 2))
+		self.assertEqual(len(result), 1)
+		self.assertEqual(result[0]["guid"], objs[0]["guid"])
+		map(self.__test_object_structure__, result)
+
+		result = self.__cursor_to_array__(self.db.get_tagged_objects("5"))
+		self.assertEqual(len(result), 2)
+		map(self.__test_object_structure__, result)
+
+		result = self.__cursor_to_array__(self.db.get_tagged_objects("2"))
+		self.assertEqual(len(result), 1)
+		map(self.__test_object_structure__, result)
 
 	def __connect_and_prepare__(self):
 		db = factory.create_object_db()
