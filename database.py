@@ -70,6 +70,9 @@ class ObjectDb(object):
 	def get_objects(self, page = 0, page_size = 10): return None
 
 	@abc.abstractmethod
+	def get_tagged_objects(self, tag, page = 0, page_size = 10): return None
+
+	@abc.abstractmethod
 	def get_popular_objects(self, page = 0, page_size = 10): return None
 
 	@abc.abstractmethod

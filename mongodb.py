@@ -190,10 +190,21 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		return self.find_one("objects", { "guid": guid }, { "_id": False, "guid": True, "source": True,
 		                                                    "locked": True, "tags": True, "score": True, "timestamp": True } )
 
-	def get_objects(self, page = 0, page_size = 10):
+	def get_objects(self, page = 0, page_size = 10, tag_filter = None):
+		filter = []
+
+		if not tag_filter is None:
+			filter = { "tags": tag_filter }
+
+		if len(filter) == 0:
+			filter = None
+
 		return self.find("objects", sorting = [ "timestamp", False ], limit = page_size, skip = page * page_size,
 		                 fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
-				            "score": True, "timestamp": True })
+				            "score": True, "timestamp": True }, filter = filter)
+
+	def get_tagged_objects(self, tag, page = 0, page_size = 10):
+		return self.get_objects(page, page_size, tag_filter = tag)
 
 	def get_popular_objects(self, page = 0, page_size = 10): return None
 
