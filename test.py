@@ -44,6 +44,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 			# test details:
 			details = self.db.get_user(user["name"])
 			self.assertIsNot(details, None)
+			self.__test_full_user_structure__(details)
 
 			for key in user:
 				self.assertEqual(user[key], details[key])
@@ -128,6 +129,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 						break
 
 				self.assertTrue(user_exists)
+				self.__test_user_structure__(entry)
 
 	def __connect_and_prepare__(self):
 		db = factory.create_user_db()
@@ -161,6 +163,25 @@ class TestUserDb(unittest.TestCase, TestCase):
 		         "gender": gender,
 		         "avatar": None }
 
+	def __test_full_user_structure__(self, user):
+		self.assertTrue(user.has_key("name"))
+		self.assertTrue(user.has_key("firstname"))
+		self.assertTrue(user.has_key("lastname"))
+		self.assertTrue(user.has_key("email"))
+		self.assertTrue(user.has_key("password"))
+		self.assertTrue(user.has_key("gender"))
+		self.assertTrue(user.has_key("timestamp"))
+		self.assertTrue(user.has_key("avatar"))
+		self.assertTrue(user.has_key("blocked"))
+		self.assertTrue(user.has_key("protected"))
+
+	def __test_user_structure__(self, user):
+		self.assertTrue(user.has_key("name"))
+		self.assertTrue(user.has_key("firstname"))
+		self.assertTrue(user.has_key("lastname"))
+		self.assertTrue(user.has_key("gender"))
+		self.assertTrue(user.has_key("protected"))
+
 db = factory.create_object_db()
 
 class TestObjectDb(unittest.TestCase, TestCase):
@@ -182,11 +203,12 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		# test if non-existing objects can be found:
 		for obj in self.__generate_objects__(10, 128):
 			self.assertIsNone(self.db.get_object(obj["guid"]))
-
+			
 		# get details of each object & compare fields:
 		for obj in objs:
 			details = self.db.get_object(obj["guid"])
 			self.assertIsNot(details, None)
+			self.__test_object_structure__(details)
 
 			for key in obj:
 				self.assertEqual(obj[key], details[key])
@@ -206,9 +228,15 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.assertEqual(len(page), 5)
 		self.assertEqual(objs[11]["guid"], page[0]["guid"])
 
+		for details in page:
+			self.__test_object_structure__(details)
+
 		page = self.__cursor_to_array__(self.db.get_objects(2, 5))
 		self.assertEqual(len(page), 2)
 		self.assertEqual(objs[0]["guid"], page[1]["guid"])
+
+		for details in page:
+			self.__test_object_structure__(details)
 
 	def test_02_remove_objects(self):
 		objs = self.__generate_and_store_objects__(100, 64)
@@ -315,6 +343,9 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		for i in range(4, 7):
 			self.assertEqual(statistic[i]["count"], 1)
 
+	def test_get_objects_by_tag(self):
+		return
+
 	def __connect_and_prepare__(self):
 		db = factory.create_object_db()
 		self.__clear_tables__(db)
@@ -343,10 +374,22 @@ class TestObjectDb(unittest.TestCase, TestCase):
 	def __generate_object__(self, text_length):
 		return { "guid": util.generate_junk(text_length), "source": util.generate_junk(text_length) }
 
+	def __test_object_structure__(self, obj):
+		self.assertTrue(obj.has_key("guid"))
+		self.assertTrue(obj.has_key("source"))
+		self.assertTrue(obj.has_key("locked"))
+		self.assertTrue(obj.has_key("tags"))
+		self.assertTrue(obj.has_key("score"))
+		self.assertTrue(obj["score"].has_key("up"))
+		self.assertTrue(obj["score"].has_key("down"))
+		self.assertTrue(obj["score"].has_key("fav"))
+		self.assertTrue(obj["score"].has_key("total"))
+		self.assertTrue(obj.has_key("timestamp"))
+
 def run_test_case(case):
 	suite = unittest.TestLoader().loadTestsFromTestCase(case)
 	unittest.TextTestRunner(verbosity=2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestObjectDb ]:
+	for case in [ TestUserDb, TestObjectDb ]:
 		run_test_case(case)

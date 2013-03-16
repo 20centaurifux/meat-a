@@ -54,7 +54,9 @@ class MongoUserDb(MongoDb, database.UserDb):
 		MongoDb.__init__(self, database, host, port)
 
 	def get_user(self, username):
-		return self.find_one("users", { "name": username })
+		return self.find_one("users", { "name": username }, { "_id": False, "name": True, "firstname": True, "lastname": True,
+		                                                      "email": True, "password": True, "gender": True, "timestamp": True,
+		                                                      "avatar": True, "blocked": True, "protected": True })
 
 	def search_user(self, query):
 		filter = { "$or": [] }
@@ -89,7 +91,8 @@ class MongoUserDb(MongoDb, database.UserDb):
 				filter["$or"].append({ "firstname": { "$regex": a } })
 				filter["$or"].append({ "lastname": { "$regex": a } })
 
-		return (user for user in self.find("users", filter))
+		return (user for user in self.find("users", filter, { "_id": False, "name": True, "firstname": True, "lastname": True,
+		                                                      "protected": True, "avatar": True, "gender": True }))
 
 	def create_user(self, username, email, firstname, lastname, password, gender):
 		self.save("users", { "name": username,
@@ -100,7 +103,8 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                     "gender": gender,
 		                     "timestamp": util.now(),
 		                     "avatar": None,
-		                     "blocked": False })
+		                     "blocked": False,
+		                     "protected": True })
 
 	def update_user_details(self, username, email, firstname, lastname, gender):
 		self.update("users", { "name": username },
@@ -161,7 +165,12 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		MongoDb.__init__(self, database, host, port)
 
 	def create_object(self, guid, source):
-		self.save("objects", { "guid": guid, "source": source, "locked": False, "timestamp": util.now() })
+		self.save("objects", { "guid": guid,
+		                       "source": source,
+		                       "locked": False,
+		                       "tags": [],
+		                       "score": { "up": 0, "down": 0, "fav": 0, "total": 0 },
+		                       "timestamp": util.now() })
 
 	def lock_object(self, guid, locked):
 		self.update("objects", { "guid": guid }, { "$set": { "locked": locked } })
@@ -178,10 +187,13 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		self.remove("objects", { "guid": guid })
 
 	def get_object(self, guid):
-		return self.find_one("objects", { "guid": guid })
+		return self.find_one("objects", { "guid": guid }, { "_id": False, "guid": True, "source": True,
+		                                                    "locked": True, "tags": True, "score": True, "timestamp": True } )
 
 	def get_objects(self, page = 0, page_size = 10):
-		return self.find("objects", sorting = [ "timestamp", False ], limit = page_size, skip = page * page_size)
+		return self.find("objects", sorting = [ "timestamp", False ], limit = page_size, skip = page * page_size,
+		                 fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
+				            "score": True, "timestamp": True })
 
 	def get_popular_objects(self, page = 0, page_size = 10): return None
 
