@@ -307,7 +307,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.assertTrue(details.has_key("tags"))
 		self.assertEqual(len(details["tags"]), len(tags[0]) + len(tags[1]))
 
-	def test_tag_statistic(self):
+	def test_05_tag_statistic(self):
 		# create test objects:
 		objs = self.__generate_and_store_objects__(5, 64)
 
@@ -343,7 +343,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		for i in range(4, 7):
 			self.assertEqual(statistic[i]["count"], 1)
 
-	def test_05_get_tagged_objects(self):
+	def test_06_get_tagged_objects(self):
 		# create test objects:
 		objs = self.__generate_objects__(3, 64)
 
@@ -382,6 +382,30 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		result = self.__cursor_to_array__(self.db.get_tagged_objects("2"))
 		self.assertEqual(len(result), 1)
 		map(self.__test_object_structure__, result)
+
+	def test_07_get_random_objects(self):
+		# create test objects:
+		objs = self.__generate_and_store_objects__(500 , 64)
+
+		# get random objects:
+		a = self.db.get_random_objects(100)
+		self.assertEqual(len(a), 100)
+
+		b = self.db.get_random_objects(100)
+		self.assertEqual(len(b), 100)
+
+		# test if results differ:
+		count = 0
+
+		for i in range(100):
+			if a[i] == b[i]:
+				count += 1
+
+		self.assertNotEqual(count, 100)
+
+		# try to get more random objects than possible:
+		result = self.db.get_random_objects(1000)
+		self.assertNotEqual(len(result), 1000)
 
 	def __connect_and_prepare__(self):
 		db = factory.create_object_db()
@@ -425,7 +449,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 def run_test_case(case):
 	suite = unittest.TestLoader().loadTestsFromTestCase(case)
-	unittest.TextTestRunner(verbosity=2).run(suite)
+	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
 	for case in [ TestUserDb, TestObjectDb ]:
