@@ -6,6 +6,10 @@ class MongoDb:
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
 		self.__db = pymongo.MongoClient(host, port)[database]
 
+		# create indices:
+		self.__db.users.ensure_index([ ("name", 1), ("email", 1) ])
+		self.__db.objects.ensure_index([ ("random", 1), ("guid", 1) ])
+
 	def find(self, collection, filter = None, fields = None, sorting = None, limit = None, skip = None):
 		if fields is None:
 			fields = { "_id": False }
