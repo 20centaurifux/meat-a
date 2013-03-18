@@ -76,7 +76,7 @@ class ObjectDb(object):
 	def get_popular_objects(self, page = 0, page_size = 10): return None
 
 	@abc.abstractmethod
-	def get_random_objects(self, page = 0, page_size = 10): return None
+	def get_random_objects(self, page_size = 10): return None
 
 	@abc.abstractmethod
 	def add_tags(self, guid, tags): return

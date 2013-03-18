@@ -1,5 +1,6 @@
 import database, pymongo, util, re
 from bson.code import Code
+from random import random
 
 class MongoDb:
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
@@ -170,7 +171,8 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		                       "locked": False,
 		                       "tags": [],
 		                       "score": { "up": 0, "down": 0, "fav": 0, "total": 0 },
-		                       "timestamp": util.now() })
+		                       "timestamp": util.now(),
+		                       "random": random() })
 
 	def lock_object(self, guid, locked):
 		self.update("objects", { "guid": guid }, { "$set": { "locked": locked } })
@@ -190,25 +192,47 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		return self.find_one("objects", { "guid": guid }, { "_id": False, "guid": True, "source": True,
 		                                                    "locked": True, "tags": True, "score": True, "timestamp": True } )
 
-	def get_objects(self, page = 0, page_size = 10, tag_filter = None):
-		filter = []
-
-		if not tag_filter is None:
-			filter = { "tags": tag_filter }
-
-		if len(filter) == 0:
-			filter = None
-
-		return self.find("objects", sorting = [ "timestamp", False ], limit = page_size, skip = page * page_size,
-		                 fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
-				            "score": True, "timestamp": True }, filter = filter)
+	def get_objects(self, page = 0, page_size = 10, filter = None):
+		if page_size > 1:
+			return self.find("objects", sorting = [ "timestamp", False ], limit = page_size, skip = page * page_size,
+			                 fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
+			                            "score": True, "timestamp": True }, filter = filter)
+		else:
+			return self.find_one("objects", fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
+			                                           "score": True, "timestamp": True }, filter = filter)
 
 	def get_tagged_objects(self, tag, page = 0, page_size = 10):
-		return self.get_objects(page, page_size, tag_filter = tag)
+		return self.get_objects(page, page_size, { "tags": tag })
 
 	def get_popular_objects(self, page = 0, page_size = 10): return None
 
-	def get_random_objects(self, page = 0, page_size = 10): return None
+	def get_random_objects(self, page_size = 10):
+		result = []
+		limit = page_size * 2
+		count = 0
+
+		while len(result) != page_size and count < limit:
+			rnd = random()
+
+			obj = self.get_objects(0, 1, { "random": { "$gte": rnd } })
+
+			if obj is None:
+				obj = self.get_objects(0, 1, { "random": { "$lte": rnd } })
+
+			if not obj is None:
+				exists = False
+
+				for o in result:
+					if o["guid"] == obj["guid"]:
+						exists = True
+						break
+
+				if not exists:
+					result.append(obj)
+
+			count += 1
+
+		return result
 
 	def add_tags(self, guid, tags):
 		self.update("objects", { "guid": guid }, { "$addToSet": { "tags": { "$each": tags } } })
