@@ -431,10 +431,14 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 		for i in range(500):
 			for user in users:
+				self.assertTrue(self.db.user_can_rate(objs[i]["guid"], user))
+
 				if random.random() >= 0.5:
 					self.db.rate(objs[i]["guid"], user, True)
 				else:
 					self.db.rate(objs[i]["guid"], user, False)
+
+				self.assertFalse(self.db.user_can_rate(objs[i]["guid"], user))
 
 		# test score:
 		for obj in self.db.get_objects():
