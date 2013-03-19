@@ -407,7 +407,63 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		result = self.db.get_random_objects(1000)
 		self.assertNotEqual(len(result), 1000)
 
-	def test_08_favorites(self): return
+	def test_08_favorites(self):
+		# create test objects:
+		objs = self.__generate_and_store_objects__(500, 32)
+
+		# set/unset favorites:
+		users = [ "a", "b", "c", "d", "e", "f", "g" ]
+
+		for r in range(2):
+			for obj in objs:
+				for user in users:
+					if r == 0:
+						self.assertFalse(self.db.is_favorite(obj["guid"], user))
+
+					if random.random() >= 0.5:
+						fav = True
+					else:
+						fav = False
+
+					self.db.favor_object(obj["guid"], user, fav)
+					self.assertEqual(self.db.is_favorite(obj["guid"], user), fav)
+
+					# test score:
+					details = self.db.get_object(obj["guid"])
+					self.assertEqual(details["score"]["up"] - details["score"]["down"], details["score"]["total"])
+
+		# get favorites assigned to user:
+		favs = self.__cursor_to_array__(self.db.get_favorites("h"))
+		self.assertEqual(len(favs), 0)
+
+		for i in range(10):
+			self.db.favor_object(objs[i]["guid"], "h", True)
+
+		favs = self.__cursor_to_array__(self.db.get_favorites("h"))
+		self.assertEqual(len(favs), 10)
+
+		favs = self.__cursor_to_array__(self.db.get_favorites("h", 0, 8))
+		self.assertEqual(len(favs), 8)
+
+		favs = self.__cursor_to_array__(self.db.get_favorites("h", 1, 8))
+		self.assertEqual(len(favs), 2)
+
+		for i in range(0, 10, 2):
+			self.db.favor_object(objs[i]["guid"], "h", False)
+
+		favs = self.__cursor_to_array__(self.db.get_favorites("h"))
+		self.assertEqual(len(favs), 5)
+
+		for fav in favs:
+			for i in range(10):
+				if fav["guid"] == objs[i]["guid"]:
+					exists = True
+					break
+		
+			if i % 2 == 0:
+				self.assertFalse(exists)
+			else:
+				self.assertTrue(exists)
 
 	def test_09_score(self):
 		# create test objects:
