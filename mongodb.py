@@ -17,12 +17,7 @@ class MongoDb:
 		cur = self.__db[collection].find(filter, fields)
 
 		if not sorting is None:
-			if sorting[1]:
-				order = pymongo.ASCENDING
-			else:
-				order = pymongo.DESCENDING
-
-			cur = cur.sort(sorting[0], order)
+			cur = cur.sort(sorting[0], sorting[1])
 
 		if not limit is None:
 			cur = cur.limit(limit)
@@ -199,7 +194,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def get_objects(self, page = 0, page_size = 10, filter = None):
 		if page_size > 1:
-			return self.find("objects", sorting = [ "timestamp", False ], limit = page_size, skip = page * page_size,
+			return self.find("objects", sorting = [ "timestamp", -1 ], limit = page_size, skip = page * page_size,
 			                 fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
 			                            "score": True, "timestamp": True }, filter = filter)
 		else:
@@ -257,7 +252,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 	def get_tags(self, limit = None):
 		tags = []
 
-		for tag in self.find("tag_statistic", sorting = [ "value", False ], fields = [ "_id", "value" ], limit = limit):
+		for tag in self.find("tag_statistic", sorting = [ "value", -1 ], fields = [ "_id", "value" ], limit = limit):
 			tags.append( { "tag": tag["_id"], "count": tag["value"] } )
 
 		return tags
