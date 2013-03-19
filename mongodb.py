@@ -8,7 +8,7 @@ class MongoDb:
 
 		# create indices:
 		self.__db.users.ensure_index([ ("name", 1), ("email", 1) ])
-		self.__db.objects.ensure_index([ ("random", 1), ("guid", 1) ])
+		self.__db.objects.ensure_index([ ("random", 1), ("guid", 1), ("timestamp", 1) ])
 
 	def find(self, collection, filter = None, fields = None, sorting = None, limit = None, skip = None):
 		if fields is None:
@@ -171,6 +171,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		                       "tags": [],
 		                       "score": { "up": 0, "down": 0, "fav": 0, "total": 0 },
 		                       "voters": [],
+		                       "fans": [],
 		                       "timestamp": util.now(),
 		                       "random": random() })
 
@@ -277,11 +278,24 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def get_comments(self, guid, page = 0, page_size = 10): return None
 
-	def favor_object(self, guid, username, favor = True): return
+	def favor_object(self, guid, username, favor = True):
+		query = { "guid": guid, "": { "$ne": username } };
 
-	def is_favorite(self, guid, username): return False
+		if favor:
+			update = { "$push": { "fans": username }, "$inc": { "score.up": 1, "score.total": 1 } }
+		else:
+			update = { "$pull": { "fans": username }, "$inc": { "score.down": 1, "score.total": -1 } }
 
-	def get_favorites(self, username, page = 0, page_size = 10): return None
+		self.update("objects", query, update)
+
+	def is_favorite(self, guid, username):
+		if self.count("objects", { "$and": [ { "guid": guid }, { "fans": username } ] }) > 0:
+			return True
+
+		return False
+
+	def get_favorites(self, username, page = 0, page_size = 10):
+		return self.get_objects(page, page_size, { "fans": username })
 
 	def recommend(self, guid, username, receivers): return
 
