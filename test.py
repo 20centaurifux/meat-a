@@ -407,6 +407,40 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		result = self.db.get_random_objects(1000)
 		self.assertNotEqual(len(result), 1000)
 
+	def test_08_favorites(self): return
+
+	def test_09_score(self):
+		# create test objects:
+		objs = self.__generate_and_store_objects__(500, 32)
+
+		# let first user rate all objects two times:
+		for i in range(2):
+			for i in range(500):
+				self.db.rate(objs[i]["guid"], "a", True)
+
+			# test score:
+			for obj in self.db.get_objects():
+				details = self.db.get_object(objs[i]["guid"])
+				self.__test_object_structure__(details)
+				self.assertEqual(details["score"]["total"], 1)
+				self.assertEqual(details["score"]["up"], 1)
+				self.assertEqual(details["score"]["down"], 0)
+
+		# let other users rate all objects randomly:
+		users = [ "b", "c", "d", "e", "f", "g" ]
+
+		for i in range(500):
+			for user in users:
+				if random.random() >= 0.5:
+					self.db.rate(objs[i]["guid"], user, True)
+				else:
+					self.db.rate(objs[i]["guid"], user, False)
+
+		# test score:
+		for obj in self.db.get_objects():
+			self.__test_object_structure__(obj)
+			self.assertEqual(obj["score"]["up"] - obj["score"]["down"], obj["score"]["total"])
+
 	def __connect_and_prepare__(self):
 		db = factory.create_object_db()
 		self.__clear_tables__(db)
