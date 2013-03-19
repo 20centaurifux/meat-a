@@ -267,7 +267,11 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 		self.update("objects", query, update)
 
-	def user_can_rate(self, guid, username): return False
+	def user_can_rate(self, guid, username):
+		if self.count("objects", { "$and": [ { "guid": guid }, { "voters": username } ] }) == 0:
+			return True
+
+		return False
 
 	def add_comment(self, guid, username, text): return
 
