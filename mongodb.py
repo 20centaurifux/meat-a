@@ -175,6 +175,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		                       "locked": False,
 		                       "tags": [],
 		                       "score": { "up": 0, "down": 0, "fav": 0, "total": 0 },
+		                       "voters": [],
 		                       "timestamp": util.now(),
 		                       "random": random() })
 
@@ -261,7 +262,15 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 		return tags
 
-	def rate(self, guid, username, up = True): return
+	def rate(self, guid, username, up = True):
+		query = { "guid": guid, "voters": { "$ne": username } };
+
+		if up:
+			update = { "$push": { "voters": username }, "$inc": { "score.up": 1, "score.total": 1 } }
+		else:
+			update = { "$push": { "voters": username }, "$inc": { "score.down": 1, "score.total": -1 } }
+
+		self.update("objects", query, update)
 
 	def user_can_rate(self, guid, username): return False
 
