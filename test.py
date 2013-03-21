@@ -545,6 +545,60 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 			self.assertEqual(count, 50)
 
+	def test_11_comments(self):
+		# create test users:
+		userdb = factory.create_user_db()
+		userdb.create_user("a", "email-a", "first-a", "last-a", "pwd-a", "m")
+		userdb.create_user("b", "email-b", "first-b", "last-b", "pwd-b", "f")
+
+		# create test objects:
+		objs = self.__generate_and_store_objects__(2, 32)
+
+		# create comments:
+		for i in range(16):
+			user = "a"
+
+			if i % 2 == 0:
+				user = "b"
+
+			guid = objs[0]["guid"]
+
+			if i % 4 == 0:
+				guid = objs[1]["guid"]
+
+			self.db.add_comment(guid, user, util.generate_junk(256))
+			#sleep(0.5)
+
+		# get comments:
+		comments = self.__cursor_to_array__(self.db.get_comments(objs[0]["guid"], 0, 100))
+		self.assertEqual(len(comments), 12)
+
+		# test paging:
+		comments = self.__cursor_to_array__(self.db.get_comments(objs[0]["guid"], 0, 10))
+		self.assertEqual(len(comments), 10)
+
+		comments = self.__cursor_to_array__(self.db.get_comments(objs[0]["guid"], 1, 10))
+		self.assertEqual(len(comments), 2)
+
+		comments = self.__cursor_to_array__(self.db.get_comments(objs[1]["guid"], 0, 100))
+		self.assertEqual(len(comments), 4)
+
+		# test fields:
+		comment = comments[0]
+
+		self.assertTrue(comment.has_key("timestamp"))
+		self.assertTrue(comment.has_key("text"))
+		self.assertTrue(comment.has_key("user"))
+
+		user = comment["user"]
+
+		self.assertTrue(user.has_key("name"))
+		self.assertTrue(user.has_key("firstname"))
+		self.assertTrue(user.has_key("lastname"))
+		self.assertTrue(user.has_key("gender"))
+		self.assertTrue(user.has_key("avatar"))
+		self.assertTrue(user.has_key("blocked"))
+
 	def __connect_and_prepare__(self):
 		db = factory.create_object_db()
 		self.__clear_tables__(db)
@@ -584,6 +638,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.assertTrue(obj["score"].has_key("fav"))
 		self.assertTrue(obj["score"].has_key("total"))
 		self.assertTrue(obj.has_key("timestamp"))
+		self.assertTrue(obj.has_key("comments_n"))
 
 def run_test_case(case):
 	suite = unittest.TestLoader().loadTestsFromTestCase(case)
