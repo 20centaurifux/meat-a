@@ -189,8 +189,8 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		# connect to database:
 		self.db = self.__connect_and_prepare__()
 
-	def tearDown(self):
-		self.__clear_tables__(self.db)
+	def tearDown(self): return
+		#self.__clear_tables__(self.db)
 
 	def test_00_create_objects(self):
 		objs = self.__generate_and_store_objects__(100, 64)
@@ -544,6 +544,16 @@ class TestObjectDb(unittest.TestCase, TestCase):
 				self.assertTrue(exists)
 
 			self.assertEqual(count, 50)
+
+		# test sort order:
+		for i in range(5):
+			self.db.recommend(objs[i]["guid"], "a", [ "d" ])
+			sleep(1)
+
+		r = self.__cursor_to_array__(self.db.get_recommendations("d", 0, 10))
+
+		for i in range(5):
+			self.assertEqual(objs[4 - i]["guid"], r[i]["guid"])
 
 	def __connect_and_prepare__(self):
 		db = factory.create_object_db()
