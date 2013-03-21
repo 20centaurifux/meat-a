@@ -501,6 +501,50 @@ class TestObjectDb(unittest.TestCase, TestCase):
 			self.__test_object_structure__(obj)
 			self.assertEqual(obj["score"]["up"] - obj["score"]["down"], obj["score"]["total"])
 
+	def test_10_recommendations(self):
+		# create test objects:
+		objs = self.__generate_and_store_objects__(100, 32)
+
+		# create recommendations:
+		for i in range(100):
+			if i % 2 == 0:
+				self.db.recommend(objs[i]["guid"], "a", [ "b", "c" ])
+			else:
+				self.db.recommend(objs[i]["guid"], "b", [ "a", "c" ])
+
+		# get recommendations:
+		r = self.__cursor_to_array__(self.db.get_recommendations("c", 0, 500))
+		self.assertEqual(len(r), 100)
+
+		r = self.__cursor_to_array__(self.db.get_recommendations("a", 0, 30))
+		self.assertEqual(len(r), 30)
+
+		r = self.__cursor_to_array__(self.db.get_recommendations("a", 1, 30))
+		self.assertEqual(len(r), 20)
+
+		for user in [ "a", "b" ]:
+			count = 0
+
+			for obj in self.db.get_recommendations(user, 0, 100):
+				self.__test_object_structure__(obj)
+
+				count += 1
+				flag = 0
+				exists = False
+
+				if user == "a":
+					flag = 1
+
+				for i in range(100):
+					if i % 2 == flag:
+						if objs[i]["guid"] == obj["guid"]:
+							exists = True
+							break
+
+				self.assertTrue(exists)
+
+			self.assertEqual(count, 50)
+
 	def __connect_and_prepare__(self):
 		db = factory.create_object_db()
 		self.__clear_tables__(db)
