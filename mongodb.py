@@ -283,20 +283,20 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		query = { "guid": guid, "": { "$ne": username } };
 
 		if favor:
-			update = { "$push": { "fans": username }, "$inc": { "score.up": 1, "score.total": 1 } }
+			update = { "$push": { "fans": { "user": username, "timestamp": util.now() } }, "$inc": { "score.up": 1, "score.total": 1 } }
 		else:
-			update = { "$pull": { "fans": username }, "$inc": { "score.down": 1, "score.total": -1 } }
+			update = { "$pull": { "fans": { "user": username } }, "$inc": { "score.down": 1, "score.total": -1 } }
 
 		self.update("objects", query, update)
 
 	def is_favorite(self, guid, username):
-		if self.count("objects", { "$and": [ { "guid": guid }, { "fans": username } ] }) > 0:
+		if self.count("objects", { "$and": [ { "guid": guid }, { "fans.user": username } ] }) > 0:
 			return True
 
 		return False
 
 	def get_favorites(self, username, page = 0, page_size = 10):
-		return self.get_objects(page, page_size, { "fans": username }, [ "$natural", -1 ])
+		return self.get_objects(page, page_size, { "fans.user": username }, [ "fans.timestamp", -1 ])
 
 	def recommend(self, guid, username, receivers):
 		r = { "user": None, "timestamp": util.now() }
