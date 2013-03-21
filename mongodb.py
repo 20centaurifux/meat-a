@@ -174,6 +174,8 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		                       "fans": [],
 		                       "recommendations": [],
 		                       "timestamp": util.now(),
+		                       "comments_n": 0,
+		                       "comments": [],
 		                       "random": random() })
 
 	def lock_object(self, guid, locked):
@@ -191,17 +193,17 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		self.remove("objects", { "guid": guid })
 
 	def get_object(self, guid):
-		return self.find_one("objects", { "guid": guid }, { "_id": False, "guid": True, "source": True,
-		                                                    "locked": True, "tags": True, "score": True, "timestamp": True } )
+		return self.find_one("objects", { "guid": guid }, { "_id": False, "guid": True, "source": True, "locked": True,
+		                                                    "tags": True, "score": True, "timestamp": True, "comments_n": True } )
 
 	def get_objects(self, page = 0, page_size = 10, filter = None, sorting = [ "timestamp", -1 ]):
 		if page_size > 1:
 			return self.find("objects", sorting = sorting, limit = page_size, skip = page * page_size,
 			                 fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
-			                            "score": True, "timestamp": True }, filter = filter)
+			                            "score": True, "timestamp": True, "comments_n": True }, filter = filter)
 		else:
 			return self.find_one("objects", fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
-			                                           "score": True, "timestamp": True }, filter = filter)
+			                                           "score": True, "timestamp": True, "comments_n": True }, filter = filter)
 
 	def get_tagged_objects(self, tag, page = 0, page_size = 10):
 		return self.get_objects(page, page_size, { "tags": tag })
@@ -275,9 +277,37 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 		return False
 
-	def add_comment(self, guid, username, text): return
+	def add_comment(self, guid, username, text):
+		comment = { "timestamp": util.now(), "user": username, "text": text }
+		self.update("objects", { "guid": guid }, { "$push": { "comments": comment }, "$inc": { "comments_n": 1 } })
 
-	def get_comments(self, guid, page = 0, page_size = 10): return None
+	def get_comments(self, guid, page = 0, page_size = 10):
+		# get object:
+		obj = self.find_one("objects", { "guid": guid }, { "_id": False, "comments": { "$slice": [ page * page_size, page_size ] } })
+
+		if not obj is None:
+			# fetch & insert additional user details:
+			users = {}
+			comments = obj["comments"]
+
+			for comment in comments:
+				name = comment["user"]
+
+				try:
+					user = users[name]
+
+				except:
+					user = self.find_one("users", { "name": name },
+					                     { "_id": False, "name": True, "firstname": True, "lastname": True, "gender": True,
+					                       "avatar": True, "blocked": True })
+					users[name] = user
+
+				if not user is None:
+					comment["user"] = user
+	
+			return comments
+	
+		return []
 
 	def favor_object(self, guid, username, favor = True):
 		query = { "guid": guid, "": { "$ne": username } };
