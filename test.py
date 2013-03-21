@@ -189,8 +189,8 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		# connect to database:
 		self.db = self.__connect_and_prepare__()
 
-	def tearDown(self): return
-		#self.__clear_tables__(self.db)
+	def tearDown(self):
+		self.__clear_tables__(self.db)
 
 	def test_00_create_objects(self):
 		objs = self.__generate_and_store_objects__(100, 64)
@@ -464,6 +464,16 @@ class TestObjectDb(unittest.TestCase, TestCase):
 				self.assertFalse(exists)
 			else:
 				self.assertTrue(exists)
+
+		# test sort order:
+		for i in range(5):
+			self.db.favor_object(objs[i]["guid"], "h", True)
+			sleep(1)
+
+		r = self.__cursor_to_array__(self.db.get_favorites("h", 0, 5))
+
+		for i in range(5):
+			self.assertEqual(objs[4 - i]["guid"], r[i]["guid"])
 
 	def test_09_score(self):
 		# create test objects:
