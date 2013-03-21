@@ -172,7 +172,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		                       "score": { "up": 0, "down": 0, "fav": 0, "total": 0 },
 		                       "voters": [],
 		                       "fans": [],
-		                       "recommendation": [],
+		                       "recommendations": [],
 		                       "timestamp": util.now(),
 		                       "random": random() })
 
@@ -299,7 +299,17 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		return self.get_objects(page, page_size, { "fans": username }, [ "$natural", -1 ])
 
 	def recommend(self, guid, username, receivers):
-		self.update("objects", { "guid": guid }, { "$addToSet": { "recommendation": { "$each": receivers } } })
+		r = { "user": None, "timestamp": util.now() }
+
+		query = { "guid": guid, "recommendations.user": { "$ne": "" } };
+		update = { "$push": { "recommendations": None } }
+
+		for receiver in receivers:
+			r["user"] = receiver
+			query["recommendations.user"]["$ne"] = receiver
+			update["$push"]["recommendations"] = r
+
+			self.update("objects", query, update)
 
 	def get_recommendations(self, username, page = 0, page_size = 10):
-		return self.get_objects(page, page_size, { "recommendation": username }, [ "$natural", -1 ])
+		return self.get_objects(page, page_size, { "recommendations.user": username }, [ "recommendations.timestamp", -1 ])
