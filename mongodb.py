@@ -172,6 +172,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		                       "score": { "up": 0, "down": 0, "fav": 0, "total": 0 },
 		                       "voters": [],
 		                       "fans": [],
+		                       "recommendation": [],
 		                       "timestamp": util.now(),
 		                       "random": random() })
 
@@ -193,9 +194,9 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		return self.find_one("objects", { "guid": guid }, { "_id": False, "guid": True, "source": True,
 		                                                    "locked": True, "tags": True, "score": True, "timestamp": True } )
 
-	def get_objects(self, page = 0, page_size = 10, filter = None):
+	def get_objects(self, page = 0, page_size = 10, filter = None, sorting = [ "timestamp", -1 ]):
 		if page_size > 1:
-			return self.find("objects", sorting = [ "timestamp", -1 ], limit = page_size, skip = page * page_size,
+			return self.find("objects", sorting = sorting, limit = page_size, skip = page * page_size,
 			                 fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
 			                            "score": True, "timestamp": True }, filter = filter)
 		else:
@@ -295,8 +296,10 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		return False
 
 	def get_favorites(self, username, page = 0, page_size = 10):
-		return self.get_objects(page, page_size, { "fans": username })
+		return self.get_objects(page, page_size, { "fans": username }, [ "$natural", -1 ])
 
-	def recommend(self, guid, username, receivers): return
+	def recommend(self, guid, username, receivers):
+		self.update("objects", { "guid": guid }, { "$addToSet": { "recommendation": { "$each": receivers } } })
 
-	def get_recommendations(self, username, page = 0, page_size = 10): return None
+	def get_recommendations(self, username, page = 0, page_size = 10):
+		return self.get_objects(page, page_size, { "recommendation": username }, [ "$natural", -1 ])
