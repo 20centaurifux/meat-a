@@ -5,7 +5,9 @@ from bson import json_util
 import random, string, json
 
 def now():
-	return mktime(datetime.utcnow().timetuple())
+	now = datetime.utcnow()
+
+	return mktime(now.timetuple()) * 1000 + now.microsecond / 1000
 
 def hash(plain):
 	m = sha1()
