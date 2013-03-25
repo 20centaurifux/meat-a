@@ -43,7 +43,7 @@ class UserDb(object):
 	def remove_user_request(self, code): return
 
 	@abc.abstractmethod
-	def create_user_request(self, username, email, code): return
+	def create_user_request(self, username, email, code, lifetime = 60): return
 
 	@abc.abstractmethod
 	def username_requested(self, username): return False

@@ -1,4 +1,4 @@
-import factory, exception, util
+import factory, exception, util, config
 from validators import *
 from base64 import b64encode
 
@@ -31,6 +31,6 @@ class Application:
 			code = b64encode(util.generate_junk(128))
 
 		# save user request:
-		db.create_user_request(username, email, code)
+		db.create_user_request(username, email, code, config.USER_REQUEST_TIMEOUT)
 
 		return code

@@ -147,18 +147,19 @@ class MongoUserDb(MongoDb, database.UserDb):
 		return bool(self.count("users", { "$and": [ { "email": email }, { "blocked": False } ] }))
 
 	def user_request_code_exists(self, code):
-		return bool(self.count("user_requests", { "code": code }))
+		return bool(self.count("user_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] }))
 
 	def remove_user_request(self, code):
 		self.remove("user_requests", { "code": code })
 
-	def create_user_request(self, username, email, code):
+	def create_user_request(self, username, email, code, lifetime = 60):
 		self.save("user_requests", { "name": username,
 		                             "email": email,
-		                             "code": code })
+		                             "code": code,
+		                             "lifetime": lifetime * 1000 + util.now() })
 
 	def username_requested(self, username):
-		return bool(self.count("user_requests", { "name": username }))
+		return bool(self.count("user_requests", { "$and": [ { "name": username }, { "lifetime": { "$gte": util.now() } } ] }))
 
 class MongoObjectDb(MongoDb, database.ObjectDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
