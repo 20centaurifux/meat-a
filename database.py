@@ -10,7 +10,7 @@ class UserDb(object):
 	def search_user(self, query): return None
 
 	@abc.abstractmethod
-	def create_user(self, username, email, firstname, lastname, password, gender): return
+	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None): return
 
 	@abc.abstractmethod
 	def update_user_details(self, username, email, firstname, lastname, gender): return
@@ -38,6 +38,9 @@ class UserDb(object):
 
 	@abc.abstractmethod
 	def user_request_code_exists(self, code): return False
+
+	@abc.abstractmethod
+	def get_user_request(self, code): return None
 
 	@abc.abstractmethod
 	def remove_user_request(self, code): return

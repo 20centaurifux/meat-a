@@ -94,7 +94,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		return (user for user in self.find("users", filter, { "_id": False, "name": True, "firstname": True, "lastname": True,
 		                                                      "protected": True, "avatar": True, "gender": True }))
 
-	def create_user(self, username, email, firstname, lastname, password, gender):
+	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None):
 		self.save("users", { "name": username,
 		                     "email": email,
 		                     "firstname": firstname,
@@ -149,10 +149,14 @@ class MongoUserDb(MongoDb, database.UserDb):
 	def user_request_code_exists(self, code):
 		return bool(self.count("user_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] }))
 
+	def get_user_request(self, code):
+		return self.find_one("user_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] },
+		                     { "_id": False, "name": True, "email": True })
+
 	def remove_user_request(self, code):
 		self.remove("user_requests", { "code": code })
 
-	def create_user_request(self, username, email, code, lifetime = 60):
+	def create_user_request(self, username, email, code, lifetime = 20):
 		self.save("user_requests", { "name": username,
 		                             "email": email,
 		                             "code": code,
