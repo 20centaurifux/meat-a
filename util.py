@@ -29,3 +29,6 @@ def generate_junk(length, characters = None):
 
 def to_json(obj):
 	return json.dumps(obj, sort_keys = True, default = json_util.default)
+
+def enum(**enums):
+    return type('Enum', (), enums)
