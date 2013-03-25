@@ -144,7 +144,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		return bool(self.count("users", { "name": username }))
 
 	def email_assigned(self, email):
-		return bool(self.count("users", { "email": email }))
+		return bool(self.count("users", { "$and": [ { "email": email }, { "blocked": False } ] }))
 
 	def user_request_code_exists(self, code):
 		return bool(self.count("user_requests", { "code": code }))
