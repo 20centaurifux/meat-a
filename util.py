@@ -19,8 +19,6 @@ def generate_junk(length, characters = None):
 	if characters is None:
 		characters = string.ascii_letters + string.digits
 
-	random.seed()
-
 	result = []
 
 	for i in range(length):
