@@ -1,4 +1,4 @@
-import unittest, factory, util, random
+import unittest, factory, util, random, exception
 from time import sleep
 
 class TestCase:
@@ -22,7 +22,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 
 		# save users in database:
 		for user in self.users:
-			self.db.create_user(user["name"], user["email"], user["firstname"], user["lastname"], user["password"], user["gender"])
+			self.db.create_user(user["name"], user["email"], user["password"], user["firstname"], user["lastname"], user["gender"])
 
 	def tearDown(self):
 		self.__clear_tables__(self.db)
