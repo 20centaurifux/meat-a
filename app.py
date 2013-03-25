@@ -4,33 +4,59 @@ from base64 import b64encode
 
 class Application:
 	def request_account(self, username, email):
-		# validate parameters:
-		if not validate_username(username):
-			raise exception.InvalidParameterException("username")
+			# validate parameters:
+			if not validate_username(username):
+				raise exception.InvalidParameterException("username")
 
-		if not validate_email(email):
-			raise exception.InvalidParameterException("email")
+			if not validate_email(email):
+				raise exception.InvalidParameterException("email")
 
+			# connect to database:
+			db = factory.create_user_db()
+
+			# test if user request, account or email already exist:
+			if db.username_requested(username):
+				raise exception.UsernameAlreadyRequestedException()
+
+			if db.user_exists(username):
+				raise exception.UserAlreadyExistsException()
+
+			if db.email_assigned(email):
+				raise exception.EmailAlreadyAssignedException()
+
+			# create activation code:
+			code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
+
+			while db.user_request_code_exists(code):
+				code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
+
+			# save user request:
+			db.create_user_request(username, email, code, config.USER_REQUEST_TIMEOUT)
+
+			return code
+
+	def activate_user(self, code):
 		# connect to database:
 		db = factory.create_user_db()
 
-		# test if user request, account or email already exist:
-		if db.username_requested(username):
-			raise exception.UsernameAlreadyRequestedException()
+		request = db.get_user_request(code)
 
-		if db.user_exists(username):
+		# find request code:
+		if request is None:
+			raise exception.InvalidRequestCodeException()
+
+		# test if username exist or email is already assigned:
+		if db.user_exists(request["name"]):
 			raise exception.UserAlreadyExistsException()
 
-		if db.email_assigned(email):
+		if db.email_assigned(request["email"]):
 			raise exception.EmailAlreadyAssignedException()
 
-		# create activation code:
-		code = b64encode(util.generate_junk(128))
+		# create user account:
+		password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH)
+		db.create_user(request["name"], request["email"], password)
 
-		while db.user_request_code_exists(code):
-			code = b64encode(util.generate_junk(128))
+		# remove request code:
+		db.remove_user_request(code)
 
-		# save user request:
-		db.create_user_request(username, email, code, config.USER_REQUEST_TIMEOUT)
-
-		return code
+		return request["name"], request["email"], password
