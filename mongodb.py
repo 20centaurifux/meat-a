@@ -10,6 +10,9 @@ class MongoDb(database.DbUtil):
 		self.__db.users.ensure_index([ ("name", 1), ("email", 1) ])
 		self.__db.objects.ensure_index([ ("random", 1), ("guid", 1), ("timestamp", 1) ])
 
+	def close(self):
+		self.__db.connection.disconnect()
+
 	def clear_tables(self):
 		for table in [ "users", "user_requests", "objects" ]:
 			self.remove(table)

@@ -15,23 +15,30 @@ class Application:
 			db = factory.create_user_db()
 
 			# test if user request, account or email already exist:
-			if db.username_requested(username):
-				raise exception.UsernameAlreadyRequestedException()
+			try:
+				if db.username_requested(username):
+					raise exception.UsernameAlreadyRequestedException()
 
-			if db.user_exists(username):
-				raise exception.UserAlreadyExistsException()
+				if db.user_exists(username):
+					raise exception.UserAlreadyExistsException()
 
-			if db.email_assigned(email):
-				raise exception.EmailAlreadyAssignedException()
+				if db.email_assigned(email):
+					raise exception.EmailAlreadyAssignedException()
 
-			# create activation code:
-			code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
-
-			while db.user_request_code_exists(code):
+				# create activation code:
 				code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
 
-			# save user request:
-			db.create_user_request(username, email, code, user_request_timeout)
+				while db.user_request_code_exists(code):
+					code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
+
+				# save user request:
+				db.create_user_request(username, email, code, user_request_timeout)
+
+			except exception.Exception, ex:
+				# disconnect from database:
+				db.close()
+
+				raise ex
 
 			return code
 
@@ -39,24 +46,31 @@ class Application:
 		# connect to database:
 		db = factory.create_user_db()
 
-		request = db.get_user_request(code)
+		try:
+			request = db.get_user_request(code)
 
-		# find request code:
-		if request is None:
-			raise exception.InvalidRequestCodeException()
+			# find request code:
+			if request is None:
+				raise exception.InvalidRequestCodeException()
 
-		# test if username exist or email is already assigned:
-		if db.user_exists(request["name"]):
-			raise exception.UserAlreadyExistsException()
+			# test if username exist or email is already assigned:
+			if db.user_exists(request["name"]):
+				raise exception.UserAlreadyExistsException()
 
-		if db.email_assigned(request["email"]):
-			raise exception.EmailAlreadyAssignedException()
+			if db.email_assigned(request["email"]):
+				raise exception.EmailAlreadyAssignedException()
 
-		# create user account:
-		password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH)
-		db.create_user(request["name"], request["email"], password)
+			# create user account:
+			password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH)
+			db.create_user(request["name"], request["email"], password)
 
-		# remove request code:
-		db.remove_user_request(code)
+			# remove request code:
+			db.remove_user_request(code)
 
+		except exception.Exception, ex:
+			# disconnect from database:
+			db.close()
+
+			raise ex
+	
 		return request["name"], request["email"], password

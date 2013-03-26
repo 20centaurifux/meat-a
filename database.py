@@ -6,8 +6,14 @@ class DbUtil():
 	@abc.abstractmethod
 	def clear_tables(self): return
 
+	@abc.abstractmethod
+	def close(self): return
+
 class UserDb(object):
 	__metaclass__ = abc.ABCMeta
+
+	@abc.abstractmethod
+	def close(self): return
 
 	@abc.abstractmethod
 	def get_user(self, username): return None
@@ -59,6 +65,9 @@ class UserDb(object):
 
 class ObjectDb(object):
 	__metaclass__ = abc.ABCMeta
+
+	@abc.abstractmethod
+	def close(self): return
 
 	@abc.abstractmethod
 	def create_object(self, guid, source): return

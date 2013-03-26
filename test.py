@@ -14,10 +14,10 @@ class TestCase:
 	def __clear_tables__(self):
 		util = factory.create_db_util()
 		util.clear_tables()
+		util.close()
 
 class TestUserDb(unittest.TestCase, TestCase):
 	def setUp(self):
-		# connect to database:
 		self.db = self.__connect_and_prepare__()
 
 		# generate user details:
@@ -31,6 +31,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 
 	def tearDown(self):
 		self.__clear_tables__()
+		self.db.close()
 
 	def test_00_check_user_count(self):
 		self.assertEqual(self.db.count("users"), self.user_count)
@@ -228,11 +229,11 @@ db = factory.create_object_db()
 
 class TestObjectDb(unittest.TestCase, TestCase):
 	def setUp(self):
-		# connect to database:
 		self.db = self.__connect_and_prepare__()
 
 	def tearDown(self):
 		self.__clear_tables__()
+		self.db.close()
 
 	def test_00_create_objects(self):
 		objs = self.__generate_and_store_objects__(100, 64)
@@ -612,6 +613,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		userdb = factory.create_user_db()
 		userdb.create_user("a", "email-a", "first-a", "last-a", "pwd-a", "m")
 		userdb.create_user("b", "email-b", "first-b", "last-b", "pwd-b", "f")
+		userdb.close()
 
 		# create test objects:
 		objs = self.__generate_and_store_objects__(2, 32)
