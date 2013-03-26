@@ -1,5 +1,6 @@
-import unittest, factory, util, random, exception
+import unittest, factory, util, random, exception, app, string
 from time import sleep
+from exception import ErrorCode
 
 class TestCase:
 	def __cursor_to_array__(self, cur):
@@ -701,10 +702,129 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.assertTrue(obj.has_key("timestamp"))
 		self.assertTrue(obj.has_key("comments_n"))
 
+class TestApplication(unittest.TestCase):
+	def test_00_account_creation(self):
+		a = app.Application()
+
+		# generate test data:
+		users = []
+
+		user = {}
+		user["username"] = util.generate_junk(8, string.ascii_letters)
+		user["email"] = "test@testmail.com"
+		users.append(user)
+
+		user = {}
+		user["username"] = util.generate_junk(8, string.ascii_letters)
+		user["email"] = "test@test-mail.com"
+		users.append(user)
+
+		# account requests with invalid username/email:
+		parameters = [ { "username": "." + util.generate_junk(64), "email": "test@testmail.com", "parameter": "username" },
+		               { "username": util.generate_junk(8, string.ascii_letters), "email": util.generate_junk(64), "parameter": "email" } ]
+
+		for p in parameters:
+			err = False
+
+			try:
+				code = a.request_account(p["username"], p["email"])
+
+			except exception.Exception, ex:
+				err = self.__assert_invalid_parameter__(ex, p["parameter"])
+
+			self.assertTrue(err)
+
+		# check request timeout:
+		code = a.request_account(users[0]["username"], users[0]["email"], 1)
+		sleep (1)
+		
+		err = False
+
+		try:
+			username, email, password = a.activate_user(code)
+
+		except exception.Exception, ex:
+			err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
+
+		self.assertTrue(err)
+
+		# create first request & activate user:
+		code = a.request_account(users[0]["username"], users[0]["email"], 60)
+		username, email, password = a.activate_user(code)
+		self.assertEqual(users[0]["username"], username)
+		self.assertEqual(users[0]["email"], email)
+
+		# try to create user with same username/email address:
+		parameters = [ { "username": users[0]["username"], "email": users[1]["email"], "code": ErrorCode.USER_ALREADY_EXISTS },
+		               { "username": users[1]["username"], "email": users[0]["email"], "code": ErrorCode.EMAIL_ALREADY_ASSIGNED } ]
+
+		for p in parameters:
+			err = False
+
+			try:
+				code = a.request_account(p["username"], p["email"])
+
+			except exception.Exception, ex:
+				err = self.__assert_error_code__(ex, p["code"])
+
+			self.assertTrue(err)
+
+		err = False
+
+		# create second request:
+		code = a.request_account(users[1]["username"], users[1]["email"])
+
+		# try to create second account request with same username:
+		err = False
+
+		try:
+			code = a.request_account(users[1]["username"], users[1]["email"])
+
+		except exception.Exception, ex:
+			err = self.__assert_error_code__(ex, ErrorCode.USERNAME_ALREADY_REQUESTED)
+
+		self.assertTrue(err)
+
+		# activate second user:
+		username, email, password = a.activate_user(code)
+		self.assertEqual(users[1]["username"], username)
+		self.assertEqual(users[1]["email"], email)
+
+		# activate user with invalid request code:
+		err = False
+
+		try:
+			code = a.activate_user(util.generate_junk(64))
+
+		except exception.Exception, ex:
+			err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
+
+	def setUp(self):
+		self.__clear_tables__()
+
+	def tearDown(self):
+		self.__clear_tables__()
+
+	def __clear_tables__(self):
+		db = factory.create_mongo_db()
+		db.remove("users")
+		db.remove("user_requests")
+
+	def __assert_invalid_parameter__(self, ex, parameter):
+		self.assertEqual(ex.code, ErrorCode.INVALID_PARAMETER)
+		self.assertEqual(ex.parameter, parameter)
+
+		return True
+
+	def __assert_error_code__(self, ex, code):
+		self.assertEqual(ex.code, code)
+
+		return True
+
 def run_test_case(case):
 	suite = unittest.TestLoader().loadTestsFromTestCase(case)
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb ]:
+	for case in [ TestUserDb, TestObjectDb, TestApplication ]:
 		run_test_case(case)
