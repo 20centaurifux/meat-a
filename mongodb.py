@@ -4,20 +4,24 @@ from random import random
 
 class MongoDb(database.DbUtil):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
-		self.__db = pymongo.MongoClient(host, port)[database]
-
-		# create indices:
-		self.__db.users.ensure_index([ ("name", 1), ("email", 1) ])
-		self.__db.objects.ensure_index([ ("random", 1), ("guid", 1), ("timestamp", 1) ])
+		self.__database = database
+		self.__host = host
+		self.__port = port
+		self.__open = False
 
 	def close(self):
-		self.__db.connection.disconnect()
+		if self.__open:
+			self.__db.connection.disconnect()
 
 	def clear_tables(self):
+		self.__connect__()
+
 		for table in [ "users", "user_requests", "objects" ]:
 			self.remove(table)
 
 	def find(self, collection, filter = None, fields = None, sorting = None, limit = None, skip = None):
+		self.__connect__()
+
 		if fields is None:
 			fields = { "_id": False }
 
@@ -35,26 +39,44 @@ class MongoDb(database.DbUtil):
 		return cur
 
 	def find_one(self, collection, filter, fields = None):
+		self.__connect__()
+
 		if fields is None:
 			fields = { "_id": False }
 
 		return self.__db[collection].find_one(filter, fields)
 
 	def save(self, collection, document):
+		self.__connect__()
 		self.__db[collection].save(document)
 
 	def update(self, collection, filter, document):
+		self.__connect__()
 		self.__db[collection].update(filter, document)
 
 	def remove(self, collection, filter = None):
+		self.__connect__()
 		self.__db[collection].remove(filter)
 
 	def count(self, collection, filter = None):
+		self.__connect__()
+
 		# pymongo doesn't support a filter in the count() method :(
 		return self.find(collection, filter).count()
 
 	def map_reduce(self, source, map_function, reduce_function, destination):
+		self.__connect__()
+
 		return self.__db[source].map_reduce(map_function, reduce_function, destination)
+
+	def __connect__(self):
+		if not self.__open:
+			self.__db = pymongo.MongoClient(self.__host, self.__port)[self.__database]
+			self.__open = True
+
+			# create indices:
+			self.__db.users.ensure_index([ ("name", 1), ("email", 1) ])
+			self.__db.objects.ensure_index([ ("random", 1), ("guid", 1), ("timestamp", 1) ])
 
 class MongoUserDb(MongoDb, database.UserDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
