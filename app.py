@@ -3,7 +3,7 @@ from validators import *
 from base64 import b64encode
 
 class Application:
-	def request_account(self, username, email):
+	def request_account(self, username, email, user_request_timeout = config.USER_REQUEST_TIMEOUT):
 			# validate parameters:
 			if not validate_username(username):
 				raise exception.InvalidParameterException("username")
@@ -31,7 +31,7 @@ class Application:
 				code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
 
 			# save user request:
-			db.create_user_request(username, email, code, config.USER_REQUEST_TIMEOUT)
+			db.create_user_request(username, email, code, user_request_timeout)
 
 			return code
 
