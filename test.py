@@ -263,7 +263,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 		for obj in objs:
 			self.db.create_object(obj["guid"], obj["source"])
-			sleep(1)
+			sleep(0.2)
 
 		# test paging:
 		page = self.__cursor_to_array__(self.db.get_objects(0, 5))
@@ -391,7 +391,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 		for obj in objs:
 			self.db.create_object(obj["guid"], obj["source"])
-			sleep(1)
+			sleep(0.2)
 
 		# tag objects:
 		self.db.add_tags(objs[0]["guid"], [ "1", "4", "5" ])
@@ -510,7 +510,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		# test sort order:
 		for i in range(5):
 			self.db.favor_object(objs[i]["guid"], "h", True)
-			sleep(1)
+			sleep(0.2)
 
 		r = self.__cursor_to_array__(self.db.get_favorites("h", 0, 5))
 
@@ -600,7 +600,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		# test sort order:
 		for i in range(5):
 			self.db.recommend(objs[i]["guid"], "a", [ "d" ])
-			sleep(1)
+			sleep(0.2)
 
 		r = self.__cursor_to_array__(self.db.get_recommendations("d", 0, 10))
 
@@ -629,7 +629,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 				guid = objs[1]["guid"]
 
 			self.db.add_comment(guid, user, util.generate_junk(256))
-			#sleep(0.5)
+			sleep(0.2)
 
 		# get comments:
 		comments = self.__cursor_to_array__(self.db.get_comments(objs[0]["guid"], 0, 100))
