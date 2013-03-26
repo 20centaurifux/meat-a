@@ -25,6 +25,8 @@ def generate_junk(length, characters = None):
 		index = random.randint(0, len(characters) - 1)
 		result.append(characters[index])
 
+	random.shuffle(result)
+
 	return "".join(result)
 
 def to_json(obj):
