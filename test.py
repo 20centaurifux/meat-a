@@ -131,6 +131,47 @@ class TestUserDb(unittest.TestCase, TestCase):
 				self.assertTrue(user_exists)
 				self.__test_user_structure__(entry)
 
+	def test_06_user_requests(self):
+		# try to find non-existing requests:
+		for i in range(100):
+			code = util.generate_junk(128)
+			self.assertFalse(self.db.user_request_code_exists(code))
+			self.assertIsNone(self.db.get_user_request(code))
+
+		for user in self.users:
+			self.assertFalse(self.db.username_requested(user["name"]))
+
+		# create request:
+		username = util.generate_junk(self.default_text_length * 2)
+		email = util.generate_junk(self.default_text_length * 2)
+		code = util.generate_junk(128)
+
+		self.db.create_user_request(username, email, code, 60)
+
+		# test created data:
+		self.assertTrue(self.db.user_request_code_exists(code))
+
+		request = self.db.get_user_request(code)
+		self.assertIsNotNone(request)
+		self.assertTrue(request.has_key("name"))
+		self.assertTrue(request.has_key("email"))
+
+		# remove request:
+		self.db.remove_user_request(code)
+		self.assertFalse(self.db.user_request_code_exists(code))
+
+		# create new request with short lifetime:
+		code = util.generate_junk(128)
+
+		self.db.create_user_request(username, email, code, 1)
+		sleep(1)
+
+		# test if request still exists:
+		self.assertFalse(self.db.user_request_code_exists(code))
+
+		request = self.db.get_user_request(code)
+		self.assertIsNone(request)
+
 	def __connect_and_prepare__(self):
 		db = factory.create_user_db()
 		self.__clear_tables__(db)
