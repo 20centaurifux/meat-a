@@ -2,13 +2,17 @@ import database, pymongo, util, re
 from bson.code import Code
 from random import random
 
-class MongoDb:
+class MongoDb(database.DbUtil):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
 		self.__db = pymongo.MongoClient(host, port)[database]
 
 		# create indices:
 		self.__db.users.ensure_index([ ("name", 1), ("email", 1) ])
 		self.__db.objects.ensure_index([ ("random", 1), ("guid", 1), ("timestamp", 1) ])
+
+	def clear_tables(self):
+		for table in [ "users", "user_requests", "objects" ]:
+			self.remove(table)
 
 	def find(self, collection, filter = None, fields = None, sorting = None, limit = None, skip = None):
 		if fields is None:

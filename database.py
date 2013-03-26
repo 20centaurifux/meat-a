@@ -1,5 +1,11 @@
 import abc
 
+class DbUtil():
+	__metaclass__ = abc.ABCMeta
+
+	@abc.abstractmethod
+	def clear_tables(self): return
+
 class UserDb(object):
 	__metaclass__ = abc.ABCMeta
 

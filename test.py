@@ -11,6 +11,10 @@ class TestCase:
 
 		return a
 
+	def __clear_tables__(self):
+		util = factory.create_db_util()
+		util.clear_tables()
+
 class TestUserDb(unittest.TestCase, TestCase):
 	def setUp(self):
 		# connect to database:
@@ -26,7 +30,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 			self.db.create_user(user["name"], user["email"], user["password"], user["firstname"], user["lastname"], user["gender"])
 
 	def tearDown(self):
-		self.__clear_tables__(self.db)
+		self.__clear_tables__()
 
 	def test_00_check_user_count(self):
 		self.assertEqual(self.db.count("users"), self.user_count)
@@ -175,13 +179,9 @@ class TestUserDb(unittest.TestCase, TestCase):
 
 	def __connect_and_prepare__(self):
 		db = factory.create_user_db()
-		self.__clear_tables__(db)
+		self.__clear_tables__()
 
 		return db
-
-	def __clear_tables__(self, db):
-		db.remove("users")
-		db.remove("user_requests")
 
 	def __generate_users__(self, count, text_length = 64):
 		users = []
@@ -232,7 +232,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.db = self.__connect_and_prepare__()
 
 	def tearDown(self):
-		self.__clear_tables__(self.db)
+		self.__clear_tables__()
 
 	def test_00_create_objects(self):
 		objs = self.__generate_and_store_objects__(100, 64)
@@ -663,12 +663,9 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 	def __connect_and_prepare__(self):
 		db = factory.create_object_db()
-		self.__clear_tables__(db)
+		self.__clear_tables__()
 
 		return db
-
-	def __clear_tables__(self, db):
-		db.remove("objects")
 
 	def __generate_and_store_objects__(self, count, text_length):
 		objs = self.__generate_objects__(count, text_length)
@@ -702,7 +699,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.assertTrue(obj.has_key("timestamp"))
 		self.assertTrue(obj.has_key("comments_n"))
 
-class TestApplication(unittest.TestCase):
+class TestApplication(unittest.TestCase, TestCase):
 	def test_00_account_creation(self):
 		a = app.Application()
 
@@ -800,15 +797,11 @@ class TestApplication(unittest.TestCase):
 			err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
 
 	def setUp(self):
+		self.__dbutil = factory.create_db_util()
 		self.__clear_tables__()
 
 	def tearDown(self):
 		self.__clear_tables__()
-
-	def __clear_tables__(self):
-		db = factory.create_mongo_db()
-		db.remove("users")
-		db.remove("user_requests")
 
 	def __assert_invalid_parameter__(self, ex, parameter):
 		self.assertEqual(ex.code, ErrorCode.INVALID_PARAMETER)
