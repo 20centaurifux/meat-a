@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import util
 
 ErrorCode = util.enum(INVALID_PARAMETER = 1,

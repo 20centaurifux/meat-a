@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import config, mongodb
 
 def create_db_util():

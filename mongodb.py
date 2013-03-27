@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import database, pymongo, util, re
 from bson.code import Code
 from random import random

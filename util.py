@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from time import mktime
 from datetime import datetime
 from hashlib import sha1

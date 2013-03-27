@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import unittest, factory, util, random, exception, app, string
 from time import sleep
 from exception import ErrorCode
