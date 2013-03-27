@@ -36,10 +36,10 @@ class Application:
 				# save user request:
 				db.create_user_request(username, email, code, user_request_timeout)
 
-			except exception.Exception, ex:
-				# disconnect from database:
 				db.close()
 
+			except exception.Exception, ex:
+				db.close()
 				raise ex
 
 			return code
@@ -64,15 +64,61 @@ class Application:
 
 			# create user account:
 			password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH)
-			db.create_user(request["name"], request["email"], password)
+			db.create_user(request["name"], request["email"], util.hash(password))
 
 			# remove request code:
 			db.remove_user_request(code)
 
-		except exception.Exception, ex:
-			# disconnect from database:
 			db.close()
 
+		except exception.Exception, ex:
+			db.close()
 			raise ex
 	
 		return request["name"], request["email"], password
+
+	def change_password(self, username, old_password, new_password):
+		if not validate_password(new_password):
+			raise exception.InvalidParameterException("new_password")
+
+		db = factory.create_user_db()
+
+		try:
+			self.__test_active_user__(db, username)
+
+			password = db.get_user_password(username)
+			hash = util.hash(old_password)
+
+			if password != hash:
+				raise exception.InvalidPasswordException()
+
+			db.update_user_password(username, util.hash(new_password))
+
+			db.close()
+
+		except exception.Exception, ex:
+			db.close()
+			raise ex
+
+	def validate_password(self, username, password):
+		db = factory.create_user_db()
+		result = False
+
+		try:
+			self.__test_active_user__(db, username)
+			result = util.hash(password) == db.get_user_password(username)
+
+			db.close()
+
+		except exception.Exception, ex:
+			db.close()
+			raise ex
+
+		return result
+
+	def __test_active_user__(self, db, username):
+		if not db.user_exists(username):
+			raise exception.UserNotFoundException()
+
+		if db.user_is_blocked(username):
+			raise exception.UserIsBlockedException()
