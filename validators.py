@@ -3,6 +3,7 @@ import re
 
 username_regex = re.compile("^\w[\w\-\.]{1,15}$", re.IGNORECASE | re.UNICODE)
 email_regex = re.compile("^[\w\-][\w\-\.]+@[\w\-][\w\-\.]+[a-zA-Z]{2,4}$", re.IGNORECASE | re.UNICODE)
+password_regex = re.compile("^[\w%s]{8,32}$" % re.escape("!\"§$%&/()=?`´'*#+-_,.;:<>|"), re.IGNORECASE | re.UNICODE)
 
 def validate_string(regex, value):
 	if value is None:
@@ -20,3 +21,6 @@ def validate_username(username):
 
 def validate_email(email):
 	return validate_string(email_regex, email)
+
+def validate_password(password):
+	return validate_string(password_regex, password)
