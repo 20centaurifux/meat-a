@@ -116,6 +116,38 @@ class Application:
 
 		return result
 
+	def update_user_details(self, username, email, firstname, lastname, gender):
+		# validate parameters:
+		if not validate_email(email):
+			raise exception.InvalidParameterException("email")
+
+		if not validate_firstname(firstname):
+			raise exception.InvalidParameterException("firstname")
+
+		if not validate_lastname(lastname):
+			raise exception.InvalidParameterException("lastname")
+
+		if not validate_gender(gender):
+			raise exception.InvalidParameterException("gender")
+
+		# test if email address is already assigned:
+		db = factory.create_user_db()
+
+		try:
+			user = db.get_user_by_email(email)
+
+			if not user is None and user["name"] != username:
+				raise exception.EmailAlreadyAssignedException()
+
+			db.close()
+
+		except exception.Exception, ex:
+			db.close()
+			raise ex
+
+		# update user details:
+		db.update_user_details(username, email, firstname, lastname, gender)
+
 	def __test_active_user__(self, db, username):
 		if not db.user_exists(username):
 			raise exception.UserNotFoundException()
