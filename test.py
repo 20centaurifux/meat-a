@@ -51,7 +51,11 @@ class TestUserDb(unittest.TestCase, TestCase):
 
 			# test details:
 			details = self.db.get_user(user["name"])
-			self.assertIsNot(details, None)
+			self.assertIsNotNone(details)
+			self.__test_full_user_structure__(details)
+
+			details = self.db.get_user_by_email(user["email"])
+			self.assertIsNotNone(details)
 			self.__test_full_user_structure__(details)
 
 			for key in user:
