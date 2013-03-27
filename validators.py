@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
-import re
+import re, util
 
 username_regex = re.compile("^\w[\w\-\.]{1,15}$", re.IGNORECASE | re.UNICODE)
 email_regex = re.compile("^[\w\-][\w\-\.]+@[\w\-][\w\-\.]+[a-zA-Z]{2,4}$", re.IGNORECASE | re.UNICODE)
 password_regex = re.compile("^[\w%s]{8,32}$" % re.escape("!\"§$%&/()=?`´'*#+-_,.;:<>|"), re.IGNORECASE | re.UNICODE)
+name_regex = re.compile("^[.*]{0,32}$", re.IGNORECASE | re.UNICODE)
 
 def validate_string(regex, value):
-	if value is None:
-		value = ""
-
-	value = value.strip()
+	value = util.strip(value)
 
 	if not regex.match(value) is None:
 		return True
@@ -24,3 +22,9 @@ def validate_email(email):
 
 def validate_password(password):
 	return validate_string(password_regex, password)
+
+def validate_firstname(name):
+	return validate_string(name_regex, name)
+
+def validate_lastname(name):
+	return validate_string(name_regex, name)

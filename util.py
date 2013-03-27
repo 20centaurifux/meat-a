@@ -36,3 +36,9 @@ def to_json(obj):
 
 def enum(**enums):
     return type('Enum', (), enums)
+
+def strip(text):
+	if text is None:
+		text = ""
+
+	return text.strip()
