@@ -807,7 +807,7 @@ class TestApplication(unittest.TestCase, TestCase):
 	def test_01_change_password(self):
 		a = app.Application()
 
-		username, email, password = self.__create_account__(a)
+		username, email, password = self.__create_account__(a, util.generate_junk(8), "test@testmail.com")
 		new_password = util.generate_junk(8)
 
 		# test invalid parameters:
@@ -859,16 +859,58 @@ class TestApplication(unittest.TestCase, TestCase):
 		a.change_password(username, password, new_password)
 		self.assertTrue(a.validate_password(username, new_password))
 
+	def test_02_change_user_details(self):
+		a = app.Application()
+
+		# create test users:
+		user0 = self.__create_account__(a, "user0", "user0@testmail.com")
+		user1 = self.__create_account__(a, "user1", "user1@testmail.com")
+
+		# invalid parameters:
+		parameters = [ { "firstname": util.generate_junk(128), "lastname": None, "email": "user0@testmail.com", "gender": None, "parameter": "firstname" },
+		               { "firstname": None, "lastname": util.generate_junk(128), "email": "user0@testmail.com", "gender": None, "parameter": "lastname" },
+		               { "firstname": None, "lastname": None, "email": util.generate_junk(128), "gender": None, "parameter": "email" },
+		               { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "x", "parameter": "gender" } ]
+
+		for p in parameters:
+			err = False
+
+			try:
+				code = a.update_user_details("user0", p["email"], p["firstname"], p["lastname"], p["gender"])
+
+			except exception.Exception, ex:
+				err = self.__assert_invalid_parameter__(ex, p["parameter"])
+
+			self.assertTrue(err)
+	
+		# use already assigned email address:
+		err = False
+
+		try:
+			a.update_user_details("user0", "user1@testmail.com", None, None, None)
+
+		except exception.Exception, ex:
+			err = self.__assert_error_code__(ex, ErrorCode.EMAIL_ALREADY_ASSIGNED)
+
+		self.assertTrue(err)
+
+		# update user details & test result:
+		a.update_user_details("user0", "test-x@testmail.com", "_firstname", "_lastname", "m")
+
+		db = factory.create_user_db()
+		user = db.get_user("user0")
+		db.close()
+
+		for key in user:
+			self.assertEqual(user[key], user[key])
+
 	def setUp(self):
 		self.__clear_tables__()
 
 	def tearDown(self):
 		self.__clear_tables__()
 
-	def __create_account__(self, app):
-		username = util.generate_junk(8, string.ascii_letters)
-		email = "test@testmail.com"
-
+	def __create_account__(self, app, username, email):
 		code = app.request_account(username, email)
 
 		return app.activate_user(code)
