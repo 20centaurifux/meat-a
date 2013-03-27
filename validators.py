@@ -28,3 +28,6 @@ def validate_firstname(name):
 
 def validate_lastname(name):
 	return validate_string(name_regex, name)
+
+def validate_gender(gender):
+	return gender is None or gender == "m" or gender == "f"
