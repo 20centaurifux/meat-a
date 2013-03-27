@@ -800,12 +800,74 @@ class TestApplication(unittest.TestCase, TestCase):
 		except exception.Exception, ex:
 			err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
 
+	def test_01_change_password(self):
+		a = app.Application()
+
+		username, email, password = self.__create_account__(a)
+		new_password = util.generate_junk(8)
+
+		# test invalid parameters:
+		parameters = [ { "new_password": util.generate_junk(2), "username": username, "old_password": password,
+		                 "parameter": "new_password" },
+		               { "new_password": util.generate_junk(128), "username": username, "old_password": password,
+		                 "parameter": "new_password" },
+		               { "new_password": new_password, "username": util.generate_junk(64), "old_password": password,
+		                 "code": ErrorCode.COULD_NOT_FIND_USER },
+		               { "new_password": new_password, "username": username, "old_password": util.generate_junk(64),
+		                 "code": ErrorCode.INVALID_PASSWORD } ]
+
+		for p in parameters:
+			err = False
+
+			try:
+				a.change_password(p["username"], p["old_password"], p["new_password"])
+			
+			except exception.Exception, ex:
+				if p.has_key("parameter"):
+					err = self.__assert_invalid_parameter__(ex, "new_password")
+				else:
+					err = self.__assert_error_code__(ex, p["code"])
+
+			self.assertTrue(err)
+
+		# block user:
+		err = False
+		db = factory.create_user_db()
+
+		db.block_user(username, True)
+
+		try:
+			a.change_password(username, password, new_password)
+
+		except exception.Exception, ex:
+			err = self.__assert_error_code__(ex, ErrorCode.USER_IS_BLOCKED)
+
+		self.assertTrue(err)
+
+		# reactivate user:
+		db.block_user(username, False)
+		db.close()
+
+		# test old password:
+		self.assertTrue(a.validate_password(username, password))
+
+		# change password & test new one:
+		a.change_password(username, password, new_password)
+		self.assertTrue(a.validate_password(username, new_password))
+
 	def setUp(self):
-		self.__dbutil = factory.create_db_util()
 		self.__clear_tables__()
 
 	def tearDown(self):
 		self.__clear_tables__()
+
+	def __create_account__(self, app):
+		username = util.generate_junk(8, string.ascii_letters)
+		email = "test@testmail.com"
+
+		code = app.request_account(username, email)
+
+		return app.activate_user(code)
 
 	def __assert_invalid_parameter__(self, ex, parameter):
 		self.assertEqual(ex.code, ErrorCode.INVALID_PARAMETER)
