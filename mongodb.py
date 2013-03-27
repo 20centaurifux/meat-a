@@ -85,9 +85,10 @@ class MongoUserDb(MongoDb, database.UserDb):
 		MongoDb.__init__(self, database, host, port)
 
 	def get_user(self, username):
-		return self.find_one("users", { "name": username }, { "_id": False, "name": True, "firstname": True, "lastname": True,
-		                                                      "email": True, "password": True, "gender": True, "timestamp": True,
-		                                                      "avatar": True, "blocked": True, "protected": True })
+		return self.__get_user__({ "name": username })
+
+	def get_user_by_email(self, email):
+		return self.__get_user__({ "email": email })
 
 	def search_user(self, query):
 		filter = { "$or": [] }
@@ -195,6 +196,11 @@ class MongoUserDb(MongoDb, database.UserDb):
 
 	def username_requested(self, username):
 		return bool(self.count("user_requests", { "$and": [ { "name": username }, { "lifetime": { "$gte": util.now() } } ] }))
+
+	def __get_user__(self, filter):
+		return self.find_one("users", filter, { "_id": False, "name": True, "firstname": True, "lastname": True,
+		                                        "email": True, "password": True, "gender": True, "timestamp": True,
+		                                        "avatar": True, "blocked": True, "protected": True })
 
 class MongoObjectDb(MongoDb, database.ObjectDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):

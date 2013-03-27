@@ -21,6 +21,9 @@ class UserDb(object):
 	def get_user(self, username): return None
 
 	@abc.abstractmethod
+	def get_user_by_email(self, email): return None
+
+	@abc.abstractmethod
 	def search_user(self, query): return None
 
 	@abc.abstractmethod
