@@ -133,16 +133,21 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                                                      "protected": True, "avatar": True, "gender": True }))
 
 	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None):
-		self.save("users", { "name": username,
-		                     "email": email,
-		                     "firstname": firstname,
-		                     "lastname": lastname,
-		                     "password": password,
-		                     "gender": gender,
-		                     "timestamp": util.now(),
-		                     "avatar": None,
-		                     "blocked": False,
-		                     "protected": True })
+		user = self.find_and_modify("users", { "$or": [ { "name": username }, { "$and": [ { "email": email }, { "blocked": False } ] } ] },
+		                            { "name": username,
+		                              "email": email,
+		                              "firstname": firstname,
+		                              "lastname": lastname,
+		                              "password": password,
+		                              "gender": gender,
+		                              "timestamp": util.now(),
+		                              "avatar": None,
+		                              "blocked": False,
+		                              "protected": True },
+		                              True)
+ 
+		if not user is None:
+			raise ConstraintViolationException("Username or email address already assigned.")
 
 	def update_user_details(self, username, email, firstname, lastname, gender):
 		self.update("users", { "name": username },
@@ -154,7 +159,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                     } })
 
 	def update_user_password(self, username, password):
-		self.update("users", { "name": username }, { "$set": { "password": password } })
+		self.find_and_modify("users", { "name": username }, { "$set": { "password": password } })
 
 	def get_user_password(self, username):
 		pwd = self.find_one("users", { "name": username }, [ "password" ])
@@ -195,10 +200,13 @@ class MongoUserDb(MongoDb, database.UserDb):
 		self.remove("user_requests", { "code": code })
 
 	def create_user_request(self, username, email, code, lifetime = 20):
-		self.save("user_requests", { "name": username,
-		                             "email": email,
-		                             "code": code,
-		                             "lifetime": lifetime * 1000 + util.now() })
+		request = self.find_and_modify("user_requests",
+	                                       { "$and": [ { "name": username }, { "lifetime": { "$gte": util.now() } } ] },
+                                               { "name": username, "email": email, "code": code, "lifetime": lifetime * 1000 + util.now() },
+                                               True)
+
+		if not request is None:
+			raise ConstraintViolationException("Username already requested.")
 
 	def username_requested(self, username):
 		return bool(self.count("user_requests", { "$and": [ { "name": username }, { "lifetime": { "$gte": util.now() } } ] }))
