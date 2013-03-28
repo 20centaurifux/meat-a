@@ -2,20 +2,25 @@
 
 import util
 
-ErrorCode = util.enum(INVALID_PARAMETER = 1,
-                      USER_ALREADY_EXISTS = 100,
-                      COULD_NOT_FIND_USER = 101,
-                      USER_IS_BLOCKED = 102,
-                      USERNAME_ALREADY_REQUESTED = 103,
-                      EMAIL_ALREADY_ASSIGNED = 104,
-                      INVALID_REQUEST_CODE = 105,
-                      INVALID_PASSWORD = 106)
+ErrorCode = util.enum(CONSTRAINT_VIOLOATION = 0,
+                      INVALID_PARAMETER = 100,
+                      USER_ALREADY_EXISTS = 200,
+                      COULD_NOT_FIND_USER = 201,
+                      USER_IS_BLOCKED = 202,
+                      USERNAME_ALREADY_REQUESTED = 203,
+                      EMAIL_ALREADY_ASSIGNED = 204,
+                      INVALID_REQUEST_CODE = 205,
+                      INVALID_PASSWORD = 206)
 
 class Exception:
 	def __init__(self, code, message):
 		self.code = code
 		self.message = message
 
+class ConstraintViolationException(Exception):
+	def __init__(self, message):
+		Exception.__init__(self, ErrorCode.CONSTRAINT_VIOLOATION, message)
+	
 class InvalidParameterException(Exception):
 	def __init__(self, parameter):
 		Exception.__init__(self, ErrorCode.INVALID_PARAMETER, "Invalid parameter.")
