@@ -3,6 +3,7 @@
 import database, pymongo, util, re
 from bson.code import Code
 from random import random
+from exception import ConstraintViolationException
 
 class MongoDb(database.DbUtil):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
@@ -39,6 +40,11 @@ class MongoDb(database.DbUtil):
 			cur = cur.skip(skip)
 
 		return cur
+
+	def find_and_modify(self, collection, query = None, update = None, upsert = False, sort = None):
+		self.__connect__()
+
+		return self.__db[collection].find_and_modify(query, update, upsert, sort)
 
 	def find_one(self, collection, filter, fields = None):
 		self.__connect__()
