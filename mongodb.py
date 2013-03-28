@@ -201,7 +201,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 
 	def create_user_request(self, username, email, code, lifetime = 20):
 		request = self.find_and_modify("user_requests",
-	                                       { "$and": [ { "name": username }, { "lifetime": { "$gte": util.now() } } ] },
+	                                       { "$and": [ { "$or": [ { "name": username }, { "code": code } ] }, { "lifetime": { "$gte": util.now() } } ] },
                                                { "name": username, "email": email, "code": code, "lifetime": lifetime * 1000 + util.now() },
                                                True)
 
