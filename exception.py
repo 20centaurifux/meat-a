@@ -2,20 +2,26 @@
 
 import util
 
-ErrorCode = util.enum(CONSTRAINT_VIOLOATION = 0,
-                      INVALID_PARAMETER = 100,
-                      USER_ALREADY_EXISTS = 200,
-                      COULD_NOT_FIND_USER = 201,
-                      USER_IS_BLOCKED = 202,
-                      USERNAME_ALREADY_REQUESTED = 203,
-                      EMAIL_ALREADY_ASSIGNED = 204,
-                      INVALID_REQUEST_CODE = 205,
-                      INVALID_PASSWORD = 206)
+ErrorCode = util.enum(INTERNAL_FAILURE = 0,
+                      CONSTRAINT_VIOLOATION = 100,
+                      INVALID_PARAMETER = 200,
+                      USER_ALREADY_EXISTS = 300,
+                      COULD_NOT_FIND_USER = 301,
+                      USER_IS_BLOCKED = 302,
+                      USERNAME_ALREADY_REQUESTED = 303,
+                      EMAIL_ALREADY_ASSIGNED = 304,
+                      INVALID_REQUEST_CODE = 305,
+                      INVALID_PASSWORD = 306,
+                      INVALID_IMAGE_FORMAT = 400)
 
 class Exception:
 	def __init__(self, code, message):
 		self.code = code
 		self.message = message
+
+class InternalFailureException(Exception):
+	def __init__(self, message):
+		Exception.__init__(self, ErrorCode.INTERNAL_FAILURE, message)
 
 class ConstraintViolationException(Exception):
 	def __init__(self, message):
@@ -53,3 +59,7 @@ class InvalidRequestCodeException(Exception):
 class InvalidPasswordException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.INVALID_PASSWORD, "Invalid password.")
+
+class InvalidImageFormatException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.INVALID_IMAGE_FORMAT, "The given image has an invalid format.")
