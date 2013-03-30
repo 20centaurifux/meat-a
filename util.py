@@ -2,7 +2,7 @@
 
 from time import mktime
 from datetime import datetime
-from hashlib import sha1
+from hashlib import sha256
 from bson import json_util
 import random, string, json
 
@@ -12,7 +12,7 @@ def now():
 	return mktime(now.timetuple()) * 1000 + now.microsecond / 1000
 
 def hash(plain):
-	m = sha1()
+	m = sha256()
 	m.update(plain)
 
 	return m.hexdigest()
