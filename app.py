@@ -134,10 +134,15 @@ class Application:
 		db = factory.create_user_db()
 
 		try:
+			self.__test_active_user__(db, username)
+
 			user = db.get_user_by_email(email)
 
 			if not user is None and user["name"] != username:
 				raise exception.EmailAlreadyAssignedException()
+
+			# update user details:
+			db.update_user_details(username, email, firstname, lastname, gender)
 
 			db.close()
 
