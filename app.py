@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import factory, exception, util, config
+import factory, exception, util, config, tempfile, os
 from validators import *
 from base64 import b64encode
 
@@ -150,8 +150,63 @@ class Application:
 			db.close()
 			raise ex
 
-		# update user details:
-		db.update_user_details(username, email, firstname, lastname, gender)
+	def update_avatar(self, username, filename, stream):
+		# get file extension:
+		ext = os.path.splitext(filename)[1]
+
+		if len(ext) == 0:
+			raise exception.InvalidImageFormatException()
+
+		# test if user is valid:
+		db = factory.create_user_db()
+
+		try:
+			self.__test_active_user__(db, username)
+
+		except exception.Exception, ex:
+			db.close()
+			raise ex
+
+		# write temporary file:
+		f = tempfile.NamedTemporaryFile(mode = "wb", dir = config.TMP_DIR, delete = False)
+		f.write(stream.read())
+		f.close()
+
+		try:
+			# validate image format:
+			if not validate_image_file(f.name, config.AVATAR_MAX_FILESIZE, config.AVATAR_MAX_WIDTH, config.AVATAR_MAX_HEIGHT, config.AVATAR_FORMATS):
+				raise exception.InvalidImageFormatException()
+
+		except exception.Exception, ex:
+			os.unlink(f.name)
+			db.close()
+			raise ex
+
+		# move file to avatar folder:
+		try:
+			while True:
+				filename = "%s%s" % (util.hash("%s-%s-%s" % (util.now(), username, filename)), ext)
+				path = os.path.join(config.AVATAR_DIR, filename)
+
+				if not os.path.exists(path):
+					break
+
+			os.rename(f.name, path)
+
+		except EnvironmentError, err:
+			os.unlink(f.name)
+			db.close()
+
+			raise exception.InternalFailureException(str(err))
+
+		# update database:
+		try:
+			db.update_avatar(username, os.path.basename(path))
+			db.close()
+
+		except exception.Exception, ex:
+			db.close()
+			raise ex
 
 	def __test_active_user__(self, db, username):
 		if not db.user_exists(username):
