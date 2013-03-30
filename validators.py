@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-import re, util
+import re, util, os
+from PIL import Image
 
 username_regex = re.compile("^\w[\w\-\.]{1,15}$", re.IGNORECASE | re.UNICODE)
 email_regex = re.compile("^[\w\-][\w\-\.]+@[\w\-][\w\-\.]+[a-zA-Z]{2,4}$", re.IGNORECASE | re.UNICODE)
@@ -31,3 +32,18 @@ def validate_lastname(name):
 
 def validate_gender(gender):
 	return gender is None or gender == "m" or gender == "f"
+
+def validate_image_file(filename, max_file_size, max_width, max_height, formats):
+	img = Image.open(filename)
+	info = os.stat(filename)
+
+	if info.st_size > max_file_size:
+		return False
+
+	if img.size[0] > max_width or img.size[1] > max_height:
+		return False
+
+	if not img.format in formats:
+		return False
+
+	return True
