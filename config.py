@@ -7,3 +7,12 @@ MONGODB_DATABASE        = "meata"
 USER_REQUEST_TIMEOUT    = 300
 REQUEST_CODE_LENGTH     = 128
 DEFAULT_PASSWORD_LENGTH = 8
+
+UPLOAD_DIR              = "upload"
+TMP_DIR                 = "tmp"
+
+AVATAR_MAX_FILESIZE     = 1024 * 1024
+AVATAR_MAX_WIDTH        = 120
+AVATAR_MAX_HEIGHT       = 120
+AVATAR_FORMATS          = [ "JPEG", "PNG", "GIF" ]
+AVATAR_DIR              = "images\users"
