@@ -169,7 +169,10 @@ class Application:
 
 		# write temporary file:
 		f = tempfile.NamedTemporaryFile(mode = "wb", dir = config.TMP_DIR, delete = False)
-		f.write(stream.read())
+
+		for bytes in util.read_from_stream(stream):
+			f.write(bytes)
+
 		f.close()
 
 		try:
