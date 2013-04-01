@@ -17,13 +17,11 @@ def hash(plain):
 
 	return m.hexdigest()
 
-def hash_file(filename, hasher, blocksize = 65536):
+def hash_file(filename, hasher, block_size = 81920):
 	stream = open(filename, "rb")
-	buffer = stream.read(blocksize)
 
-	while len(buffer) > 0:
-		hasher.update(buffer)
-		buffer = stream.read(blocksize)
+	for bytes in read_from_stream(stream, block_size):
+		hasher.update(bytes)
 
 	stream.close()
 
@@ -59,3 +57,10 @@ def remove_all_files(directory):
 	for file in os.listdir(directory):
 		path = os.path.join(directory, file)
 		os.remove(path)
+
+def read_from_stream(stream, block_size = 81920):
+	bytes = stream.read(block_size)
+
+	while len(bytes) > 0:
+		yield bytes
+		bytes = stream.read(block_size)
