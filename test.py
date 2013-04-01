@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import unittest, factory, util, random, exception, app, string
+import unittest, factory, util, config, app, exception, random, string, os, hashlib
 from time import sleep
 from exception import ErrorCode
 
@@ -904,11 +904,58 @@ class TestApplication(unittest.TestCase, TestCase):
 		for key in user:
 			self.assertEqual(user[key], user[key])
 
+	def test_03_avatar(self):
+		a = app.Application()
+
+		self.__create_account__(a, "test-user", "test@testmail.com")
+
+		# try to set invalid avatars:
+		for image in [ "avatar00.png", "avatar01.tif" ]:
+			path = os.path.join("test-data", image)
+			f = open(path, "rb")
+			err = False
+
+			try:
+				a.update_avatar("test-user", image, f)
+	
+			except exception.Exception, ex:
+				err = self.__assert_error_code__(ex, ErrorCode.INVALID_IMAGE_FORMAT)
+
+			self.assertTrue(err)
+			f.close()
+
+		# set valid avatar:
+		path = os.path.join("test-data", "avatar02.jpg")
+		f = open(path, "rb")
+		a.update_avatar("test-user", "avatar02.jpg", f)
+		f.close()
+
+		# checksum:
+		src_hash = util.hash_file(path, hashlib.md5())
+
+		# compare file checksums:
+		db = factory.create_user_db()
+
+		try:
+			user = db.get_user("test-user")
+
+		except exception.Exception, ex:
+			db.close()
+
+		db.close()
+
+		path = os.path.join(config.AVATAR_DIR, user["avatar"])
+		dst_hash = util.hash_file(path, hashlib.md5())
+
+		self.assertEqual(src_hash, dst_hash)
+
 	def setUp(self):
 		self.__clear_tables__()
+		util.remove_all_files(config.AVATAR_DIR)
 
 	def tearDown(self):
 		self.__clear_tables__()
+		util.remove_all_files(config.AVATAR_DIR)
 
 	def __create_account__(self, app, username, email):
 		code = app.request_account(username, email)
