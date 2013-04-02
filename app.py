@@ -36,11 +36,11 @@ class Application:
 				# save user request:
 				db.create_user_request(username, email, code, user_request_timeout)
 
-				db.close()
-
 			except exception.Exception, ex:
-				db.close()
 				raise ex
+
+			finally:
+				db.close()
 
 			return code
 
@@ -69,12 +69,12 @@ class Application:
 			# remove request code:
 			db.remove_user_request(code)
 
-			db.close()
-
 		except exception.Exception, ex:
-			db.close()
 			raise ex
 	
+		finally:
+			db.close()
+
 		return request["name"], request["email"], password
 
 	def change_password(self, username, old_password, new_password):
@@ -94,11 +94,11 @@ class Application:
 
 			db.update_user_password(username, util.hash(new_password))
 
-			db.close()
-
 		except exception.Exception, ex:
-			db.close()
 			raise ex
+
+		finally:
+			db.close()
 
 	def validate_password(self, username, password):
 		db = factory.create_user_db()
@@ -108,11 +108,11 @@ class Application:
 			self.__test_active_user__(db, username)
 			result = util.hash(password) == db.get_user_password(username)
 
-			db.close()
-
 		except exception.Exception, ex:
-			db.close()
 			raise ex
+
+		finally:
+			db.close()
 
 		return result
 
@@ -144,11 +144,11 @@ class Application:
 			# update user details:
 			db.update_user_details(username, email, firstname, lastname, gender)
 
-			db.close()
-
 		except exception.Exception, ex:
-			db.close()
 			raise ex
+
+		finally:
+			db.close()
 
 	def update_avatar(self, username, filename, stream):
 		# get file extension:
@@ -205,11 +205,49 @@ class Application:
 		# update database:
 		try:
 			db.update_avatar(username, os.path.basename(path))
-			db.close()
 
 		except exception.Exception, ex:
-			db.close()
 			raise ex
+
+		finally:
+			db.close()
+
+	def get_user_details(self, username):
+		db = factory.create_user_db()
+
+		try:
+			details = db.get_user(username)
+
+			if details is None:
+				raise exception.UserNotFoundException()
+
+			if details["blocked"]:
+				raise exception.UserNotFoundException()
+
+			del details["password"]
+			del details["blocked"]
+
+			return details
+
+		except exception.Exception, ex:
+			raise ex
+
+		finally:
+			db.close()
+
+	def find_user(self, query):
+		db = factory.create_user_db()
+
+		try:
+			result = db.search_user(query)
+
+			return result
+
+		except exception.Exception, ex:
+			raise ex
+
+		finally:
+			db.close()
 
 	def __test_active_user__(self, db, username):
 		if not db.user_exists(username):
