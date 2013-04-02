@@ -129,8 +129,10 @@ class MongoUserDb(MongoDb, database.UserDb):
 				filter["$or"].append({ "firstname": { "$regex": a } })
 				filter["$or"].append({ "lastname": { "$regex": a } })
 
+		filter = { "$and": [ { "blocked": False }, filter ] }
+
 		return (user for user in self.find("users", filter, { "_id": False, "name": True, "firstname": True, "lastname": True,
-		                                                      "protected": True, "avatar": True, "gender": True }))
+		                                                      "protected": True, "avatar": True, "gender": True, "email": True, "timestamp": True }))
 
 	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None):
 		user = self.find_and_modify("users", { "$or": [ { "name": username }, { "$and": [ { "email": email }, { "blocked": False } ] } ] },
