@@ -176,7 +176,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 		code = util.generate_junk(128)
 
 		self.db.create_user_request(username, email, code, 1)
-		sleep(1)
+		sleep(1.5)
 
 		# test if request still exists:
 		self.assertFalse(self.db.user_request_code_exists(code))
@@ -270,7 +270,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 		for obj in objs:
 			self.db.create_object(obj["guid"], obj["source"])
-			sleep(0.2)
+			sleep(0.5)
 
 		# test paging:
 		page = self.__cursor_to_array__(self.db.get_objects(0, 5))
@@ -398,7 +398,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 		for obj in objs:
 			self.db.create_object(obj["guid"], obj["source"])
-			sleep(0.2)
+			sleep(0.5)
 
 		# tag objects:
 		self.db.add_tags(objs[0]["guid"], [ "1", "4", "5" ])
@@ -517,7 +517,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		# test sort order:
 		for i in range(5):
 			self.db.favor_object(objs[i]["guid"], "h", True)
-			sleep(0.2)
+			sleep(0.5)
 
 		r = self.__cursor_to_array__(self.db.get_favorites("h", 0, 5))
 
@@ -607,7 +607,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		# test sort order:
 		for i in range(5):
 			self.db.recommend(objs[i]["guid"], "a", [ "d" ])
-			sleep(0.2)
+			sleep(0.5)
 
 		r = self.__cursor_to_array__(self.db.get_recommendations("d", 0, 10))
 
@@ -637,7 +637,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 				guid = objs[1]["guid"]
 
 			self.db.add_comment(guid, user, util.generate_junk(256))
-			sleep(0.2)
+			sleep(0.5)
 
 		# get comments:
 		comments = self.__cursor_to_array__(self.db.get_comments(objs[0]["guid"], 0, 100))
@@ -741,7 +741,7 @@ class TestApplication(unittest.TestCase, TestCase):
 
 		# check request timeout:
 		code = a.request_account(users[0]["username"], users[0]["email"], 1)
-		sleep (1)
+		sleep(1.5)
 		
 		err = False
 
