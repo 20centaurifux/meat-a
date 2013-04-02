@@ -949,6 +949,60 @@ class TestApplication(unittest.TestCase, TestCase):
 
 		self.assertEqual(src_hash, dst_hash)
 
+	def test_04_get_users(self):
+		a = app.Application()
+
+		# create test accounts:
+		self.__create_account__(a, "John.Doe", "john@testmail.com")
+		self.__create_account__(a, "Martin.Smith", "martin@testmail.com")
+		self.__create_account__(a, "Ada.Muster", "ada@testmail.com")
+
+		# get user details:
+		user = a.get_user_details("John.Doe")
+		self.__test_user_details__(user)
+		self.assertEqual(user["name"], "John.Doe")
+		self.assertEqual(user["email"], "john@testmail.com")
+
+		# block user & try to get details:
+		db = factory.create_user_db()
+
+		try:
+			db.block_user("John.Doe", True)
+
+		except exception.Exception, ex:
+			raise ex
+
+		finally:
+			db.close()
+
+		err = False
+
+		try:
+			details = a.get_user_details("John.Doe")
+
+		except exception.Exception, ex:
+			err = self.__assert_error_code__(ex, ErrorCode.COULD_NOT_FIND_USER)
+
+		self.assertTrue(err)
+
+		# find users:
+		result = self.__cursor_to_array__(a.find_user("testmail"))
+		self.assertEqual(len(result), 2)
+
+		found = False
+		
+		for user in result:
+			self.__test_user_details__(user)
+
+			if user["name"] == "John.Doe":
+				found = True
+				break
+
+		self.assertFalse(found)
+
+		result = self.__cursor_to_array__(a.find_user("foobar"))
+		self.assertEqual(len(result), 0)
+
 	def setUp(self):
 		self.__clear_tables__()
 		util.remove_all_files(config.AVATAR_DIR)
@@ -970,6 +1024,20 @@ class TestApplication(unittest.TestCase, TestCase):
 
 	def __assert_error_code__(self, ex, code):
 		self.assertEqual(ex.code, code)
+
+		return True
+
+	def __test_user_details__(self, user):
+		self.assertTrue(user.has_key("name"))
+		self.assertTrue(user.has_key("firstname"))
+		self.assertTrue(user.has_key("lastname"))
+		self.assertTrue(user.has_key("email"))
+		self.assertFalse(user.has_key("password"))
+		self.assertTrue(user.has_key("gender"))
+		self.assertTrue(user.has_key("timestamp"))
+		self.assertTrue(user.has_key("avatar"))
+		self.assertFalse(user.has_key("blocked"))
+		self.assertTrue(user.has_key("protected"))
 
 		return True
 
