@@ -83,8 +83,15 @@ class MongoDb(database.DbUtil):
 			self.__open = True
 
 			# create indices:
-			self.__db.users.ensure_index([ ("name", 1), ("email", 1) ])
-			self.__db.objects.ensure_index([ ("random", 1), ("guid", 1), ("timestamp", 1) ])
+			self.__db.users.ensure_index("name", 1)
+			self.__db.users.ensure_index("email", 1)
+			self.__db.users.ensure_index("blocked", 1)
+			self.__db.objects.ensure_index("random", 1)
+			self.__db.objects.ensure_index("timestamp", -1)
+			self.__db.objects.ensure_index("tags", 1)
+			self.__db.objects.ensure_index("voters", 1)
+			self.__db.objects.ensure_index("fans", 1)
+			self.__db.objects.ensure_index("score.total", -1)
 
 class MongoUserDb(MongoDb, database.UserDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
