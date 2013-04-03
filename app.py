@@ -196,24 +196,24 @@ class Application:
 		return db.search_user(query)
 
 	def get_object(self, guid):
-		return self.__wrapped_object_db_function__("get_object", guid)
+		return self.__create_object_db__().get_object(guid)
 
 	def get_objects(self, page = 0, page_size = 10):
-		return self.__wrapped_object_db_function__("get_objects", page, page_size)
+		return self.__create_object_db__().get_objects(page, page_size)
 
 	def get_tagged_objects(self, tag, page = 0, page_size = 10):
-		return self.__wrapped_object_db_function__("get_tagged_objects", tag, page, page_size)
+		return self.__create_object_db__().get_tagged_objects(tag, page, page_size)
 		
 	def get_popular_objects(self, page = 0, page_size = 10):
-		return self.__wrapped_object_db_function__("get_popular_objects", page, page_size)
+		return self.__create_object_db__().get_popular_objects(page, page_size)
 
 	def get_random_objects(self, page_size = 10):
-		return self.__wrapped_object_db_function__("get_random_objects", page_size)
+		return self.__create_object_db__().get_random_objects(page_size)
 
 	def add_tags(self, guid, tags):
 		self.__test_object_write_access__(guid)
 
-		return self.__wrapped_object_db_function__("add_tags", guid, tags)
+		return self.__create_object_db__().add_tags(guid, tags)
 
 	def __create_user_db__(self):
 		if self.__userdb is None:
@@ -241,24 +241,3 @@ class Application:
 
 		if db.is_locked(guid):
 			raise exception.ObjectIsLockedException()
-
-	def __wrapped_object_db_function__(self, f, *args):
-		db = self.__create_object_db__()
-
-		try:
-			fn = getattr(db, f)
-
-			if len(args) == 1:
-				return fn(args[0])
-			elif len(args) == 2:
-				return fn(args[0], args[1])
-			elif len(args) == 3:
-				return fn(args[0], args[1], args[2])
-				
-			raise exception.InternalFailureException("Invalid number of arguments.")
-
-		except exception.Exception, ex:
-			raise ex
-
-		finally:
-			db.close()
