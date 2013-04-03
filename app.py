@@ -221,6 +221,17 @@ class Application:
 
 		return self.__create_object_db__().add_tags(guid, tags)
 
+	def rate(self, username, guid, up = True):
+		self.__test_active_user__(username)
+		self.__test_object_write_access__(guid)
+
+		db = self.__create_object_db__()
+
+		if not db.user_can_rate(guid, username):
+			raise exception.UserAlreadyRatedException()
+
+		db.rate(guid, username, up)
+
 	def __create_user_db__(self):
 		if self.__userdb is None:
 			self.__userdb = factory.create_user_db()
@@ -244,6 +255,9 @@ class Application:
 
 	def __test_object_write_access__(self, guid):
 		db = self.__create_object_db__()
+
+		if not db.object_exists(guid):
+			raise exception.ObjectNotFoundException()
 
 		if db.is_locked(guid):
 			raise exception.ObjectIsLockedException()
