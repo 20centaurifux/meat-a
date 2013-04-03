@@ -5,6 +5,25 @@ from validators import *
 from base64 import b64encode
 
 class Application:
+	def __init__(self):
+		self.__userdb = None
+		self.__objectdb = None
+
+	def __del__(self):
+		if not self.__userdb is None:
+			self.__userdb.close()
+			self.__userdb = None
+
+		if not self.__objectdb is None:
+			self.__objectdb.close()
+			self.__objectdb = None
+
+	def __enter__(self):
+		return Application()
+
+	def __exit__(self, type, value, traceback):
+		self.__del__()
+		
 	def request_account(self, username, email, user_request_timeout = config.USER_REQUEST_TIMEOUT):
 			# validate parameters:
 			if not validate_username(username):
@@ -14,7 +33,7 @@ class Application:
 				raise exception.InvalidParameterException("email")
 
 			# connect to database:
-			db = factory.create_user_db()
+			db = self.__create_user_db__()
 
 			# test if user request, account or email already exist:
 			try:
@@ -46,7 +65,7 @@ class Application:
 
 	def activate_user(self, code):
 		# connect to database:
-		db = factory.create_user_db()
+		db = self.__create_user_db__()
 
 		try:
 			request = db.get_user_request(code)
@@ -81,7 +100,7 @@ class Application:
 		if not validate_password(new_password):
 			raise exception.InvalidParameterException("new_password")
 
-		db = factory.create_user_db()
+		db = self.__create_user_db__()
 
 		try:
 			self.__test_active_user__(db, username)
@@ -101,7 +120,7 @@ class Application:
 			db.close()
 
 	def validate_password(self, username, password):
-		db = factory.create_user_db()
+		db = self.__create_user_db__()
 		result = False
 
 		try:
@@ -131,7 +150,7 @@ class Application:
 			raise exception.InvalidParameterException("gender")
 
 		# test if email address is already assigned:
-		db = factory.create_user_db()
+		db = self.__create_user_db__()
 
 		try:
 			self.__test_active_user__(db, username)
@@ -158,7 +177,7 @@ class Application:
 			raise exception.InvalidImageFormatException()
 
 		# test if user is valid:
-		db = factory.create_user_db()
+		db = self.__create_user_db__()
 
 		try:
 			self.__test_active_user__(db, username)
@@ -213,7 +232,7 @@ class Application:
 			db.close()
 
 	def get_user_details(self, username):
-		db = factory.create_user_db()
+		db = self.__create_user_db__()
 
 		try:
 			details = db.get_user(username)
@@ -236,7 +255,7 @@ class Application:
 			db.close()
 
 	def find_user(self, query):
-		db = factory.create_user_db()
+		db = self.__create_user_db__()
 
 		try:
 			result = db.search_user(query)
@@ -249,9 +268,60 @@ class Application:
 		finally:
 			db.close()
 
+	def get_object(self, guid):
+		return self.__wrapped_object_db_function__("get_object", guid)
+
+	def get_objects(self, page = 0, page_size = 10):
+		return self.__wrapped_object_db_function__("get_objects", page, page_size)
+
+	def get_tagged_objects(self, tag, page = 0, page_size = 10):
+		return self.__wrapped_object_db_function__("get_tagged_objects", tag, page, page_size)
+		
+	def get_popular_objects(self, page = 0, page_size = 10):
+		return self.__wrapped_object_db_function__("get_popular_objects", page, page_size)
+
+	def get_random_objects(self, page_size = 10):
+		return self.__wrapped_object_db_function__("get_random_objects", page_size)
+
+	def add_tags(self, guid, tags):
+		return self.__wrapped_object_db_function__("add_tags", guid, tags)
+
+	def __create_user_db__(self):
+		if self.__userdb is None:
+			self.__userdb = factory.create_user_db()
+
+		return self.__userdb
+
+	def __create_object_db__(self):
+		if self.__objectdb is None:
+			self.__objectdb = factory.create_object_db()
+
+		return self.__objectdb
+
 	def __test_active_user__(self, db, username):
 		if not db.user_exists(username):
 			raise exception.UserNotFoundException()
 
 		if db.user_is_blocked(username):
 			raise exception.UserIsBlockedException()
+
+	def __wrapped_object_db_function__(self, f, *args):
+		db = self.__create_object_db__()
+
+		try:
+			fn = getattr(db, f)
+
+			if len(args) == 1:
+				return fn(args[0])
+			elif len(args) == 2:
+				return fn(args[0], args[1])
+			elif len(args) == 3:
+				return fn(args[0], args[1], args[2])
+				
+			raise exception.InternalFailureException("Invalid number of arguments.")
+
+		except exception.Exception, ex:
+			raise ex
+
+		finally:
+			db.close()
