@@ -951,10 +951,14 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.__create_account__(a, "Ada.Muster", "ada@testmail.com")
 
 			# get user details:
-			user = a.get_user_details("John.Doe")
+			user = a.get_full_user_details("John.Doe")
 			self.__test_user_details__(user)
 			self.assertEqual(user["name"], "John.Doe")
 			self.assertEqual(user["email"], "john@testmail.com")
+
+			user = a.get_user_details("John.Doe")
+			self.__test_user_details__(user, False)
+			self.assertEqual(user["name"], "John.Doe")
 
 			# block user & try to get details:
 			with factory.create_user_db() as db:
@@ -997,9 +1001,8 @@ class TestApplication(unittest.TestCase, TestCase):
 				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
 				db.create_object(obj["guid"], obj["source"])
 				objs.append(obj)
-		
-		# get objects (don't perform detailled tests here because the following functions are just wrapped
-		# by the application layer):
+
+		# test wrap database functions to get objects:
 		with app.Application() as a:
 			for obj in objs:	
 				details = a.get_object(obj["guid"])
@@ -1044,11 +1047,11 @@ class TestApplication(unittest.TestCase, TestCase):
 
 		return True
 
-	def __test_user_details__(self, user):
+	def __test_user_details__(self, user, with_email = True):
 		self.assertTrue(user.has_key("name"))
 		self.assertTrue(user.has_key("firstname"))
 		self.assertTrue(user.has_key("lastname"))
-		self.assertTrue(user.has_key("email"))
+		self.assertEqual(user.has_key("email"), with_email)
 		self.assertFalse(user.has_key("password"))
 		self.assertTrue(user.has_key("gender"))
 		self.assertTrue(user.has_key("timestamp"))

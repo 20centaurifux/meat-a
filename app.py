@@ -175,7 +175,7 @@ class Application:
 		db = self.__create_user_db__()
 		db.update_avatar(username, os.path.basename(path))
 
-	def get_user_details(self, username):
+	def get_full_user_details(self, username):
 		db = self.__create_user_db__()
 		details = db.get_user(username)
 
@@ -187,6 +187,12 @@ class Application:
 
 		del details["password"]
 		del details["blocked"]
+
+		return details
+
+	def get_user_details(self, username):
+		details = self.get_full_user_details(username)
+		del details["email"]
 
 		return details
 
