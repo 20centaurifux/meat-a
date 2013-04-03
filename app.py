@@ -211,6 +211,8 @@ class Application:
 		return self.__wrapped_object_db_function__("get_random_objects", page_size)
 
 	def add_tags(self, guid, tags):
+		self.__test_object_write_access__(guid)
+
 		return self.__wrapped_object_db_function__("add_tags", guid, tags)
 
 	def __create_user_db__(self):
@@ -233,6 +235,12 @@ class Application:
 
 		if db.user_is_blocked(username):
 			raise exception.UserIsBlockedException()
+
+	def __test_object_write_access__(self, guid):
+		db = self.__create_object_db__()
+
+		if db.is_locked(guid):
+			raise exception.ObjectIsLockedException()
 
 	def __wrapped_object_db_function__(self, f, *args):
 		db = self.__create_object_db__()
