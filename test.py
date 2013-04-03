@@ -992,7 +992,49 @@ class TestApplication(unittest.TestCase, TestCase):
 			result = self.__cursor_to_array__(a.find_user("foobar"))
 			self.assertEqual(len(result), 0)
 
-	def test_05_get_objects(self):
+	def test_05_add_tags(self):
+		objs = []
+
+		# create test objects:
+		with factory.create_object_db() as db:
+			for i in range(1000):
+				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
+				db.create_object(obj["guid"], obj["source"])
+				objs.append(obj)
+
+		# get objects from database & test tags:
+		with app.Application() as a:
+			for i in range(1000):
+				if i % 2 == 0:
+					a.add_tags(objs[i]["guid"], [ "tag00", "tag01" ])
+				else:
+					a.add_tags(objs[i]["guid"], [ "tag02", "tag03" ])
+
+			for obj in a.get_objects(0, 1000):
+				self.assertEqual(len(obj["tags"]), 2)
+				self.assertTrue("tag00" in obj["tags"] or "tag02" in obj["tags"])
+				self.assertTrue("tag01" in obj["tags"] or "tag03" in obj["tags"])
+
+			# test if tags can be added to locked objects:
+			with factory.create_object_db() as db:
+				for i in range(0, 1000, 3):
+					db.lock_object(objs[i]["guid"], True)
+
+			for i in range(1000):
+				if i % 3 == 0:
+					err = False
+
+					try:
+						a.add_tags(objs[i]["guid"], [ "tag04"])
+
+					except exception.Exception, ex:
+						err = self.__assert_error_code__(ex, ErrorCode.OBJECT_IS_LOCKED)
+
+					self.assertTrue(err)
+				else:
+					a.add_tags(objs[i]["guid"], [ "tag04"])
+
+	def test_06_get_objects(self):
 		objs = []
 
 		# create test objects:
