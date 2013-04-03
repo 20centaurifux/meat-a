@@ -1065,6 +1065,91 @@ class TestApplication(unittest.TestCase, TestCase):
 			result = self.__cursor_to_array__(a.get_popular_objects(0, 100))
 			self.assertEqual(len(result), 100)
 
+	def test_07_score(self):
+		objs = []
+
+		# create test objects:
+		with factory.create_object_db() as db:
+			for i in range(1000):
+				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
+				db.create_object(obj["guid"], obj["source"])
+				objs.append(obj)
+
+		# create test accounts:
+		with app.Application() as a:
+			user_a = self.__create_account__(a, "user_a", "user_a@testmail.com")
+			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
+			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")
+
+			# invalid user account/object guid:
+			params = [ { "username": util.generate_junk(16), "guid": objs[0]["guid"], "code": ErrorCode.COULD_NOT_FIND_USER,
+			             "username": "user_a", "guid": util.generate_junk(64), "code": ErrorCode.OBJECT_NOT_FOUND } ]
+
+			for p in params:
+				err = False
+
+				try:
+					a.rate(p["username"], p["guid"], True)
+			
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
+			# (b)locked user/object:
+			with factory.create_user_db() as db:
+				db.block_user("user_c")
+
+			with factory.create_object_db() as db:
+				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
+				db.create_object(obj["guid"], obj["source"])
+				db.lock_object(obj["guid"])
+
+			params = [ { "username": "user_c", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED,
+			             "username": "user_a", "guid": obj["guid"], "code": ErrorCode.OBJECT_IS_LOCKED } ]
+
+			for p in params:
+				err = False
+
+				try:
+					a.rate(p["username"], p["guid"], True)
+			
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
+			# rate:
+			for obj in objs:
+				for i in range(2):
+					up = False
+
+					if random.randint(0, 100) >= 20:
+						up = True
+
+					user = "user_a"
+
+					if i == 1:
+						user = "user_b"
+
+					a.rate(user, obj["guid"], user)
+
+			# test score:
+			for obj in a.get_objects(0, 1000):
+				self.assertEqual(obj["score"]["up"] - obj["score"]["down"], obj["score"]["total"])
+
+			# try to vote two times:
+			for obj in objs:
+				err = False
+
+				try:
+					a.rate("user_a", obj["guid"], True)
+
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, ErrorCode.USER_ALREADY_RATED)
+
+				self.assertTrue(err)
+
 	def setUp(self):
 		self.__clear_tables__()
 		util.remove_all_files(config.AVATAR_DIR)
