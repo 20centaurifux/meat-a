@@ -719,299 +719,334 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 class TestApplication(unittest.TestCase, TestCase):
 	def test_00_account_creation(self):
-		a = app.Application()
+		with app.Application() as a:
+			# generate test data:
+			users = []
 
-		# generate test data:
-		users = []
+			user = {}
+			user["username"] = util.generate_junk(8, string.ascii_letters)
+			user["email"] = "test@testmail.com"
+			users.append(user)
 
-		user = {}
-		user["username"] = util.generate_junk(8, string.ascii_letters)
-		user["email"] = "test@testmail.com"
-		users.append(user)
+			user = {}
+			user["username"] = util.generate_junk(8, string.ascii_letters)
+			user["email"] = "test@test-mail.com"
+			users.append(user)
 
-		user = {}
-		user["username"] = util.generate_junk(8, string.ascii_letters)
-		user["email"] = "test@test-mail.com"
-		users.append(user)
+			# account requests with invalid username/email:
+			parameters = [ { "username": "." + util.generate_junk(64), "email": "test@testmail.com", "parameter": "username" },
+				       { "username": util.generate_junk(8, string.ascii_letters), "email": util.generate_junk(64), "parameter": "email" } ]
 
-		# account requests with invalid username/email:
-		parameters = [ { "username": "." + util.generate_junk(64), "email": "test@testmail.com", "parameter": "username" },
-		               { "username": util.generate_junk(8, string.ascii_letters), "email": util.generate_junk(64), "parameter": "email" } ]
+			for p in parameters:
+				err = False
 
-		for p in parameters:
-			err = False
+				try:
+					code = a.request_account(p["username"], p["email"])
 
-			try:
-				code = a.request_account(p["username"], p["email"])
+				except exception.Exception, ex:
+					err = self.__assert_invalid_parameter__(ex, p["parameter"])
 
-			except exception.Exception, ex:
-				err = self.__assert_invalid_parameter__(ex, p["parameter"])
+				self.assertTrue(err)
 
-			self.assertTrue(err)
-
-		# check request timeout:
-		code = a.request_account(users[0]["username"], users[0]["email"], 1)
-		sleep(1.5)
-		
-		err = False
-
-		try:
-			username, email, password = a.activate_user(code)
-
-		except exception.Exception, ex:
-			err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
-
-		self.assertTrue(err)
-
-		# create first request & activate user:
-		code = a.request_account(users[0]["username"], users[0]["email"], 60)
-		username, email, password = a.activate_user(code)
-		self.assertEqual(users[0]["username"], username)
-		self.assertEqual(users[0]["email"], email)
-
-		# try to create user with same username/email address:
-		parameters = [ { "username": users[0]["username"], "email": users[1]["email"], "code": ErrorCode.USER_ALREADY_EXISTS },
-		               { "username": users[1]["username"], "email": users[0]["email"], "code": ErrorCode.EMAIL_ALREADY_ASSIGNED } ]
-
-		for p in parameters:
-			err = False
-
-			try:
-				code = a.request_account(p["username"], p["email"])
-
-			except exception.Exception, ex:
-				err = self.__assert_error_code__(ex, p["code"])
-
-			self.assertTrue(err)
-
-		err = False
-
-		# create second request:
-		code = a.request_account(users[1]["username"], users[1]["email"])
-
-		# try to create second account request with same username:
-		err = False
-
-		try:
-			code = a.request_account(users[1]["username"], users[1]["email"])
-
-		except exception.Exception, ex:
-			err = self.__assert_error_code__(ex, ErrorCode.USERNAME_ALREADY_REQUESTED)
-
-		self.assertTrue(err)
-
-		# activate second user:
-		username, email, password = a.activate_user(code)
-		self.assertEqual(users[1]["username"], username)
-		self.assertEqual(users[1]["email"], email)
-
-		# activate user with invalid request code:
-		err = False
-
-		try:
-			code = a.activate_user(util.generate_junk(64))
-
-		except exception.Exception, ex:
-			err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
-
-	def test_01_change_password(self):
-		a = app.Application()
-
-		username, email, password = self.__create_account__(a, util.generate_junk(8), "test@testmail.com")
-		new_password = util.generate_junk(8)
-
-		# test invalid parameters:
-		parameters = [ { "new_password": util.generate_junk(2), "username": username, "old_password": password,
-		                 "parameter": "new_password" },
-		               { "new_password": util.generate_junk(128), "username": username, "old_password": password,
-		                 "parameter": "new_password" },
-		               { "new_password": new_password, "username": util.generate_junk(64), "old_password": password,
-		                 "code": ErrorCode.COULD_NOT_FIND_USER },
-		               { "new_password": new_password, "username": username, "old_password": util.generate_junk(64),
-		                 "code": ErrorCode.INVALID_PASSWORD } ]
-
-		for p in parameters:
-			err = False
-
-			try:
-				a.change_password(p["username"], p["old_password"], p["new_password"])
+			# check request timeout:
+			code = a.request_account(users[0]["username"], users[0]["email"], 1)
+			sleep(1.5)
 			
+			err = False
+
+			try:
+				username, email, password = a.activate_user(code)
+
 			except exception.Exception, ex:
-				if p.has_key("parameter"):
-					err = self.__assert_invalid_parameter__(ex, "new_password")
-				else:
+				err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
+
+			self.assertTrue(err)
+
+			# create first request & activate user:
+			code = a.request_account(users[0]["username"], users[0]["email"], 60)
+			username, email, password = a.activate_user(code)
+			self.assertEqual(users[0]["username"], username)
+			self.assertEqual(users[0]["email"], email)
+
+			# try to create user with same username/email address:
+			parameters = [ { "username": users[0]["username"], "email": users[1]["email"], "code": ErrorCode.USER_ALREADY_EXISTS },
+				       { "username": users[1]["username"], "email": users[0]["email"], "code": ErrorCode.EMAIL_ALREADY_ASSIGNED } ]
+
+			for p in parameters:
+				err = False
+
+				try:
+					code = a.request_account(p["username"], p["email"])
+
+				except exception.Exception, ex:
 					err = self.__assert_error_code__(ex, p["code"])
 
-			self.assertTrue(err)
+				self.assertTrue(err)
 
-		# block user:
-		err = False
-		db = factory.create_user_db()
+			err = False
 
-		db.block_user(username, True)
+			# create second request:
+			code = a.request_account(users[1]["username"], users[1]["email"])
 
-		try:
-			a.change_password(username, password, new_password)
-
-		except exception.Exception, ex:
-			err = self.__assert_error_code__(ex, ErrorCode.USER_IS_BLOCKED)
-
-		self.assertTrue(err)
-
-		# reactivate user:
-		db.block_user(username, False)
-		db.close()
-
-		# test old password:
-		self.assertTrue(a.validate_password(username, password))
-
-		# change password & test new one:
-		a.change_password(username, password, new_password)
-		self.assertTrue(a.validate_password(username, new_password))
-
-	def test_02_change_user_details(self):
-		a = app.Application()
-
-		# create test users:
-		user0 = self.__create_account__(a, "user0", "user0@testmail.com")
-		user1 = self.__create_account__(a, "user1", "user1@testmail.com")
-
-		# invalid parameters:
-		parameters = [ { "firstname": util.generate_junk(128), "lastname": None, "email": "user0@testmail.com", "gender": None, "parameter": "firstname" },
-		               { "firstname": None, "lastname": util.generate_junk(128), "email": "user0@testmail.com", "gender": None, "parameter": "lastname" },
-		               { "firstname": None, "lastname": None, "email": util.generate_junk(128), "gender": None, "parameter": "email" },
-		               { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "x", "parameter": "gender" } ]
-
-		for p in parameters:
+			# try to create second account request with same username:
 			err = False
 
 			try:
-				code = a.update_user_details("user0", p["email"], p["firstname"], p["lastname"], p["gender"])
+				code = a.request_account(users[1]["username"], users[1]["email"])
 
 			except exception.Exception, ex:
-				err = self.__assert_invalid_parameter__(ex, p["parameter"])
+				err = self.__assert_error_code__(ex, ErrorCode.USERNAME_ALREADY_REQUESTED)
 
 			self.assertTrue(err)
-	
-		# use already assigned email address:
-		err = False
 
-		try:
-			a.update_user_details("user0", "user1@testmail.com", None, None, None)
+			# activate second user:
+			username, email, password = a.activate_user(code)
+			self.assertEqual(users[1]["username"], username)
+			self.assertEqual(users[1]["email"], email)
 
-		except exception.Exception, ex:
-			err = self.__assert_error_code__(ex, ErrorCode.EMAIL_ALREADY_ASSIGNED)
-
-		self.assertTrue(err)
-
-		# update user details & test result:
-		a.update_user_details("user0", "test-x@testmail.com", "_firstname", "_lastname", "m")
-
-		db = factory.create_user_db()
-		user = db.get_user("user0")
-		db.close()
-
-		for key in user:
-			self.assertEqual(user[key], user[key])
-
-	def test_03_avatar(self):
-		a = app.Application()
-
-		self.__create_account__(a, "test-user", "test@testmail.com")
-
-		# try to set invalid avatars:
-		for image in [ "avatar00.png", "avatar01.tif" ]:
-			path = os.path.join("test-data", image)
-			f = open(path, "rb")
+			# activate user with invalid request code:
 			err = False
 
 			try:
-				a.update_avatar("test-user", image, f)
-	
+				code = a.activate_user(util.generate_junk(64))
+
 			except exception.Exception, ex:
-				err = self.__assert_error_code__(ex, ErrorCode.INVALID_IMAGE_FORMAT)
+				err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
+
+	def test_01_change_password(self):
+		with app.Application() as a:
+			username, email, password = self.__create_account__(a, util.generate_junk(8), "test@testmail.com")
+			new_password = util.generate_junk(8)
+
+			# test invalid parameters:
+			parameters = [ { "new_password": util.generate_junk(2), "username": username, "old_password": password,
+					 "parameter": "new_password" },
+				       { "new_password": util.generate_junk(128), "username": username, "old_password": password,
+					 "parameter": "new_password" },
+				       { "new_password": new_password, "username": util.generate_junk(64), "old_password": password,
+					 "code": ErrorCode.COULD_NOT_FIND_USER },
+				       { "new_password": new_password, "username": username, "old_password": util.generate_junk(64),
+					 "code": ErrorCode.INVALID_PASSWORD } ]
+
+			for p in parameters:
+				err = False
+
+				try:
+					a.change_password(p["username"], p["old_password"], p["new_password"])
+				
+				except exception.Exception, ex:
+					if p.has_key("parameter"):
+						err = self.__assert_invalid_parameter__(ex, "new_password")
+					else:
+						err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
+			# block user:
+			err = False
+			db = factory.create_user_db()
+
+			db.block_user(username, True)
+
+			try:
+				a.change_password(username, password, new_password)
+
+			except exception.Exception, ex:
+				err = self.__assert_error_code__(ex, ErrorCode.USER_IS_BLOCKED)
 
 			self.assertTrue(err)
-			f.close()
 
-		# set valid avatar:
-		path = os.path.join("test-data", "avatar02.jpg")
-		f = open(path, "rb")
-		a.update_avatar("test-user", "avatar02.jpg", f)
-		f.close()
-
-		# checksum:
-		src_hash = util.hash_file(path, hashlib.md5())
-
-		# compare file checksums:
-		db = factory.create_user_db()
-
-		try:
-			user = db.get_user("test-user")
-
-		except exception.Exception, ex:
+			# reactivate user:
+			db.block_user(username, False)
 			db.close()
 
-		db.close()
+			# test old password:
+			self.assertTrue(a.validate_password(username, password))
 
-		path = os.path.join(config.AVATAR_DIR, user["avatar"])
-		dst_hash = util.hash_file(path, hashlib.md5())
+			# change password & test new one:
+			a.change_password(username, password, new_password)
+			self.assertTrue(a.validate_password(username, new_password))
 
-		self.assertEqual(src_hash, dst_hash)
+	def test_02_change_user_details(self):
+		with app.Application() as a:
+			# create test users:
+			user0 = self.__create_account__(a, "user0", "user0@testmail.com")
+			user1 = self.__create_account__(a, "user1", "user1@testmail.com")
+
+			# invalid parameters:
+			parameters = [ { "firstname": util.generate_junk(128), "lastname": None, "email": "user0@testmail.com", "gender": None, "parameter": "firstname" },
+				       { "firstname": None, "lastname": util.generate_junk(128), "email": "user0@testmail.com", "gender": None, "parameter": "lastname" },
+				       { "firstname": None, "lastname": None, "email": util.generate_junk(128), "gender": None, "parameter": "email" },
+				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "x", "parameter": "gender" } ]
+
+			for p in parameters:
+				err = False
+
+				try:
+					code = a.update_user_details("user0", p["email"], p["firstname"], p["lastname"], p["gender"])
+
+				except exception.Exception, ex:
+					err = self.__assert_invalid_parameter__(ex, p["parameter"])
+
+				self.assertTrue(err)
+		
+			# use already assigned email address:
+			err = False
+
+			try:
+				a.update_user_details("user0", "user1@testmail.com", None, None, None)
+
+			except exception.Exception, ex:
+				err = self.__assert_error_code__(ex, ErrorCode.EMAIL_ALREADY_ASSIGNED)
+
+			self.assertTrue(err)
+
+			# update user details & test result:
+			a.update_user_details("user0", "test-x@testmail.com", "_firstname", "_lastname", "m")
+
+			db = factory.create_user_db()
+			user = db.get_user("user0")
+			db.close()
+
+			for key in user:
+				self.assertEqual(user[key], user[key])
+
+	def test_03_avatar(self):
+		with app.Application() as a:
+			self.__create_account__(a, "test-user", "test@testmail.com")
+
+			# try to set invalid avatars:
+			for image in [ "avatar00.png", "avatar01.tif" ]:
+				path = os.path.join("test-data", image)
+				f = open(path, "rb")
+				err = False
+
+				try:
+					a.update_avatar("test-user", image, f)
+		
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, ErrorCode.INVALID_IMAGE_FORMAT)
+
+				self.assertTrue(err)
+				f.close()
+
+			# set valid avatar:
+			path = os.path.join("test-data", "avatar02.jpg")
+			f = open(path, "rb")
+			a.update_avatar("test-user", "avatar02.jpg", f)
+			f.close()
+
+			# checksum:
+			src_hash = util.hash_file(path, hashlib.md5())
+
+			# compare file checksums:
+			db = factory.create_user_db()
+
+			try:
+				user = db.get_user("test-user")
+
+			except exception.Exception, ex:
+				db.close()
+
+			db.close()
+
+			path = os.path.join(config.AVATAR_DIR, user["avatar"])
+			dst_hash = util.hash_file(path, hashlib.md5())
+
+			self.assertEqual(src_hash, dst_hash)
 
 	def test_04_get_users(self):
-		a = app.Application()
+		with app.Application() as a:
+			# create test accounts:
+			self.__create_account__(a, "John.Doe", "john@testmail.com")
+			self.__create_account__(a, "Martin.Smith", "martin@testmail.com")
+			self.__create_account__(a, "Ada.Muster", "ada@testmail.com")
 
-		# create test accounts:
-		self.__create_account__(a, "John.Doe", "john@testmail.com")
-		self.__create_account__(a, "Martin.Smith", "martin@testmail.com")
-		self.__create_account__(a, "Ada.Muster", "ada@testmail.com")
+			# get user details:
+			user = a.get_user_details("John.Doe")
+			self.__test_user_details__(user)
+			self.assertEqual(user["name"], "John.Doe")
+			self.assertEqual(user["email"], "john@testmail.com")
 
-		# get user details:
-		user = a.get_user_details("John.Doe")
-		self.__test_user_details__(user)
-		self.assertEqual(user["name"], "John.Doe")
-		self.assertEqual(user["email"], "john@testmail.com")
+			# block user & try to get details:
+			db = factory.create_user_db()
 
-		# block user & try to get details:
-		db = factory.create_user_db()
+			try:
+				db.block_user("John.Doe", True)
+
+			except exception.Exception, ex:
+				raise ex
+
+			finally:
+				db.close()
+
+			err = False
+
+			try:
+				details = a.get_user_details("John.Doe")
+
+			except exception.Exception, ex:
+				err = self.__assert_error_code__(ex, ErrorCode.COULD_NOT_FIND_USER)
+
+			self.assertTrue(err)
+
+			# find users:
+			result = self.__cursor_to_array__(a.find_user("testmail"))
+			self.assertEqual(len(result), 2)
+
+			found = False
+			
+			for user in result:
+				self.__test_user_details__(user)
+
+				if user["name"] == "John.Doe":
+					found = True
+					break
+
+			self.assertFalse(found)
+
+			result = self.__cursor_to_array__(a.find_user("foobar"))
+			self.assertEqual(len(result), 0)
+
+	def test_05_get_objects(self):
+		objs = []
+
+		# create test objects:
+		db = factory.create_object_db()
 
 		try:
-			db.block_user("John.Doe", True)
+			for i in range(1000):
+				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
+				db.create_object(obj["guid"], obj["source"])
+				objs.append(obj)
 
 		except exception.Exception, ex:
 			raise ex
 
 		finally:
 			db.close()
-
-		err = False
-
-		try:
-			details = a.get_user_details("John.Doe")
-
-		except exception.Exception, ex:
-			err = self.__assert_error_code__(ex, ErrorCode.COULD_NOT_FIND_USER)
-
-		self.assertTrue(err)
-
-		# find users:
-		result = self.__cursor_to_array__(a.find_user("testmail"))
-		self.assertEqual(len(result), 2)
-
-		found = False
 		
-		for user in result:
-			self.__test_user_details__(user)
+		# get objects (don't perform detailled tests here because the following functions are just wrapped
+		# by the application layer):
+		with app.Application() as a:
+			for obj in objs:	
+				details = a.get_object(obj["guid"])
+				self.assertEqual(details["source"], obj["source"])
 
-			if user["name"] == "John.Doe":
-				found = True
-				break
+			result = self.__cursor_to_array__(a.get_objects(0, 100))
+			self.assertEqual(len(result), 100)
 
-		self.assertFalse(found)
+			for i in range(0, 1000, 2):
+				a.add_tags(objs[i]["guid"], [ "foo", "bar" ])
 
-		result = self.__cursor_to_array__(a.find_user("foobar"))
-		self.assertEqual(len(result), 0)
+			result = self.__cursor_to_array__(a.get_tagged_objects("foo", 0, 1000))
+			self.assertEqual(len(result), 500)
+
+			result = self.__cursor_to_array__(a.get_random_objects(100))
+			self.assertEqual(len(result), 100)
+
+			result = self.__cursor_to_array__(a.get_popular_objects(0, 100))
+			self.assertEqual(len(result), 100)
 
 	def setUp(self):
 		self.__clear_tables__()
@@ -1056,5 +1091,5 @@ def run_test_case(case):
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb, TestApplication ]:
+	for case in [ TestApplication ]:
 		run_test_case(case)
