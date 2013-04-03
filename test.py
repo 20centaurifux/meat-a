@@ -560,6 +560,16 @@ class TestObjectDb(unittest.TestCase, TestCase):
 			self.__test_object_structure__(obj)
 			self.assertEqual(obj["score"]["up"] - obj["score"]["down"], obj["score"]["total"])
 
+		# get popular objects:
+		result = self.__cursor_to_array__(self.db.get_popular_objects(0, 1000))
+		self.assertEqual(len(result), 500)
+
+		for i in range(500):
+			self.__test_object_structure__(result[i])
+
+			if i > 0:
+				assert result[i]["score"]["total"] >= result[i - 1]["score"]["total"]
+
 	def test_10_recommendations(self):
 		# create test objects:
 		objs = self.__generate_and_store_objects__(100, 32)
