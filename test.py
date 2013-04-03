@@ -998,7 +998,7 @@ class TestApplication(unittest.TestCase, TestCase):
 				db.create_object(obj["guid"], obj["source"])
 				objs.append(obj)
 		
-		# get objects (don't perform detailled tests here because the following functions are just wrapped
+		# get objects (don't perform detailed tests here because the following functions are just wrapped
 		# by the application layer):
 		with app.Application() as a:
 			for obj in objs:	
