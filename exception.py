@@ -12,7 +12,8 @@ ErrorCode = util.enum(INTERNAL_FAILURE = 0,
                       EMAIL_ALREADY_ASSIGNED = 304,
                       INVALID_REQUEST_CODE = 305,
                       INVALID_PASSWORD = 306,
-                      INVALID_IMAGE_FORMAT = 400)
+                      INVALID_IMAGE_FORMAT = 400,
+                      OBJECT_IS_LOCKED = 500)
 
 class Exception:
 	def __init__(self, code, message):
@@ -63,3 +64,7 @@ class InvalidPasswordException(Exception):
 class InvalidImageFormatException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.INVALID_IMAGE_FORMAT, "The given image has an invalid format.")
+
+class ObjectIsLockedException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.OBJECT_IS_LOCKED, "The given object is locked.")
