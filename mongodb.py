@@ -15,6 +15,7 @@ class MongoDb(database.DbUtil):
 	def close(self):
 		if self.__open:
 			self.__db.connection.disconnect()
+			self.__open = False
 
 	def clear_tables(self):
 		self.__connect__()
@@ -96,6 +97,12 @@ class MongoDb(database.DbUtil):
 class MongoUserDb(MongoDb, database.UserDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
 		MongoDb.__init__(self, database, host, port)
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, type, value, traceback):
+		self.close()
 
 	def get_user(self, username):
 		return self.__get_user__({ "name": username })
@@ -228,6 +235,12 @@ class MongoUserDb(MongoDb, database.UserDb):
 class MongoObjectDb(MongoDb, database.ObjectDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
 		MongoDb.__init__(self, database, host, port)
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, type, value, traceback):
+		self.close()
 
 	def create_object(self, guid, source):
 		self.save("objects", { "guid": guid,

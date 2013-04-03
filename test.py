@@ -231,8 +231,6 @@ class TestUserDb(unittest.TestCase, TestCase):
 		self.assertTrue(user.has_key("gender"))
 		self.assertTrue(user.has_key("protected"))
 
-db = factory.create_object_db()
-
 class TestObjectDb(unittest.TestCase, TestCase):
 	def setUp(self):
 		self.db = self.__connect_and_prepare__()
@@ -626,10 +624,9 @@ class TestObjectDb(unittest.TestCase, TestCase):
 
 	def test_11_comments(self):
 		# create test users:
-		userdb = factory.create_user_db()
-		userdb.create_user("a", "email-a", "first-a", "last-a", "pwd-a", "m")
-		userdb.create_user("b", "email-b", "first-b", "last-b", "pwd-b", "f")
-		userdb.close()
+		with factory.create_user_db() as userdb:
+			userdb.create_user("a", "email-a", "first-a", "last-a", "pwd-a", "m")
+			userdb.create_user("b", "email-b", "first-b", "last-b", "pwd-b", "f")
 
 		# create test objects:
 		objs = self.__generate_and_store_objects__(2, 32)
@@ -844,21 +841,20 @@ class TestApplication(unittest.TestCase, TestCase):
 
 			# block user:
 			err = False
-			db = factory.create_user_db()
 
-			db.block_user(username, True)
+			with factory.create_user_db() as db:
+				db.block_user(username, True)
 
-			try:
-				a.change_password(username, password, new_password)
+				try:
+					a.change_password(username, password, new_password)
 
-			except exception.Exception, ex:
-				err = self.__assert_error_code__(ex, ErrorCode.USER_IS_BLOCKED)
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, ErrorCode.USER_IS_BLOCKED)
 
-			self.assertTrue(err)
+				self.assertTrue(err)
 
-			# reactivate user:
-			db.block_user(username, False)
-			db.close()
+				# reactivate user:
+				db.block_user(username, False)
 
 			# test old password:
 			self.assertTrue(a.validate_password(username, password))
@@ -904,9 +900,8 @@ class TestApplication(unittest.TestCase, TestCase):
 			# update user details & test result:
 			a.update_user_details("user0", "test-x@testmail.com", "_firstname", "_lastname", "m")
 
-			db = factory.create_user_db()
-			user = db.get_user("user0")
-			db.close()
+			with factory.create_user_db() as db:
+				user = db.get_user("user0")
 
 			for key in user:
 				self.assertEqual(user[key], user[key])
@@ -940,15 +935,8 @@ class TestApplication(unittest.TestCase, TestCase):
 			src_hash = util.hash_file(path, hashlib.md5())
 
 			# compare file checksums:
-			db = factory.create_user_db()
-
-			try:
+			with factory.create_user_db() as db:
 				user = db.get_user("test-user")
-
-			except exception.Exception, ex:
-				db.close()
-
-			db.close()
 
 			path = os.path.join(config.AVATAR_DIR, user["avatar"])
 			dst_hash = util.hash_file(path, hashlib.md5())
@@ -969,16 +957,8 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertEqual(user["email"], "john@testmail.com")
 
 			# block user & try to get details:
-			db = factory.create_user_db()
-
-			try:
+			with factory.create_user_db() as db:
 				db.block_user("John.Doe", True)
-
-			except exception.Exception, ex:
-				raise ex
-
-			finally:
-				db.close()
 
 			err = False
 
@@ -1012,19 +992,11 @@ class TestApplication(unittest.TestCase, TestCase):
 		objs = []
 
 		# create test objects:
-		db = factory.create_object_db()
-
-		try:
+		with factory.create_object_db() as db:
 			for i in range(1000):
 				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
 				db.create_object(obj["guid"], obj["source"])
 				objs.append(obj)
-
-		except exception.Exception, ex:
-			raise ex
-
-		finally:
-			db.close()
 		
 		# get objects (don't perform detailled tests here because the following functions are just wrapped
 		# by the application layer):
@@ -1091,5 +1063,5 @@ def run_test_case(case):
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestApplication ]:
+	for case in [ TestUserDb, TestObjectDb, TestApplication ]:
 		run_test_case(case)

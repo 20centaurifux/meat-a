@@ -25,74 +25,60 @@ class Application:
 		self.__del__()
 		
 	def request_account(self, username, email, user_request_timeout = config.USER_REQUEST_TIMEOUT):
-			# validate parameters:
-			if not validate_username(username):
-				raise exception.InvalidParameterException("username")
+		# validate parameters:
+		if not validate_username(username):
+			raise exception.InvalidParameterException("username")
 
-			if not validate_email(email):
-				raise exception.InvalidParameterException("email")
+		if not validate_email(email):
+			raise exception.InvalidParameterException("email")
 
-			# connect to database:
-			db = self.__create_user_db__()
+		# connect to database:
+		db = self.__create_user_db__()
 
-			# test if user request, account or email already exist:
-			try:
-				if db.username_requested(username):
-					raise exception.UsernameAlreadyRequestedException()
+		# test if user request, account or email already exist:
+		if db.username_requested(username):
+			raise exception.UsernameAlreadyRequestedException()
 
-				if db.user_exists(username):
-					raise exception.UserAlreadyExistsException()
+		if db.user_exists(username):
+			raise exception.UserAlreadyExistsException()
 
-				if db.email_assigned(email):
-					raise exception.EmailAlreadyAssignedException()
+		if db.email_assigned(email):
+			raise exception.EmailAlreadyAssignedException()
 
-				# create activation code:
-				code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
+		# create activation code:
+		code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
 
-				while db.user_request_code_exists(code):
-					code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
+		while db.user_request_code_exists(code):
+			code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
 
-				# save user request:
-				db.create_user_request(username, email, code, user_request_timeout)
+		# save user request:
+		db.create_user_request(username, email, code, user_request_timeout)
 
-			except exception.Exception, ex:
-				raise ex
-
-			finally:
-				db.close()
-
-			return code
+		return code
 
 	def activate_user(self, code):
 		# connect to database:
 		db = self.__create_user_db__()
 
-		try:
-			request = db.get_user_request(code)
+		# find request code:
+		request = db.get_user_request(code)
 
-			# find request code:
-			if request is None:
-				raise exception.InvalidRequestCodeException()
+		if request is None:
+			raise exception.InvalidRequestCodeException()
 
-			# test if username exist or email is already assigned:
-			if db.user_exists(request["name"]):
-				raise exception.UserAlreadyExistsException()
+		# test if username exist or email is already assigned:
+		if db.user_exists(request["name"]):
+			raise exception.UserAlreadyExistsException()
 
-			if db.email_assigned(request["email"]):
-				raise exception.EmailAlreadyAssignedException()
+		if db.email_assigned(request["email"]):
+			raise exception.EmailAlreadyAssignedException()
 
-			# create user account:
-			password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH)
-			db.create_user(request["name"], request["email"], util.hash(password))
+		# create user account:
+		password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH)
+		db.create_user(request["name"], request["email"], util.hash(password))
 
-			# remove request code:
-			db.remove_user_request(code)
-
-		except exception.Exception, ex:
-			raise ex
-	
-		finally:
-			db.close()
+		# remove request code:
+		db.remove_user_request(code)
 
 		return request["name"], request["email"], password
 
@@ -102,38 +88,22 @@ class Application:
 
 		db = self.__create_user_db__()
 
-		try:
-			self.__test_active_user__(db, username)
+		self.__test_active_user__(username)
 
-			password = db.get_user_password(username)
-			hash = util.hash(old_password)
+		password = db.get_user_password(username)
+		hash = util.hash(old_password)
 
-			if password != hash:
-				raise exception.InvalidPasswordException()
+		if password != hash:
+			raise exception.InvalidPasswordException()
 
-			db.update_user_password(username, util.hash(new_password))
-
-		except exception.Exception, ex:
-			raise ex
-
-		finally:
-			db.close()
+		db.update_user_password(username, util.hash(new_password))
 
 	def validate_password(self, username, password):
 		db = self.__create_user_db__()
-		result = False
 
-		try:
-			self.__test_active_user__(db, username)
-			result = util.hash(password) == db.get_user_password(username)
+		self.__test_active_user__(username)
 
-		except exception.Exception, ex:
-			raise ex
-
-		finally:
-			db.close()
-
-		return result
+		return util.hash(password) == db.get_user_password(username)
 
 	def update_user_details(self, username, email, firstname, lastname, gender):
 		# validate parameters:
@@ -152,22 +122,15 @@ class Application:
 		# test if email address is already assigned:
 		db = self.__create_user_db__()
 
-		try:
-			self.__test_active_user__(db, username)
+		self.__test_active_user__(username)
 
-			user = db.get_user_by_email(email)
+		user = db.get_user_by_email(email)
 
-			if not user is None and user["name"] != username:
-				raise exception.EmailAlreadyAssignedException()
+		if not user is None and user["name"] != username:
+			raise exception.EmailAlreadyAssignedException()
 
-			# update user details:
-			db.update_user_details(username, email, firstname, lastname, gender)
-
-		except exception.Exception, ex:
-			raise ex
-
-		finally:
-			db.close()
+		# update user details:
+		db.update_user_details(username, email, firstname, lastname, gender)
 
 	def update_avatar(self, username, filename, stream):
 		# get file extension:
@@ -177,31 +140,20 @@ class Application:
 			raise exception.InvalidImageFormatException()
 
 		# test if user is valid:
-		db = self.__create_user_db__()
-
-		try:
-			self.__test_active_user__(db, username)
-
-		except exception.Exception, ex:
-			db.close()
-			raise ex
+		self.__test_active_user__(username)
 
 		# write temporary file:
-		f = tempfile.NamedTemporaryFile(mode = "wb", dir = config.TMP_DIR, delete = False)
+		with tempfile.NamedTemporaryFile(mode = "wb", dir = config.TMP_DIR, delete = False) as f:
+			for bytes in util.read_from_stream(stream):
+				f.write(bytes)
 
-		for bytes in util.read_from_stream(stream):
-			f.write(bytes)
-
-		f.close()
-
+		# validate image format:
 		try:
-			# validate image format:
 			if not validate_image_file(f.name, config.AVATAR_MAX_FILESIZE, config.AVATAR_MAX_WIDTH, config.AVATAR_MAX_HEIGHT, config.AVATAR_FORMATS):
 				raise exception.InvalidImageFormatException()
 
 		except exception.Exception, ex:
 			os.unlink(f.name)
-			db.close()
 			raise ex
 
 		# move file to avatar folder:
@@ -217,56 +169,31 @@ class Application:
 
 		except EnvironmentError, err:
 			os.unlink(f.name)
-			db.close()
-
 			raise exception.InternalFailureException(str(err))
 
 		# update database:
-		try:
-			db.update_avatar(username, os.path.basename(path))
-
-		except exception.Exception, ex:
-			raise ex
-
-		finally:
-			db.close()
+		db = self.__create_user_db__()
+		db.update_avatar(username, os.path.basename(path))
 
 	def get_user_details(self, username):
 		db = self.__create_user_db__()
+		details = db.get_user(username)
 
-		try:
-			details = db.get_user(username)
+		if details is None:
+			raise exception.UserNotFoundException()
 
-			if details is None:
-				raise exception.UserNotFoundException()
+		if details["blocked"]:
+			raise exception.UserNotFoundException()
 
-			if details["blocked"]:
-				raise exception.UserNotFoundException()
+		del details["password"]
+		del details["blocked"]
 
-			del details["password"]
-			del details["blocked"]
-
-			return details
-
-		except exception.Exception, ex:
-			raise ex
-
-		finally:
-			db.close()
+		return details
 
 	def find_user(self, query):
 		db = self.__create_user_db__()
 
-		try:
-			result = db.search_user(query)
-
-			return result
-
-		except exception.Exception, ex:
-			raise ex
-
-		finally:
-			db.close()
+		return db.search_user(query)
 
 	def get_object(self, guid):
 		return self.__wrapped_object_db_function__("get_object", guid)
@@ -298,7 +225,9 @@ class Application:
 
 		return self.__objectdb
 
-	def __test_active_user__(self, db, username):
+	def __test_active_user__(self, username):
+		db = self.__create_user_db__()
+
 		if not db.user_exists(username):
 			raise exception.UserNotFoundException()
 
