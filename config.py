@@ -15,4 +15,5 @@ AVATAR_MAX_FILESIZE     = 1024 * 1024
 AVATAR_MAX_WIDTH        = 120
 AVATAR_MAX_HEIGHT       = 120
 AVATAR_FORMATS          = [ "JPEG", "PNG", "GIF" ]
+AVATAR_EXTENSIONS       = [ ".jpg", ".jpeg", ".png", ".gif" ]
 AVATAR_DIR              = "images\users"

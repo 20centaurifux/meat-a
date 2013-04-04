@@ -136,7 +136,7 @@ class Application:
 		# get file extension:
 		ext = os.path.splitext(filename)[1]
 
-		if len(ext) == 0:
+		if not ext.lower() in config.AVATAR_EXTENSIONS:
 			raise exception.InvalidImageFormatException()
 
 		# test if user is valid:
