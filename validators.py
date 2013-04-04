@@ -33,6 +33,14 @@ def validate_lastname(name):
 def validate_gender(gender):
 	return gender is None or gender == "m" or gender == "f"
 
+def validate_comment(text):
+	length = len(util.strip(text))
+
+	if length == 0 or length > 512:
+		return False
+
+	return True
+
 def validate_image_file(filename, max_file_size, max_width, max_height, formats):
 	img = Image.open(filename)
 	info = os.stat(filename)
