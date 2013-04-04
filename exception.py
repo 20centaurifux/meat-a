@@ -3,6 +3,7 @@
 import util
 
 ErrorCode = util.enum(INTERNAL_FAILURE = 0,
+                      STREAM_EXCEEDS_MAXIMUM = 1,
                       CONSTRAINT_VIOLOATION = 100,
                       INVALID_PARAMETER = 200,
                       USER_ALREADY_EXISTS = 300,
@@ -25,6 +26,10 @@ class Exception:
 class InternalFailureException(Exception):
 	def __init__(self, message):
 		Exception.__init__(self, ErrorCode.INTERNAL_FAILURE, message)
+
+class StreamExceedsMaximumException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.STREAM_EXCEEDS_MAXIMUM, "The stream exceeds the defined maximum length.")
 
 class ConstraintViolationException(Exception):
 	def __init__(self, message):

@@ -58,9 +58,17 @@ def remove_all_files(directory):
 		path = os.path.join(directory, file)
 		os.remove(path)
 
-def read_from_stream(stream, block_size = 81920):
+def read_from_stream(stream, block_size = 81920, max_size = None):
 	bytes = stream.read(block_size)
+	total = len(bytes)
 
 	while len(bytes) > 0:
 		yield bytes
+
 		bytes = stream.read(block_size)
+		total += len(bytes)
+
+		if not max_size is None and total > max_size:
+			from exception import StreamExceedsMaximumException
+
+			raise StreamExceedsMaximumException()

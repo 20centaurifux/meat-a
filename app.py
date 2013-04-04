@@ -144,7 +144,7 @@ class Application:
 
 		# write temporary file:
 		with tempfile.NamedTemporaryFile(mode = "wb", dir = config.TMP_DIR, delete = False) as f:
-			for bytes in util.read_from_stream(stream):
+			for bytes in util.read_from_stream(stream, max_size = config.AVATAR_MAX_FILESIZE):
 				f.write(bytes)
 
 		# validate image format:
