@@ -244,6 +244,21 @@ class Application:
 
 		return self.__create_object_db__().get_favorites(username, page, page_size)
 
+	def add_comment(self, guid, username, text):
+		if not validate_comment(text):
+			raise exception.InvalidParameterException("comment")
+
+		self.__test_active_user__(username)
+		self.__test_object_write_access__(guid)
+
+		db = self.__create_object_db__()
+		db.add_comment(guid, username, text)
+
+	def get_comments(self, guid, page = 0, page_size = 10):
+		self.__test_object_exists__(guid)
+
+		return self.__create_object_db__().get_comments(guid, page, page_size)
+
 	def __create_user_db__(self):
 		if self.__userdb is None:
 			self.__userdb = factory.create_user_db()
