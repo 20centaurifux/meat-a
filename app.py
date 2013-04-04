@@ -173,7 +173,7 @@ class Application:
 
 		# update database:
 		db = self.__create_user_db__()
-		db.update_avatar(username, os.path.basename(path))
+		db.update_avatar(username, filename)
 
 	def get_full_user_details(self, username):
 		db = self.__create_user_db__()
