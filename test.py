@@ -1152,6 +1152,134 @@ class TestApplication(unittest.TestCase, TestCase):
 
 				self.assertTrue(err)
 
+	def test_08_favorites(self):
+		objs = []
+
+		# create test objects:
+		with factory.create_object_db() as db:
+			for i in range(1000):
+				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
+				db.create_object(obj["guid"], obj["source"])
+				objs.append(obj)
+
+		# create test accounts:
+		with app.Application() as a:
+			user_a = self.__create_account__(a, "user_a", "user_a@testmail.com")
+			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
+			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")	
+
+			# test blocked users:
+			with factory.create_user_db() as db:
+				db.block_user("user_c")
+
+			# test blocked/invalid users & invalid objects:
+			params = [ { "user": "user_c", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED },
+			           { "user": "user_d", "guid": objs[0]["guid"], "code": ErrorCode.COULD_NOT_FIND_USER },
+			           { "user": "user_b", "guid": util.generate_junk(64), "code": ErrorCode.OBJECT_NOT_FOUND} ]
+
+			for p in params:
+				err = False
+
+				try:
+					a.favor(p["user"], p["guid"], True)
+				
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
+			# create favorites:
+			for obj in objs:
+				a.favor("user_a", obj["guid"], True)
+
+			for i in range(0, 1000, 2):
+				a.favor("user_a", objs[i]["guid"], False)
+
+			# get favorites:
+			result = self.__cursor_to_array__(a.get_favorites("user_b"))
+			self.assertEqual(len(result), 0)
+
+			result = self.__cursor_to_array__(a.get_favorites("user_a", 0, 1000))
+			self.assertEqual(len(result), 500)
+
+			# get favorites from non-existing object:
+			params = [ { "user": "user_c", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED },
+			           { "user": "user_d", "guid": objs[0]["guid"], "code": ErrorCode.COULD_NOT_FIND_USER } ]
+
+			for p in params:
+				err = False
+
+				try:
+					a.favor(p["user"], p["guid"], True)
+				
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
+	def test_09_comments(self):
+		# create test objects:
+		with factory.create_object_db() as db:
+			obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
+			db.create_object(obj["guid"], obj["source"])
+
+			obj_locked = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
+			db.create_object(obj_locked["guid"], obj_locked["source"])
+			db.lock_object(obj_locked["guid"])
+
+		# create test accounts:
+		with app.Application() as a:
+			user_a = self.__create_account__(a, "user_a", "user_a@testmail.com")
+			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
+			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")	
+
+			# block user:
+			with factory.create_user_db() as db:
+				db.block_user("user_c")
+
+			# test blocked/invalid users, invalid/locked objects & invalid comments:
+			params = [ { "user": "user_c", "guid": obj["guid"], "comment": util.generate_junk(64), "code": ErrorCode.USER_IS_BLOCKED },
+			           { "user": "user_d", "guid": obj["guid"], "comment": util.generate_junk(64), "code": ErrorCode.COULD_NOT_FIND_USER },
+			           { "user": "user_b", "guid": util.generate_junk(64), "comment": util.generate_junk(64), "code": ErrorCode.OBJECT_NOT_FOUND },
+			           { "user": "user_b", "guid": obj_locked["guid"], "comment": util.generate_junk(64), "code": ErrorCode.OBJECT_IS_LOCKED },
+			           { "user": "user_b", "guid": obj["guid"], "comment": None, "code": ErrorCode.INVALID_PARAMETER },
+			           { "user": "user_b", "guid": obj["guid"], "comment": util.generate_junk(1024), "code": ErrorCode.INVALID_PARAMETER } ]
+
+			for p in params:
+				err = False
+
+				try:
+					a.add_comment(p["guid"], p["user"], p["comment"])
+
+				except exception.Exception, ex:
+					if p["code"] == ErrorCode.INVALID_PARAMETER:
+						err = self.__assert_invalid_parameter__(ex, "comment")
+					else:
+						err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
+			# create comments:
+			users = [ "user_a", "user_b" ]
+
+			for i in range(1000):
+				a.add_comment(obj["guid"], users[i % 2], str(i))
+
+			# get comments & validate order:
+			result = self.__cursor_to_array__(a.get_comments(obj["guid"], 0, 5000))
+			self.assertEqual(len(result), 1000)
+
+			timestamp = 0
+			i = 0
+
+			for comment in result:
+				self.assertEqual(comment["user"]["name"], users[i % 2])
+				assert comment["timestamp"] >= timestamp
+				self.assertEqual(str(i), comment["text"])
+
+				timestamp = comment["timestamp"]
+				i += 1
+
 	def setUp(self):
 		self.__clear_tables__()
 		util.remove_all_files(config.AVATAR_DIR)
