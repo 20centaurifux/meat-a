@@ -39,7 +39,7 @@ class UserDb(object):
 	def get_user_password(self, username): return None
 
 	@abc.abstractmethod
-	def block_user(self, username, blocked): return
+	def block_user(self, username, blocked = True): return
 
 	@abc.abstractmethod
 	def user_is_blocked(self, username): return
@@ -85,6 +85,9 @@ class ObjectDb(object):
 
 	@abc.abstractmethod
 	def remove_object(self, guid): return
+
+	@abc.abstractmethod
+	def object_exists(self, guid): return False
 
 	@abc.abstractmethod
 	def get_object(self, guid): return None

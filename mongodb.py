@@ -188,7 +188,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 	def update_avatar(self, username, avatar):
 		self.update("users", { "name": username }, { "$set": { "avatar": avatar } })
 
-	def block_user(self, username, blocked):
+	def block_user(self, username, blocked = True):
 		self.update("users", { "name": username }, { "$set": { "blocked": blocked } })
 
 	def user_is_blocked(self, username):
@@ -256,7 +256,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		                       "comments": [],
 		                       "random": random() })
 
-	def lock_object(self, guid, locked):
+	def lock_object(self, guid, locked = True):
 		self.update("objects", { "guid": guid }, { "$set": { "locked": locked } })
 
 	def is_locked(self, guid):
@@ -269,6 +269,9 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def remove_object(self, guid):
 		self.remove("objects", { "guid": guid })
+
+	def object_exists(self, guid):
+		return bool(self.count("objects", { "guid": guid }))
 
 	def get_object(self, guid):
 		return self.find_one("objects", { "guid": guid }, { "_id": False, "guid": True, "source": True, "locked": True,

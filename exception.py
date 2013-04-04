@@ -13,7 +13,9 @@ ErrorCode = util.enum(INTERNAL_FAILURE = 0,
                       INVALID_REQUEST_CODE = 305,
                       INVALID_PASSWORD = 306,
                       INVALID_IMAGE_FORMAT = 400,
-                      OBJECT_IS_LOCKED = 500)
+                      OBJECT_IS_LOCKED = 500,
+                      OBJECT_NOT_FOUND = 501,
+                      USER_ALREADY_RATED = 502)
 
 class Exception:
 	def __init__(self, code, message):
@@ -68,3 +70,12 @@ class InvalidImageFormatException(Exception):
 class ObjectIsLockedException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.OBJECT_IS_LOCKED, "The given object is locked.")
+
+class ObjectNotFoundException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.OBJECT_NOT_FOUND, "Object not found.")
+
+class UserAlreadyRatedException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.USER_ALREADY_RATED, "The user has already rated for the given object.")
+

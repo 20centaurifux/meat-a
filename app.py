@@ -175,7 +175,7 @@ class Application:
 		db = self.__create_user_db__()
 		db.update_avatar(username, os.path.basename(path))
 
-	def get_user_details(self, username):
+	def get_full_user_details(self, username):
 		db = self.__create_user_db__()
 		details = db.get_user(username)
 
@@ -187,6 +187,12 @@ class Application:
 
 		del details["password"]
 		del details["blocked"]
+
+		return details
+
+	def get_user_details(self, username):
+		details = self.get_full_user_details(username)
+		del details["email"]
 
 		return details
 
@@ -215,6 +221,17 @@ class Application:
 
 		return self.__create_object_db__().add_tags(guid, tags)
 
+	def rate(self, username, guid, up = True):
+		self.__test_active_user__(username)
+		self.__test_object_write_access__(guid)
+
+		db = self.__create_object_db__()
+
+		if not db.user_can_rate(guid, username):
+			raise exception.UserAlreadyRatedException()
+
+		db.rate(guid, username, up)
+
 	def __create_user_db__(self):
 		if self.__userdb is None:
 			self.__userdb = factory.create_user_db()
@@ -238,6 +255,9 @@ class Application:
 
 	def __test_object_write_access__(self, guid):
 		db = self.__create_object_db__()
+
+		if not db.object_exists(guid):
+			raise exception.ObjectNotFoundException()
 
 		if db.is_locked(guid):
 			raise exception.ObjectIsLockedException()
