@@ -810,6 +810,8 @@ class TestApplication(unittest.TestCase, TestCase):
 			except exception.Exception, ex:
 				err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
 
+			self.assertTrue(err)
+
 	def test_01_change_password(self):
 		with app.Application() as a:
 			username, email, password = self.__create_account__(a, util.generate_junk(8), "test@testmail.com")
@@ -913,17 +915,17 @@ class TestApplication(unittest.TestCase, TestCase):
 			# try to set invalid avatars:
 			for image in [ "avatar00.png", "avatar01.tif" ]:
 				path = os.path.join("test-data", image)
-				f = open(path, "rb")
-				err = False
 
-				try:
-					a.update_avatar("test-user", image, f)
-		
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, ErrorCode.INVALID_IMAGE_FORMAT)
+				with open(path, "rb") as f:
+					err = False
 
-				self.assertTrue(err)
-				f.close()
+					try:
+						a.update_avatar("test-user", image, f)
+			
+					except exception.Exception, ex:
+						err = self.__assert_error_code__(ex, ErrorCode.INVALID_IMAGE_FORMAT)
+
+					self.assertTrue(err)
 
 			# set valid avatar:
 			path = os.path.join("test-data", "avatar02.jpg")
