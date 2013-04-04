@@ -1,20 +1,58 @@
 # -*- coding: utf-8 -*-
 
-import database, pymongo, util, re
+import database, pymongo, util, re, runtime
 from bson.code import Code
 from random import random
 from exception import ConstraintViolationException
+from collections import deque
+
+# global connection pool:
+pool = None
+
+class MongoClientPool:
+	def __init__(self, host = "127.0.0.1", port = 27017, max_size = 20):
+		self.__max_size = max_size
+		self.__host = host
+		self.__port = port
+		self.__queue = deque()
+
+	def __del__(self):
+		for connection in self.__queue:
+			connection.disconnect()
+
+	def connect(self):
+		try:
+			connection = self.__queue.popleft()
+		
+		except IndexError:
+			connection = pymongo.MongoClient(self.__host, self.__port)
+
+		return connection
+
+	def detach(self, connection):
+		if len(self.__queue) > self.__max_size:
+			connection.disconnect()
+		else:
+			self.__queue.append(connection)
 
 class MongoDb(database.DbUtil):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
 		self.__database = database
 		self.__host = host
 		self.__port = port
+		self.__client = None
+		self.__db = None
 		self.__open = False
 
 	def close(self):
+		global pool
+
 		if self.__open:
-			self.__db.connection.disconnect()
+			if runtime.ENABLE_MONGOCLIENT_POOL:
+				pool.detach(self.__client)
+			else:
+				self.__client.disconnect()
+
 			self.__open = False
 
 	def clear_tables(self):
@@ -80,7 +118,19 @@ class MongoDb(database.DbUtil):
 
 	def __connect__(self):
 		if not self.__open:
-			self.__db = pymongo.MongoClient(self.__host, self.__port)[self.__database]
+			global pool
+
+			if runtime.ENABLE_MONGOCLIENT_POOL:
+				# initialize global connection pool if necessary:
+				if pool is None:
+					pool = MongoClientPool(self.__host, self.__port)
+
+				self.__client = pool.connect()
+			else:
+				# don't use pool:
+				self.__client = pymongo.MongoClient(self.__host, self.__port)
+
+			self.__db = self.__client[self.__database]
 			self.__open = True
 
 			# create indices:
@@ -89,9 +139,10 @@ class MongoDb(database.DbUtil):
 			self.__db.users.ensure_index("blocked", 1)
 			self.__db.objects.ensure_index("random", 1)
 			self.__db.objects.ensure_index("timestamp", -1)
+			self.__db.objects.ensure_index("fans.timestamp", -1)
+			self.__db.objects.ensure_index("fans", 1)
 			self.__db.objects.ensure_index("tags", 1)
 			self.__db.objects.ensure_index("voters", 1)
-			self.__db.objects.ensure_index("fans", 1)
 			self.__db.objects.ensure_index("score.total", 1)
 
 class MongoUserDb(MongoDb, database.UserDb):
