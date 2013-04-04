@@ -232,6 +232,18 @@ class Application:
 
 		db.rate(guid, username, up)
 
+	def favor(self, username, guid, favor = True):
+		self.__test_active_user__(username)
+		self.__test_object_exists__(guid)
+
+		db = self.__create_object_db__()
+		db.favor_object(guid, username, favor)
+
+	def get_favorites(self, username, page = 0, page_size = 10):
+		self.__test_active_user__(username)
+
+		return self.__create_object_db__().get_favorites(username, page, page_size)
+
 	def __create_user_db__(self):
 		if self.__userdb is None:
 			self.__userdb = factory.create_user_db()
@@ -252,6 +264,12 @@ class Application:
 
 		if db.user_is_blocked(username):
 			raise exception.UserIsBlockedException()
+
+	def __test_object_exists__(self, guid):
+		db = self.__create_object_db__()
+
+		if not db.object_exists(guid):
+			raise exception.ObjectNotFoundException()
 
 	def __test_object_write_access__(self, guid):
 		db = self.__create_object_db__()
