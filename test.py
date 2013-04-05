@@ -124,7 +124,6 @@ class TestUserDb(unittest.TestCase, TestCase):
 			queries.append("%s %s" % (user["firstname"], user["lastname"]))
 			queries.append("%s %s" % (user["lastname"], user["firstname"]))
 			queries.append("%s, %s" % (user["firstname"], user["lastname"]))
-			queries.append("%s, %s" % (user["lastname"], user["firstname"]))
 
 			for query in queries:
 				result = self.__cursor_to_array__(self.db.search_user(query))
@@ -513,14 +512,17 @@ class TestObjectDb(unittest.TestCase, TestCase):
 				self.assertTrue(exists)
 
 		# test sort order:
-		for i in range(5):
+		for i in range(20):
 			self.db.favor_object(objs[i]["guid"], "h", True)
-			sleep(0.2)
+			sleep(0.1)
 
 		r = self.__cursor_to_array__(self.db.get_favorites("h", 0, 5))
 
-		for i in range(5):
-			self.assertEqual(objs[4 - i]["guid"], r[i]["guid"])
+		timestamp = 0
+
+		for obj in r:
+			assert obj["timestamp"] >= timestamp
+			timestamp = obj["timestamp"]
 
 	def test_09_score(self):
 		# create test objects:
