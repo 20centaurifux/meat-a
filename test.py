@@ -249,12 +249,14 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		# test if non-existing objects can be found:
 		for obj in self.__generate_objects__(10, 128):
 			self.assertIsNone(self.db.get_object(obj["guid"]))
+			self.assertFalse(self.db.object_exists(obj["guid"]))
 			
 		# get details of each object & compare fields:
 		for obj in objs:
 			details = self.db.get_object(obj["guid"])
 			self.assertIsNot(details, None)
 			self.__test_object_structure__(details)
+			self.assertTrue(self.db.object_exists(obj["guid"]))
 
 			for key in obj:
 				self.assertEqual(obj[key], details[key])
@@ -611,6 +613,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 							break
 
 				self.assertTrue(exists)
+				self.assertEqual(exists, db.recommendation_exists(objs[i]["guid"], user))
 
 			self.assertEqual(count, 50)
 
