@@ -476,3 +476,6 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def get_recommendations(self, username, page = 0, page_size = 10):
 		return self.get_objects(page, page_size, { "recommendations.user": username }, [ "recommendations.timestamp", -1 ])
+
+	def recommendation_exists(self, guid, username):
+		return bool(self.count("objects", { "guid": guid, "recommendations.user": username }))

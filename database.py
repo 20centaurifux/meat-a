@@ -139,3 +139,6 @@ class ObjectDb(object):
 
 	@abc.abstractmethod
 	def get_recommendations(self, username, page = 0, page_size = 10): return None
+
+	@abc.abstractmethod
+	def recommendation_exists(self, guid, username): return False
