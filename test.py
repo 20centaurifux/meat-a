@@ -1282,6 +1282,78 @@ class TestApplication(unittest.TestCase, TestCase):
 				timestamp = comment["timestamp"]
 				i += 1
 
+	def test_10_recommendations(self):
+		objs = []
+
+		# create test objects:
+		with factory.create_object_db() as db:
+			for i in range(1000):
+				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
+				db.create_object(obj["guid"], obj["source"])
+				objs.append(obj)
+
+			obj_locked = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
+			db.create_object(obj_locked["guid"], obj_locked["source"])
+			db.lock_object(obj_locked["guid"])
+
+		# create test accounts:
+		with app.Application() as a:
+			user_a = self.__create_account__(a, "user_a", "user_a@testmail.com")
+			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
+			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")	
+			user_d = self.__create_account__(a, "user_d", "user_d@testmail.com")	
+
+		# block account:
+		with factory.create_user_db() as db:
+			db.block_user("user_d")
+
+		with app.Application() as a:
+			# create recommendations:
+			for obj in objs:
+				a.recommend("user_a", obj["guid"], [ "user_a", "user_b", "user_c" ])
+				a.recommend("user_b", obj["guid"], [ "user_c", "foo", "user_d" ])
+
+			# get recommendations:
+			result = self.__cursor_to_array__(a.get_recommendations("user_a", 0, 5000))
+			self.assertEqual(len(result), 0)
+
+			result = self.__cursor_to_array__(a.get_recommendations("user_b", 0, 5000))
+			self.assertEqual(len(result), 1000)
+
+			result = self.__cursor_to_array__(a.get_recommendations("user_c", 0, 5000))
+			self.assertEqual(len(result), 1000)
+
+			# test invalid & blocked users:
+			params = [ { "username": "user_d", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED },
+			           { "username": "foo", "guid": objs[0]["guid"], "code": ErrorCode.COULD_NOT_FIND_USER },
+			           { "username": "user_a", "guid": util.generate_junk(64), "code": ErrorCode.OBJECT_NOT_FOUND }]
+
+			for p in params:
+				err = False
+
+				try:
+					a.recommend(p["username"], p["guid"], [ "user_a", "user_b", "user_c" ])
+			
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
+			params = [ { "username": "user_d", "code": ErrorCode.USER_IS_BLOCKED },
+			           { "username": "foo", "code": ErrorCode.COULD_NOT_FIND_USER } ]
+
+
+			for p in params:
+				err = False
+
+				try:
+					a.get_recommendations(p["username"])
+			
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
 	def setUp(self):
 		self.__clear_tables__()
 		util.remove_all_files(config.AVATAR_DIR)
