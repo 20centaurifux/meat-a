@@ -259,6 +259,27 @@ class Application:
 
 		return self.__create_object_db__().get_comments(guid, page, page_size)
 
+	def recommend(self, username, guid, receivers):
+		self.__test_active_user__(username)
+		self.__test_object_exists__(guid)
+
+		# build valid receiver list.
+		valid_receivers = []
+
+		with self.__create_user_db__() as userdb:
+			with self.__create_object_db__() as objdb:
+				for r in receivers:
+					if r != username and userdb.user_exists(r) and not userdb.user_is_blocked(r) and not objdb.recommendation_exists(guid, r):
+						valid_receivers.append(r)
+
+				# create recommendations:
+				objdb.recommend(guid, username, valid_receivers)
+
+	def get_recommendations(self, username, page = 0, page_size = 10):
+		self.__test_active_user__(username)
+
+		return self.__create_object_db__().get_recommendations(username, page, page_size)
+
 	def __create_user_db__(self):
 		if self.__userdb is None:
 			self.__userdb = factory.create_user_db()
