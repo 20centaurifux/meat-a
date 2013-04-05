@@ -516,7 +516,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 			self.db.favor_object(objs[i]["guid"], "h", True)
 			sleep(0.1)
 
-		r = self.__cursor_to_array__(self.db.get_favorites("h", 0, 5))
+		r = self.__cursor_to_array__(self.db.get_favorites("h", 0, 20))
 
 		timestamp = 0
 
@@ -564,11 +564,11 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		result = self.__cursor_to_array__(self.db.get_popular_objects(0, 1000))
 		self.assertEqual(len(result), 500)
 
-		for i in range(500):
+		for i in range(499):
 			self.__test_object_structure__(result[i])
 
 			if i > 0:
-				assert result[i]["score"]["total"] >= result[i - 1]["score"]["total"]
+				assert result[i]["score"]["total"] >= result[i + 1]["score"]["total"]
 
 	def test_10_recommendations(self):
 		# create test objects:
@@ -615,14 +615,18 @@ class TestObjectDb(unittest.TestCase, TestCase):
 			self.assertEqual(count, 50)
 
 		# test sort order:
-		for i in range(5):
+		for i in range(20):
 			self.db.recommend(objs[i]["guid"], "a", [ "d" ])
-			sleep(0.2)
+			sleep(0.1)
 
-		r = self.__cursor_to_array__(self.db.get_recommendations("d", 0, 10))
 
-		for i in range(5):
-			self.assertEqual(objs[4 - i]["guid"], r[i]["guid"])
+		r = self.__cursor_to_array__(self.db.get_recommendations("d", 0, 20))
+
+		timestamp = 0
+
+		for obj in r:
+			assert obj["timestamp"] >= timestamp
+			timestamp = obj["timestamp"]
 
 	def test_11_comments(self):
 		# create test users:

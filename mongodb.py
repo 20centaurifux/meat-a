@@ -26,6 +26,7 @@ class MongoClientPool:
 		
 		except IndexError:
 			connection = pymongo.MongoClient(self.__host, self.__port)
+			connection.write_concern = { "j": True }
 
 		return connection
 
@@ -139,7 +140,6 @@ class MongoDb(database.DbUtil):
 			self.__db.users.ensure_index("blocked", 1)
 			self.__db.objects.ensure_index("random", 1)
 			self.__db.objects.ensure_index("timestamp", -1)
-			self.__db.objects.ensure_index("fans.timestamp", -1)
 			self.__db.objects.ensure_index("fans", 1)
 			self.__db.objects.ensure_index("tags", 1)
 			self.__db.objects.ensure_index("voters", 1)
@@ -341,7 +341,14 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		return self.get_objects(page, page_size, { "tags": tag })
 
 	def get_popular_objects(self, page = 0, page_size = 10):
-		return self.get_objects(page, page_size, sorting = [ "score.total", 1 ])
+		result = []
+
+		for obj in self.get_objects(page, page_size):
+			result.append(obj)
+
+		result.sort(key = lambda x: x["score"]["total"], reverse = True)
+
+		return result
 
 	def get_random_objects(self, page_size = 10):
 		result = []
@@ -459,7 +466,14 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		return False
 
 	def get_favorites(self, username, page = 0, page_size = 10):
-		return self.get_objects(page, page_size, { "fans.user": username }, [ "fans.timestamp", -1 ])
+		comments = []
+
+		for item in self.get_objects(page, page_size, { "fans.user": username }):
+			comments.append(item)
+
+		comments.sort(key = lambda x: x["timestamp"])
+
+		return comments
 
 	def recommend(self, guid, username, receivers):
 		r = { "user": None, "timestamp": util.now() }
@@ -475,7 +489,14 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 			self.update("objects", query, update)
 
 	def get_recommendations(self, username, page = 0, page_size = 10):
-		return self.get_objects(page, page_size, { "recommendations.user": username }, [ "recommendations.timestamp", -1 ])
+		recommendations = []
+
+		for item in self.get_objects(page, page_size, { "recommendations.user": username }):
+			recommendations.append(item)
+
+		recommendations.sort(key = lambda x: x["timestamp"])
+
+		return recommendations
 
 	def recommendation_exists(self, guid, username):
 		return bool(self.count("objects", { "guid": guid, "recommendations.user": username }))
