@@ -68,6 +68,12 @@ class UserDb(object):
 	@abc.abstractmethod
 	def username_requested(self, username): return False
 
+	@abc.abstractmethod
+	def follow(self, user1, user2, follow = True): return
+
+	@abc.abstractmethod
+	def is_following(self, user1, user2): return False
+
 class ObjectDb(object):
 	__metaclass__ = abc.ABCMeta
 

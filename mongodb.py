@@ -138,6 +138,7 @@ class MongoDb(database.DbUtil):
 			self.__db.users.ensure_index("name", 1)
 			self.__db.users.ensure_index("email", 1)
 			self.__db.users.ensure_index("blocked", 1)
+			self.__db.users.ensure_index("following", 1)
 			self.__db.objects.ensure_index("random", 1)
 			self.__db.objects.ensure_index("timestamp", -1)
 			self.__db.objects.ensure_index("fans", 1)
@@ -196,7 +197,8 @@ class MongoUserDb(MongoDb, database.UserDb):
 		filter = { "$and": [ { "blocked": False }, filter ] }
 
 		return (user for user in self.find("users", filter, { "_id": False, "name": True, "firstname": True, "lastname": True,
-		                                                      "protected": True, "avatar": True, "gender": True, "email": True, "timestamp": True }))
+		                                                      "protected": True, "avatar": True, "gender": True, "email": True,
+		                                                      "timestamp": True, "following": True }))
 
 	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None):
 		user = self.find_and_modify("users", { "$or": [ { "name": username }, { "$and": [ { "email": email }, { "blocked": False } ] } ] },
@@ -206,6 +208,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                              "lastname": lastname,
 		                              "password": password,
 		                              "gender": gender,
+		                              "following": [],
 		                              "timestamp": util.now(),
 		                              "avatar": None,
 		                              "blocked": False,
@@ -277,10 +280,23 @@ class MongoUserDb(MongoDb, database.UserDb):
 	def username_requested(self, username):
 		return bool(self.count("user_requests", { "$and": [ { "name": username }, { "lifetime": { "$gte": util.now() } } ] }))
 
+	def follow(self, user1, user2, follow = True):
+		if follow:
+			query = { "name": user1, "following": { "$ne": user2 } };
+			update = { "$push": { "following": user2 } }
+		else:
+			query = { "name": user1, "following": user2 };
+			update = { "$pull": { "following": user2 } }
+
+		self.update("users", query, update)
+
+	def is_following(self, user1, user2):
+		return bool(self.count("users", { "$and": [ { "name": user1 }, { "following": user2 } ] }))
+
 	def __get_user__(self, filter):
 		return self.find_one("users", filter, { "_id": False, "name": True, "firstname": True, "lastname": True,
 		                                        "email": True, "password": True, "gender": True, "timestamp": True,
-		                                        "avatar": True, "blocked": True, "protected": True })
+		                                        "avatar": True, "blocked": True, "protected": True, "following": True })
 
 class MongoObjectDb(MongoDb, database.ObjectDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
