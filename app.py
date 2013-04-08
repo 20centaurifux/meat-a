@@ -192,7 +192,9 @@ class Application:
 
 	def get_user_details(self, username):
 		details = self.get_full_user_details(username)
+
 		del details["email"]
+		del details["following"]
 
 		return details
 
@@ -260,17 +262,27 @@ class Application:
 		return self.__create_object_db__().get_comments(guid, page, page_size)
 
 	def recommend(self, username, guid, receivers):
-		self.__test_active_user__(username)
+		sender = self.__get_active_user__(username)
 		self.__test_object_exists__(guid)
 
-		# build valid receiver list.
+		# build valid receiver list:
 		valid_receivers = []
 
 		with self.__create_user_db__() as userdb:
 			with self.__create_object_db__() as objdb:
 				for r in receivers:
-					if r != username and userdb.user_exists(r) and not userdb.user_is_blocked(r) and not objdb.recommendation_exists(guid, r):
-						valid_receivers.append(r)
+					if r != username and r in sender["following"]:
+						try:
+							user = self.__get_active_user__(r)
+
+							if username in user["following"] and not objdb.recommendation_exists(guid, r):
+								valid_receivers.append(r)
+
+						except exception.UserNotFoundException:
+							pass
+
+						except exception.UserIsBlockedException:
+							pass
 
 				# create recommendations:
 				objdb.recommend(guid, username, valid_receivers)
@@ -279,6 +291,15 @@ class Application:
 		self.__test_active_user__(username)
 
 		return self.__create_object_db__().get_recommendations(username, page, page_size)
+
+	def follow(self, user1, user2):
+		self.__test_active_user__(user1)
+		self.__test_active_user__(user2)
+
+		self.__create_user_db__().follow(user1, user2)
+
+	def is_following(self, user1, user2):
+		return self.__create_user_db__().is_following(user1, user2)
 
 	def __create_user_db__(self):
 		if self.__userdb is None:
@@ -300,6 +321,19 @@ class Application:
 
 		if db.user_is_blocked(username):
 			raise exception.UserIsBlockedException()
+
+	def __get_active_user__(self, username):
+		db = self.__create_user_db__()
+
+		user = db.get_user(username)
+
+		if user is None:
+			raise exception.UserNotFoundException()
+
+		if user["blocked"]:
+			raise exception.UserIsBlockedException()
+
+		return user
 
 	def __test_object_exists__(self, guid):
 		db = self.__create_object_db__()
