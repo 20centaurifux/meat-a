@@ -29,7 +29,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 
 		# save users in database:
 		for user in self.users:
-			self.db.create_user(user["name"], user["email"], user["password"], user["firstname"], user["lastname"], user["gender"])
+			self.db.create_user(user["name"], user["email"], user["password"], user["firstname"], user["lastname"], user["gender"], user["protected"])
 
 	def tearDown(self):
 		self.__clear_tables__()
@@ -85,7 +85,9 @@ class TestUserDb(unittest.TestCase, TestCase):
 					else:
 						user["gender"] = "f"
 
-			self.db.update_user_details(user["name"], user["email"], user["firstname"], user["lastname"], user["gender"])
+					user["protected"] = bool(random.randint(0, 1))
+
+			self.db.update_user_details(user["name"], user["email"], user["firstname"], user["lastname"], user["gender"], user["protected"])
 
 			# get details from database & compare fields:
 			details = self.db.get_user(user["name"])
@@ -229,6 +231,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 		         "lastname": util.generate_junk(text_length),
 		         "password": util.generate_junk(text_length),
 		         "gender": gender,
+		         "protected": True,
 		         "avatar": None }
 
 	def __test_full_user_structure__(self, user):
@@ -901,16 +904,17 @@ class TestApplication(unittest.TestCase, TestCase):
 			user1 = self.__create_account__(a, "user1", "user1@testmail.com")
 
 			# invalid parameters:
-			parameters = [ { "firstname": util.generate_junk(128), "lastname": None, "email": "user0@testmail.com", "gender": None, "parameter": "firstname" },
-				       { "firstname": None, "lastname": util.generate_junk(128), "email": "user0@testmail.com", "gender": None, "parameter": "lastname" },
-				       { "firstname": None, "lastname": None, "email": util.generate_junk(128), "gender": None, "parameter": "email" },
-				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "x", "parameter": "gender" } ]
+			parameters = [ { "firstname": util.generate_junk(128), "lastname": None, "email": "user0@testmail.com", "gender": None, "protected": False, "parameter": "firstname" },
+				       { "firstname": None, "lastname": util.generate_junk(128), "email": "user0@testmail.com", "gender": None, "protected": False, "parameter": "lastname" },
+				       { "firstname": None, "lastname": None, "email": util.generate_junk(128), "gender": None, "protected": False, "parameter": "email" },
+				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "x", "protected": False, "parameter": "gender" },
+				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "m", "protected": None, "parameter": "protected" } ]
 
 			for p in parameters:
 				err = False
 
 				try:
-					code = a.update_user_details("user0", p["email"], p["firstname"], p["lastname"], p["gender"])
+					code = a.update_user_details("user0", p["email"], p["firstname"], p["lastname"], p["gender"], p["protected"])
 
 				except exception.Exception, ex:
 					err = self.__assert_invalid_parameter__(ex, p["parameter"])
@@ -921,7 +925,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			err = False
 
 			try:
-				a.update_user_details("user0", "user1@testmail.com", None, None, None)
+				a.update_user_details("user0", "user1@testmail.com", None, None, None, True)
 
 			except exception.Exception, ex:
 				err = self.__assert_error_code__(ex, ErrorCode.EMAIL_ALREADY_ASSIGNED)
@@ -929,13 +933,17 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertTrue(err)
 
 			# update user details & test result:
-			a.update_user_details("user0", "test-x@testmail.com", "_firstname", "_lastname", "m")
+			a.update_user_details("user0", "test-x@testmail.com", "_firstname", "_lastname", "f", False)
 
 			with factory.create_user_db() as db:
 				user = db.get_user("user0")
 
-			for key in user:
-				self.assertEqual(user[key], user[key])
+			self.assertEqual(user["name"], "user0")
+			self.assertEqual(user["email"], "test-x@testmail.com")
+			self.assertEqual(user["firstname"], "_firstname")
+			self.assertEqual(user["lastname"], "_lastname")
+			self.assertEqual(user["gender"], "f")
+			self.assertFalse(user["protected"])
 
 	def test_03_avatar(self):
 		with app.Application() as a:

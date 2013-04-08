@@ -200,7 +200,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                                                      "protected": True, "avatar": True, "gender": True, "email": True,
 		                                                      "timestamp": True, "following": True }))
 
-	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None):
+	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None, protected = False):
 		user = self.find_and_modify("users", { "$or": [ { "name": username }, { "$and": [ { "email": email }, { "blocked": False } ] } ] },
 		                            { "name": username,
 		                              "email": email,
@@ -212,19 +212,20 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                              "timestamp": util.now(),
 		                              "avatar": None,
 		                              "blocked": False,
-		                              "protected": True },
+		                              "protected": protected },
 		                              True)
  
 		if not user is None:
 			raise ConstraintViolationException("Username or email address already assigned.")
 
-	def update_user_details(self, username, email, firstname, lastname, gender):
+	def update_user_details(self, username, email, firstname, lastname, gender, protected):
 		self.update("users", { "name": username },
 		                     { "$set": {
 		                          "email": email,
 		                          "firstname": firstname,
 		                          "lastname": lastname,
 		                          "gender": gender,
+		                          "protected": protected
 		                     } })
 
 	def update_user_password(self, username, password):

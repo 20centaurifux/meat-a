@@ -105,7 +105,7 @@ class Application:
 
 		return util.hash(password) == db.get_user_password(username)
 
-	def update_user_details(self, username, email, firstname, lastname, gender):
+	def update_user_details(self, username, email, firstname, lastname, gender, protected):
 		# validate parameters:
 		if not validate_email(email):
 			raise exception.InvalidParameterException("email")
@@ -119,6 +119,9 @@ class Application:
 		if not validate_gender(gender):
 			raise exception.InvalidParameterException("gender")
 
+		if protected is None or (protected != True and protected != False):
+			raise exception.InvalidParameterException("protected")
+
 		# test if email address is already assigned:
 		db = self.__create_user_db__()
 
@@ -130,7 +133,7 @@ class Application:
 			raise exception.EmailAlreadyAssignedException()
 
 		# update user details:
-		db.update_user_details(username, email, firstname, lastname, gender)
+		db.update_user_details(username, email, firstname, lastname, gender, protected)
 
 	def update_avatar(self, username, filename, stream):
 		# get file extension:
@@ -174,6 +177,7 @@ class Application:
 		# update database:
 		db = self.__create_user_db__()
 		db.update_avatar(username, filename)
+
 
 	def get_full_user_details(self, username):
 		db = self.__create_user_db__()
