@@ -183,6 +183,26 @@ class TestUserDb(unittest.TestCase, TestCase):
 		request = self.db.get_user_request(code)
 		self.assertIsNone(request)
 
+	def test_07_friendship(self):
+		users_a = self.users[:50]
+		users_b = self.users[50:]
+
+		for i in range(50):
+			self.assertFalse(self.db.is_following(users_a[i]["name"], users_b[i]["name"]))
+			self.assertFalse(self.db.is_following(users_b[i]["name"], users_a[i]["name"]))
+
+			self.db.follow(users_a[i]["name"], users_b[i]["name"])
+			self.assertTrue(self.db.is_following(users_a[i]["name"], users_b[i]["name"]))
+			self.assertFalse(self.db.is_following(users_b[i]["name"], users_a[i]["name"]))
+
+			self.db.follow(users_b[i]["name"], users_a[i]["name"])
+			self.assertTrue(self.db.is_following(users_a[i]["name"], users_b[i]["name"]))
+			self.assertTrue(self.db.is_following(users_b[i]["name"], users_a[i]["name"]))
+
+			self.db.follow(users_a[i]["name"], users_b[i]["name"], False)
+			self.assertFalse(self.db.is_following(users_a[i]["name"], users_b[i]["name"]))
+			self.assertTrue(self.db.is_following(users_b[i]["name"], users_a[i]["name"]))
+
 	def __connect_and_prepare__(self):
 		db = factory.create_user_db()
 		self.__clear_tables__()
@@ -613,7 +633,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 							break
 
 				self.assertTrue(exists)
-				self.assertEqual(exists, db.recommendation_exists(objs[i]["guid"], user))
+				self.assertEqual(exists, self.db.recommendation_exists(objs[i]["guid"], user))
 
 			self.assertEqual(count, 50)
 
@@ -968,7 +988,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertEqual(user["email"], "john@testmail.com")
 
 			user = a.get_user_details("John.Doe")
-			self.__test_user_details__(user, False)
+			self.__test_user_details__(user, False, False)
 			self.assertEqual(user["name"], "John.Doe")
 
 			# block user & try to get details:
@@ -1289,7 +1309,40 @@ class TestApplication(unittest.TestCase, TestCase):
 				timestamp = comment["timestamp"]
 				i += 1
 
-	def test_10_recommendations(self):
+	def test_10_friendship(self):
+		with app.Application() as a:
+			# create test users:
+			self.__create_account__(a, "John.Doe", "john@testmail.com")
+			self.__create_account__(a, "Martin.Smith", "martin@testmail.com")
+			self.__create_account__(a, "Ada.Muster", "ada@testmail.com")
+
+			# invalid parameters:
+			with factory.create_user_db() as db:
+				db.block_user("John.Doe", True)
+
+			params = [ { "user1": "John.Doe", "user2": "Ada.Muster", "code": ErrorCode.USER_IS_BLOCKED,
+			             "user1": "Martin.Smith", "user2": "John.Doe", "code": ErrorCode.USER_IS_BLOCKED,
+			             "user1": "Martin.Smith", "user2": util.generate_junk(16), "code": ErrorCode.COULD_NOT_FIND_USER } ]
+
+			for p in params:
+				err = False
+
+				try:
+					a.follow(p["user1"], p["user2"])
+			
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
+			# create friendship:
+			params = [ { "user1": "Martin.Smith", "user2": "Ada.Muster" }, { "user1": "Ada.Muster", "user2": "Martin.Smith" } ]
+
+			for p in params:
+				a.follow(p["user1"], p["user2"])
+				self.assertTrue(a.is_following(p["user1"], p["user2"]))
+
+	def test_11_recommendations(self):
 		objs = []
 
 		# create test objects:
@@ -1315,6 +1368,10 @@ class TestApplication(unittest.TestCase, TestCase):
 			db.block_user("user_d")
 
 		with app.Application() as a:
+			# create friendship:
+			a.follow("user_a", "user_c")
+			a.follow("user_c", "user_a")
+
 			# create recommendations:
 			for obj in objs:
 				a.recommend("user_a", obj["guid"], [ "user_a", "user_b", "user_c" ])
@@ -1325,7 +1382,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertEqual(len(result), 0)
 
 			result = self.__cursor_to_array__(a.get_recommendations("user_b", 0, 5000))
-			self.assertEqual(len(result), 1000)
+			self.assertEqual(len(result), 0)
 
 			result = self.__cursor_to_array__(a.get_recommendations("user_c", 0, 5000))
 			self.assertEqual(len(result), 1000)
@@ -1385,11 +1442,12 @@ class TestApplication(unittest.TestCase, TestCase):
 
 		return True
 
-	def __test_user_details__(self, user, with_email = True):
+	def __test_user_details__(self, user, with_email = True, with_following = True):
 		self.assertTrue(user.has_key("name"))
 		self.assertTrue(user.has_key("firstname"))
 		self.assertTrue(user.has_key("lastname"))
 		self.assertEqual(user.has_key("email"), with_email)
+		self.assertEqual(user.has_key("following"), with_following)
 		self.assertFalse(user.has_key("password"))
 		self.assertTrue(user.has_key("gender"))
 		self.assertTrue(user.has_key("timestamp"))
