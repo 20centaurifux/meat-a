@@ -194,22 +194,19 @@ class Application:
 
 		return details
 
-	def get_user_details(self, username):
-		details = self.get_full_user_details(username)
-
-		del details["email"]
-		del details["following"]
-
-		return details
-
-	def get_user_details_secured(self, account, username):
+	def get_user_details(self, account, username):
 		user_a = self.__get_active_user__(account)
 		user_b = self.__get_active_user__(username)
 
 		if (user_b["protected"] and account in user_b["following"] and username in user_a["following"]) or not user_b["protected"]:
-			return self.get_full_user_details(username)
+			keys = [ "password", "blocked" ]
+		else:
+			keys = [ "password", "blocked", "email", "following" ]
 
-		return self.get_user_details(username)
+		for key in keys:
+			del user_b[key]
+
+		return user_b
 
 	def find_user(self, account, query):
 		user_a = self.__get_active_user__(account)

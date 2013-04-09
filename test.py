@@ -995,10 +995,6 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertEqual(user["name"], "John.Doe")
 			self.assertEqual(user["email"], "john@testmail.com")
 
-			user = a.get_user_details("John.Doe")
-			self.__test_user_details__(user, False, False)
-			self.assertEqual(user["name"], "John.Doe")
-
 			# block user & try to get details:
 			with factory.create_user_db() as db:
 				db.block_user("John.Doe", True)
@@ -1006,28 +1002,28 @@ class TestApplication(unittest.TestCase, TestCase):
 			err = False
 
 			try:
-				details = a.get_user_details("John.Doe")
+				details = a.get_full_user_details("John.Doe")
 
 			except exception.Exception, ex:
 				err = self.__assert_error_code__(ex, ErrorCode.COULD_NOT_FIND_USER)
 
 			self.assertTrue(err)
 
-			# test secured wrapper function to get user details:
+			# get user details respecting friendship:
 			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", False)
-			details = a.get_user_details_secured("Martin.Smith", "Ada.Muster")
+			details = a.get_user_details("Martin.Smith", "Ada.Muster")
 			self.__test_user_details__(details)
 
 			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", True)
-			details = a.get_user_details_secured("Martin.Smith", "Ada.Muster")
+			details = a.get_user_details("Martin.Smith", "Ada.Muster")
 			self.__test_user_details__(details, False, False)
 
 			a.follow("Martin.Smith", "Ada.Muster")
-			details = a.get_user_details_secured("Martin.Smith", "Ada.Muster")
+			details = a.get_user_details("Martin.Smith", "Ada.Muster")
 			self.__test_user_details__(details, False, False)
 
 			a.follow("Ada.Muster", "Martin.Smith")
-			details = a.get_user_details_secured("Martin.Smith", "Ada.Muster")
+			details = a.get_user_details("Martin.Smith", "Ada.Muster")
 			self.__test_user_details__(details)
 
 			params = [ { "user1": "John.Doe", "user2": "Ada.Muster", "code": ErrorCode.USER_IS_BLOCKED,
