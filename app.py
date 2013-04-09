@@ -202,6 +202,17 @@ class Application:
 
 		return details
 
+	def get_user_details_secured(self, account, username):
+		full = False
+
+		user_a = self.__get_active_user__(account)
+		user_b = self.__get_active_user__(username)
+
+		if (user_b["protected"] and account in user_b["following"] and username in user_a["following"]) or not user_b["protected"]:
+			return self.get_full_user_details(username)
+
+		return self.get_user_details(username)
+
 	def find_user(self, query):
 		db = self.__create_user_db__()
 

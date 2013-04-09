@@ -200,7 +200,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                                                      "protected": True, "avatar": True, "gender": True, "email": True,
 		                                                      "timestamp": True, "following": True }))
 
-	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None, protected = False):
+	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None, protected = True):
 		user = self.find_and_modify("users", { "$or": [ { "name": username }, { "$and": [ { "email": email }, { "blocked": False } ] } ] },
 		                            { "name": username,
 		                              "email": email,
