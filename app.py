@@ -211,12 +211,21 @@ class Application:
 
 		return self.get_user_details(username)
 
-	def find_user(self, query):
-		return self.__create_user_db__().search_user(query)
+	def find_user(self, account, query):
+		user_a = self.__get_active_user__(account)
+		result = []
 
-	def find_user_secured(self, account, query):
-		# TODO
-		return
+		for user_b in self.__create_user_db__().search_user(query):
+			if user_b["name"] != account:
+				if (user_b["protected"] and account in user_b["following"] and user_b["name"] in user_a["following"]) or not user_b["protected"]:
+					result.append(user_b)
+				else:
+					del user_b["email"]
+					del user_b["following"]
+
+					result.append(user_b)
+
+		return result
 
 	def get_object(self, guid):
 		return self.__create_object_db__().get_object(guid)
