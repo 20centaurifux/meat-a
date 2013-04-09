@@ -1,4 +1,4 @@
- #-*- coding: utf-8 -*-
+#-*- coding: utf-8 -*-
 
 import unittest, factory, util, config, app, exception, random, string, os, hashlib
 from time import sleep
@@ -1013,24 +1013,6 @@ class TestApplication(unittest.TestCase, TestCase):
 
 			self.assertTrue(err)
 
-			# find users:
-			result = self.__cursor_to_array__(a.find_user("testmail"))
-			self.assertEqual(len(result), 2)
-
-			found = False
-			
-			for user in result:
-				self.__test_user_details__(user)
-
-				if user["name"] == "John.Doe":
-					found = True
-					break
-
-			self.assertFalse(found)
-
-			result = self.__cursor_to_array__(a.find_user("foobar"))
-			self.assertEqual(len(result), 0)
-
 			# test secured wrapper function to get user details:
 			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", False)
 			details = a.get_user_details_secured("Martin.Smith", "Ada.Muster")
@@ -1487,6 +1469,33 @@ class TestApplication(unittest.TestCase, TestCase):
 					err = self.__assert_error_code__(ex, p["code"])
 
 				self.assertTrue(err)
+
+	def test_12_find_users(self):
+		with app.Application() as a:
+			# create test accounts:
+			for c in [ "a", "b", "c", "d", "e" ]:
+				self.__create_account__(a, "user_%s" % c, "user_%s@testmail.com" % c)
+
+			# create friendship:
+			a.follow("user_a", "user_b")
+			a.follow("user_b", "user_a")
+
+			# make user profile public:
+			a.update_user_details("user_d", "user_d@testmail.com", None, None, None, False)
+
+			# block user:
+			with factory.create_user_db() as db:
+				db.block_user("user_e")
+
+			# search users:
+			result = self.__cursor_to_array__(a.find_user("user_a", "user"))
+			self.assertEqual(len(result), 3)
+
+			for user in result:
+				if user["name"] == "user_b" or user["name"] == "user_d":
+					self.__test_user_details__(user)
+				elif user["name"] == "user_c":
+					self.__test_user_details__(user, False, False)
 
 	def setUp(self):
 		self.__clear_tables__()
