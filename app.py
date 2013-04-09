@@ -203,8 +203,6 @@ class Application:
 		return details
 
 	def get_user_details_secured(self, account, username):
-		full = False
-
 		user_a = self.__get_active_user__(account)
 		user_b = self.__get_active_user__(username)
 
@@ -214,9 +212,11 @@ class Application:
 		return self.get_user_details(username)
 
 	def find_user(self, query):
-		db = self.__create_user_db__()
+		return self.__create_user_db__().search_user(query)
 
-		return db.search_user(query)
+	def find_user_secured(self, account, query):
+		# TODO
+		return
 
 	def get_object(self, guid):
 		return self.__create_object_db__().get_object(guid)

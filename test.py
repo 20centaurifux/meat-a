@@ -1145,6 +1145,8 @@ class TestApplication(unittest.TestCase, TestCase):
 
 		# test wrapped database functions to get objects:
 		with app.Application() as a:
+			self.__create_account__(a, "user_a", "user_a@testmail.com")
+
 			for obj in objs:	
 				details = a.get_object(obj["guid"])
 				self.assertEqual(details["source"], obj["source"])
@@ -1153,7 +1155,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertEqual(len(result), 100)
 
 			for i in range(0, 1000, 2):
-				a.add_tags(objs[i]["guid"], [ "foo", "bar" ])
+				a.add_tags("user_a", objs[i]["guid"], [ "foo", "bar" ])
 
 			result = self.__cursor_to_array__(a.get_tagged_objects("foo", 0, 1000))
 			self.assertEqual(len(result), 500)
