@@ -6,6 +6,7 @@ username_regex = re.compile("^\w[\w\-\.]{1,15}$", re.IGNORECASE | re.UNICODE)
 email_regex = re.compile("^[\w\-][\w\-\.]+@[\w\-][\w\-\.]+[a-zA-Z]{2,4}$", re.IGNORECASE | re.UNICODE)
 password_regex = re.compile("^[\w%s]{8,32}$" % re.escape("!\"§$%&/()=?`´'*#+-_,.;:<>|"), re.IGNORECASE | re.UNICODE)
 name_regex = re.compile("^.{0,32}$", re.IGNORECASE | re.UNICODE)
+tag_regex = re.compile("^\w[\w\-\.]{2,15}$", re.IGNORECASE | re.UNICODE)
 
 def validate_string(regex, value):
 	value = util.strip(value)
@@ -40,6 +41,9 @@ def validate_comment(text):
 		return False
 
 	return True
+
+def validate_tag(tag):
+	return validate_string(tag_regex, tag)
 
 def validate_image_file(filename, max_file_size, max_width, max_height, formats):
 	img = Image.open(filename)
