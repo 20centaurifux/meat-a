@@ -233,7 +233,12 @@ class Application:
 	def get_random_objects(self, page_size = 10):
 		return self.__create_object_db__().get_random_objects(page_size)
 
-	def add_tags(self, guid, tags):
+	def add_tags(self, username, guid, tags):
+		for tag in tags:
+			if not validate_tag(tag):
+				raise exception.InvalidParameterException("tag")
+
+		self.__test_active_user__(username)
 		self.__test_object_write_access__(guid)
 
 		return self.__create_object_db__().add_tags(guid, tags)

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ #-*- coding: utf-8 -*-
 
 import unittest, factory, util, config, app, exception, random, string, os, hashlib
 from time import sleep
@@ -1076,11 +1076,18 @@ class TestApplication(unittest.TestCase, TestCase):
 
 		# get objects from database & test tags:
 		with app.Application() as a:
+			# create test accounts:
+			user_a = self.__create_account__(a, "user_a", "usera@testmail.com")
+			user_b = self.__create_account__(a, "user_b", "userb@testmail.com")
+
+			with factory.create_user_db() as db:
+				db.block_user("user_b")
+
 			for i in range(1000):
 				if i % 2 == 0:
-					a.add_tags(objs[i]["guid"], [ "tag00", "tag01" ])
+					a.add_tags("user_a", objs[i]["guid"], [ "tag00", "tag01" ])
 				else:
-					a.add_tags(objs[i]["guid"], [ "tag02", "tag03" ])
+					a.add_tags("user_a", objs[i]["guid"], [ "tag02", "tag03" ])
 
 			for obj in a.get_objects(0, 1000):
 				self.assertEqual(len(obj["tags"]), 2)
@@ -1097,14 +1104,34 @@ class TestApplication(unittest.TestCase, TestCase):
 					err = False
 
 					try:
-						a.add_tags(objs[i]["guid"], [ "tag04"])
+						a.add_tags("user_a", objs[i]["guid"], [ "tag04"])
 
 					except exception.Exception, ex:
 						err = self.__assert_error_code__(ex, ErrorCode.OBJECT_IS_LOCKED)
 
 					self.assertTrue(err)
 				else:
-					a.add_tags(objs[i]["guid"], [ "tag04"])
+					a.add_tags("user_a", objs[i]["guid"], [ "tag04"])
+
+			# invalid accounts:
+			params = [ { "username": util.generate_junk(16), "tags": [ "foo" ], "code": ErrorCode.COULD_NOT_FIND_USER,
+			             "username": "user_b", "tags": [ "foo" ], "code": ErrorCode.USER_IS_BLOCKED,
+			             "username": "user_b", "tags": [ "f" ], "code": ErrorCode.INVALID_PARAMETER,
+			             "username": "user_b", "tags": [ util.generate_junk(128) ], "code": ErrorCode.INVALID_PARAMETER } ]
+
+			for p in params:
+				err = False
+
+				try:
+					a.add_tags(p["username"], objs[0]["guid"], "foo")
+
+				except exception.Exception, ex:
+					if p["code"] == ErrorCode.INVALID_PARAMETER:
+						err = self.__assert_invalid_parameter__(ex, "tag")
+					else:
+						err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
 
 	def test_06_get_objects(self):
 		objs = []
