@@ -1031,6 +1031,39 @@ class TestApplication(unittest.TestCase, TestCase):
 			result = self.__cursor_to_array__(a.find_user("foobar"))
 			self.assertEqual(len(result), 0)
 
+			# test secured wrapper function to get user details:
+			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", False)
+			details = a.get_user_details_secured("Martin.Smith", "Ada.Muster")
+			self.__test_user_details__(details)
+
+			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", True)
+			details = a.get_user_details_secured("Martin.Smith", "Ada.Muster")
+			self.__test_user_details__(details, False, False)
+
+			a.follow("Martin.Smith", "Ada.Muster")
+			details = a.get_user_details_secured("Martin.Smith", "Ada.Muster")
+			self.__test_user_details__(details, False, False)
+
+			a.follow("Ada.Muster", "Martin.Smith")
+			details = a.get_user_details_secured("Martin.Smith", "Ada.Muster")
+			self.__test_user_details__(details)
+
+			params = [ { "user1": "John.Doe", "user2": "Ada.Muster", "code": ErrorCode.USER_IS_BLOCKED,
+			             "user1": "Martin.Smith", "user2": "John.Doe", "code": ErrorCode.USER_IS_BLOCKED,
+			             "user1": "Martin.Smith", "user2": util.generate_junk(16), "code": ErrorCode.COULD_NOT_FIND_USER,
+			             "user1": util.generate_junk(16), "user2": "Ada.Muster", "code": ErrorCode.COULD_NOT_FIND_USER } ]
+
+			for p in params:
+				err = False
+
+				try:
+					a.follow(p["user1"], p["user2"])
+			
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
 	def test_05_add_tags(self):
 		objs = []
 
