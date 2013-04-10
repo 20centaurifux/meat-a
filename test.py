@@ -3,6 +3,7 @@
 import unittest, factory, util, config, app, exception, random, string, os, hashlib
 from time import sleep
 from exception import ErrorCode
+from database import StreamDb
 
 class TestCase:
 	def __cursor_to_array__(self, cur):
@@ -745,6 +746,228 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.assertTrue(obj["score"].has_key("total"))
 		self.assertTrue(obj.has_key("timestamp"))
 		self.assertTrue(obj.has_key("comments_n"))
+
+class TestStreamDb(unittest.TestCase, TestCase):
+	def test_00_recommendations(self):
+		# generate test data:
+		recommendations = {}
+
+		for i in range(333):
+			if i % 7 == 0:
+				comment = None
+			else:
+				comment = util.generate_junk(128)
+
+			data = {}
+
+			data["comment"] = comment
+
+			if i % 3 == 0:
+				data["sender"] = "user_b"
+				data["receiver"] = "user_a"
+			else:
+				data["sender"] = "user_a"
+				data["receiver"] = "user_b"
+
+			recommendations[util.generate_junk(64)] = data
+
+		with factory.create_stream_db() as db:
+			# create messages:
+			i = 0
+
+			for guid, data in recommendations.items():
+				db.add_message(StreamDb.MessageType.RECOMMENDATION, data["sender"], data["receiver"], guid = guid, comment = data["comment"])
+
+				if i % 33 == 0:
+					sleep(0.1)
+
+				i += 1
+
+			# get & validate messages:
+			self.__validate_messages__(db, 111, 222, self.__test_recommendation__)
+
+			with factory.create_stream_db() as db:
+				for msg in db.get_messages("user_a"):
+					if recommendations[msg["guid"]].has_key("comment"):
+						self.assertTrue(msg.has_key("comment"))
+
+	def test_01_comments(self):
+		# generate test data:
+		comments = {}
+
+		for i in range(500):
+			data = {}
+
+			data["comment"] = util.generate_junk(128)
+
+			if i % 5 == 0:
+				data["sender"] = "user_b"
+				data["receiver"] = "user_a"
+			else:
+				data["sender"] = "user_a"
+				data["receiver"] = "user_b"
+
+			comments[util.generate_junk(64)] = data
+
+		with factory.create_stream_db() as db:
+			# create messages:
+			i = 0
+
+			for guid, data in comments.items():
+				db.add_message(StreamDb.MessageType.COMMENT, data["sender"], data["receiver"], guid = guid, comment = data["comment"])
+
+				if i % 25 == 0:
+					sleep(0.1)
+
+				i += 1
+
+			# get & validate messages:
+			self.__validate_messages__(db, 100, 400, self.__test_comment__)
+
+	def test_02_favor(self):
+		# generate test data:
+		favorites = {}
+
+		for i in range(777):
+			data = {}
+
+			if i % 7 == 0:
+				data["sender"] = "user_b"
+				data["receiver"] = "user_a"
+			else:
+				data["sender"] = "user_a"
+				data["receiver"] = "user_b"
+
+			favorites[util.generate_junk(64)] = data
+
+		with factory.create_stream_db() as db:
+			# create messages:
+			i = 0
+
+			for guid, data in favorites.items():
+				db.add_message(StreamDb.MessageType.FAVOR, data["sender"], data["receiver"], guid = guid)
+
+				if i % 25 == 0:
+					sleep(0.1)
+
+				i += 1
+
+			# get & validate messages:
+			self.__validate_messages__(db, 111, 666, self.__test_favor__)
+
+	def test_03_votes(self):
+		# generate test data:
+		votes = {}
+
+		for i in range(600):
+			data = {}
+
+			if i % 6 == 0:
+				data["sender"] = "user_b"
+				data["receiver"] = "user_a"
+			else:
+				data["sender"] = "user_a"
+				data["receiver"] = "user_b"
+
+			if i % 3 == 0:
+				data["up"] = True
+			else:
+				data["up"] = False
+
+			votes[util.generate_junk(64)] = data
+
+		with factory.create_stream_db() as db:
+			# create messages:
+			i = 0
+
+			for guid, data in votes.items():
+				db.add_message(StreamDb.MessageType.VOTE, data["sender"], data["receiver"], guid = guid, up = data["up"])
+
+				if i % 30 == 0:
+					sleep(0.1)
+
+				i += 1
+
+			# get & validate messages:
+			self.__validate_messages__(db, 100, 500, self.__test_vote__)
+
+			with factory.create_stream_db() as db:
+				for msg in db.get_messages("user_a"):
+					self.assertEqual(votes[msg["guid"]]["up"], msg["up"])
+
+	def setUp(self):
+		self.__clear_tables__()
+
+	def tearDown(self):
+		self.__clear_tables__()
+
+	def __test_order__(self, stream):
+		timestamp = -1
+
+		for msg in stream:
+			if timestamp == -1:
+				timestamp = msg["timestamp"]
+			else:
+				assert msg["timestamp"] <= timestamp
+				timestamp = msg["timestamp"]
+
+	def __find_test_timestamp__(self, messages):
+		i = int(len(messages) / 1.5)
+		timestamp = messages[i]["timestamp"]
+
+		while messages[i]["timestamp"] == timestamp:
+			i += 1
+
+		return i, messages[i]["timestamp"]
+
+	def __test_message__(self, msg, code, sender, receiver):
+		self.assertEqual(msg["type_id"], code)
+		self.assertEqual(msg["sender"], sender)
+		self.assertEqual(msg["receiver"], receiver)
+		self.assertTrue(msg.has_key("timestamp"))
+
+	def __test_messages__(self, messages, sender, receiver, validator):
+		for msg in messages:
+			validator(msg, sender, receiver)
+
+		self.__test_order__(messages)
+
+	def __validate_messages__(self, db, len_a, len_b, validator):
+		result = self.__cursor_to_array__(db.get_messages("user_a", len_a * 2))
+		self.assertEqual(len(result), len_a)
+		self.__test_messages__(result, "user_b", "user_a", validator)
+
+		result = self.__cursor_to_array__(db.get_messages("user_b", len_a / 2))
+		self.assertEqual(len(result), len_a / 2)
+
+		result = self.__cursor_to_array__(db.get_messages("user_b", len_b * 2))
+		self.assertEqual(len(result), len_b)
+		self.__test_messages__(result, "user_a", "user_b", validator)
+
+		index, timestamp = self.__find_test_timestamp__(result)
+		length = len_b - index
+
+		count = len(result)
+
+		result = self.__cursor_to_array__(db.get_messages("user_b", len_b, timestamp))
+		self.assertEqual(count - index, len(result))
+
+	def __test_recommendation__(self, r, sender, receiver):
+		self.__test_message__(r, StreamDb.MessageType.RECOMMENDATION, sender, receiver)
+		self.assertTrue(r.has_key("guid"))
+
+	def __test_comment__(self, v, sender, receiver):
+		self.__test_message__(v, StreamDb.MessageType.COMMENT, sender, receiver)
+		self.assertTrue(v.has_key("guid"))
+		self.assertTrue(v.has_key("comment"))
+
+	def __test_favor__(self, f, sender, receiver):
+		self.__test_message__(f, StreamDb.MessageType.FAVOR, sender, receiver)
+
+	def __test_vote__(self, v, sender, receiver):
+		self.__test_message__(v, StreamDb.MessageType.VOTE, sender, receiver)
+		self.assertTrue(v.has_key("guid"))
+		self.assertTrue(v.has_key("up"))
 
 class TestApplication(unittest.TestCase, TestCase):
 	def test_00_account_creation(self):
@@ -1537,5 +1760,5 @@ def run_test_case(case):
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb, TestApplication ]:
+	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestApplication ]:
 		run_test_case(case)
