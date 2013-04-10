@@ -3,7 +3,7 @@
 import database, pymongo, util, re, runtime
 from bson.code import Code
 from random import random
-from exception import ConstraintViolationException
+from exception import ConstraintViolationException, InternalFailureException
 from collections import deque
 
 # global connection pool:
@@ -59,7 +59,7 @@ class MongoDb(database.DbUtil):
 	def clear_tables(self):
 		self.__connect__()
 
-		for table in [ "users", "user_requests", "objects" ]:
+		for table in [ "users", "user_requests", "objects", "streams" ]:
 			self.remove(table)
 
 	def find(self, collection, filter = None, fields = None, sorting = None, limit = None, skip = None):
@@ -144,6 +144,7 @@ class MongoDb(database.DbUtil):
 			self.__db.objects.ensure_index("fans", 1)
 			self.__db.objects.ensure_index("tags", 1)
 			self.__db.objects.ensure_index("voters", 1)
+			self.__db.objects.ensure_index([ ("receiver", 1), ("timestamp", -1) ])
 
 class MongoUserDb(MongoDb, database.UserDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
@@ -516,3 +517,90 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def recommendation_exists(self, guid, username):
 		return bool(self.count("objects", { "guid": guid, "recommendations.user": username }))
+
+class MongoStreamDb(MongoDb, database.StreamDb):
+	def __init__(self, database, host = "127.0.0.1", port = 27017):
+		MongoDb.__init__(self, database, host, port)
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, type, value, traceback):
+		self.close()
+
+	def add_message(self, code, sender, receiver, **args):
+		if code == MongoStreamDb.MessageType.RECOMMENDATION:
+			self.__save_recommendation__(sender, receiver, **args)
+		elif code == MongoStreamDb.MessageType.COMMENT:
+			self.__save_comment__(sender, receiver, **args)
+		elif code == MongoStreamDb.MessageType.FAVOR:
+			self.__save_favor__(sender, receiver, **args)
+		elif code == MongoStreamDb.MessageType.VOTE:
+			self.__save_vote__(sender, receiver, **args)
+		else:
+			raise InternalFailureException("Invalid message code received.")
+
+	def get_messages(self, user, limit = 100, older_than = None):
+		if older_than is None:
+			return self.find("streams", { "receiver": user }, { "_id": False }, ("timestamp", -1), limit)
+		else:
+			return self.find("streams", { "$and": [ { "receiver": user }, { "timestamp": { "$lte": older_than } } ] }, { "_id": False }, ("timestamp", -1), limit)
+
+	def __save_recommendation__(self, sender, receiver, **args):
+		self.__test_args__([ "guid" ], [ "comment" ], **args)
+
+		try:
+			comment = args["comment"]
+
+		except:
+			comment = None
+
+		self.save("streams", { "type_id": MongoStreamDb.MessageType.RECOMMENDATION,
+		                       "timestamp": util.now(),
+		                       "sender": sender,
+		                       "receiver": receiver,
+		                       "guid": args["guid"],
+		                       "comment": None })
+
+	def __save_comment__(self, sender, receiver, **args):
+		self.__test_args__([ "guid", "comment" ], None, **args)
+
+		self.save("streams", { "type_id": MongoStreamDb.MessageType.COMMENT,
+		                       "timestamp": util.now(),
+		                       "sender": sender,
+		                       "receiver": receiver,
+		                       "guid": args["guid"],
+		                       "comment": args["comment"] })
+
+	def __save_favor__(self, sender, receiver, **args):
+		self.__test_args__([ "guid" ], None, **args)
+
+		self.save("streams", { "type_id": MongoStreamDb.MessageType.FAVOR,
+		                       "timestamp": util.now(),
+		                       "sender": sender,
+		                       "receiver": receiver,
+		                       "guid": args["guid"] })
+
+	def __save_vote__(self, sender, receiver, **args):
+		self.__test_args__([ "guid", "up" ], None, **args)
+
+		self.save("streams", { "type_id": MongoStreamDb.MessageType.VOTE,
+		                       "timestamp": util.now(),
+		                       "sender": sender,
+		                       "receiver": receiver,
+		                       "guid": args["guid"],
+		                       "up": args["up"] })
+
+	def __test_args__(self, required, optional, **args):
+		keys = args.keys()
+
+		if optional is None:
+			optional = []
+
+		for key in required:
+			if not key in keys:
+				raise InternalFailureException("Missing argument: '%s'" % key)
+
+		for key in keys:
+			if not key in required and not key in optional:
+				raise InternalFailureException("Unknown argument: '%s'" % key)
