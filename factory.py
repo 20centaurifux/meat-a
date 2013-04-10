@@ -10,3 +10,6 @@ def create_user_db():
 
 def create_object_db():
 	return mongodb.MongoObjectDb(config.MONGODB_DATABASE, config.MONGODB_HOST, config.MONGODB_PORT)
+
+def create_stream_db():
+	return mongodb.MongoStreamDb(config.MONGODB_DATABASE, config.MONGODB_HOST, config.MONGODB_PORT)
