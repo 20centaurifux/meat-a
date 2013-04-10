@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import abc
+import abc, util
 
 class DbUtil():
 	__metaclass__ = abc.ABCMeta
@@ -148,3 +148,12 @@ class ObjectDb(object):
 
 	@abc.abstractmethod
 	def recommendation_exists(self, guid, username): return False
+
+class StreamDb(object):
+	MessageType = util.enum(RECOMMENDATION = 0, COMMENT = 1, FAVOR = 2, VOTE = 3)
+
+	@abc.abstractmethod
+	def add_message(self, code, sender, receivers, **args): return
+
+	@abc.abstractmethod
+	def get_messages(self, user, limit = 100, older_than = None): return None
