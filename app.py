@@ -3,11 +3,13 @@
 import factory, exception, util, config, tempfile, os
 from validators import *
 from base64 import b64encode
+from database import StreamDb
 
 class Application:
 	def __init__(self):
 		self.__userdb = None
 		self.__objectdb = None
+		self.__streamdb = None
 
 	def __del__(self):
 		if not self.__userdb is None:
@@ -17,6 +19,10 @@ class Application:
 		if not self.__objectdb is None:
 			self.__objectdb.close()
 			self.__objectdb = None
+
+		if not self.__streamdb is None:
+			self.__streamdb.close()
+			self.__streamdb = None
 
 	def __enter__(self):
 		return Application()
@@ -250,9 +256,10 @@ class Application:
 		return self.__create_object_db__().add_tags(guid, tags)
 
 	def rate(self, username, guid, up = True):
-		self.__test_active_user__(username)
 		self.__test_object_write_access__(guid)
+		user = self.__get_active_user__(username)
 
+		# rate:
 		db = self.__create_object_db__()
 
 		if not db.user_can_rate(guid, username):
@@ -260,12 +267,27 @@ class Application:
 
 		db.rate(guid, username, up)
 
-	def favor(self, username, guid, favor = True):
-		self.__test_active_user__(username)
-		self.__test_object_exists__(guid)
+		# send messages:
+		if len(user["following"]) > 0:
+			streamdb = self.__create_stream_db__()
 
+			for friend in self.__get_friends__(user):
+				streamdb.add_message(StreamDb.MessageType.VOTE, username, friend, guid = guid, up = up)
+
+	def favor(self, username, guid, favor = True):
+		self.__test_object_exists__(guid)
+		user = self.__get_active_user__(username)
+
+		# create favorite:
 		db = self.__create_object_db__()
 		db.favor_object(guid, username, favor)
+
+		# create messages:
+		if favor and len(user["following"]) > 0:
+			streamdb = self.__create_stream_db__()
+
+			for friend in self.__get_friends__(user):
+				streamdb.add_message(StreamDb.MessageType.FAVOR, username, friend, guid = guid)
 
 	def get_favorites(self, username, page = 0, page_size = 10):
 		self.__test_active_user__(username)
@@ -276,11 +298,19 @@ class Application:
 		if not validate_comment(text):
 			raise exception.InvalidParameterException("comment")
 
-		self.__test_active_user__(username)
 		self.__test_object_write_access__(guid)
+		user = self.__get_active_user__(username)
 
+		# create comment:
 		db = self.__create_object_db__()
 		db.add_comment(guid, username, text)
+
+		# send messages:
+		if len(user["following"]) > 0:
+			streamdb = self.__create_stream_db__()
+
+			for friend in self.__get_friends__(user):
+				streamdb.add_message(StreamDb.MessageType.COMMENT, username, friend, guid = guid, comment = text)
 
 	def get_comments(self, guid, page = 0, page_size = 10):
 		self.__test_object_exists__(guid)
@@ -294,24 +324,31 @@ class Application:
 		# build valid receiver list:
 		valid_receivers = []
 
-		with self.__create_user_db__() as userdb:
-			with self.__create_object_db__() as objdb:
-				for r in receivers:
-					if r != username and r in sender["following"]:
-						try:
-							user = self.__get_active_user__(r)
+		userdb = self.__create_user_db__()
+		objdb = self.__create_object_db__()
 
-							if username in user["following"] and not objdb.recommendation_exists(guid, r):
-								valid_receivers.append(r)
+		for r in receivers:
+			if r != username and r in sender["following"]:
+				try:
+					user = self.__get_active_user__(r)
 
-						except exception.UserNotFoundException:
-							pass
+					if username in user["following"] and not objdb.recommendation_exists(guid, r):
+						valid_receivers.append(r)
 
-						except exception.UserIsBlockedException:
-							pass
+				except exception.UserNotFoundException:
+					pass
 
-				# create recommendations:
-				objdb.recommend(guid, username, valid_receivers)
+				except exception.UserIsBlockedException:
+					pass
+
+		# create recommendations:
+		objdb.recommend(guid, username, valid_receivers)
+
+		# send messages:
+		streamdb = self.__create_stream_db__()
+
+		for r in valid_receivers:
+			streamdb.add_message(StreamDb.MessageType.RECOMMENDATION, username, r, guid = guid)
 
 	def get_recommendations(self, username, page = 0, page_size = 10):
 		self.__test_active_user__(username)
@@ -327,6 +364,11 @@ class Application:
 	def is_following(self, user1, user2):
 		return self.__create_user_db__().is_following(user1, user2)
 
+	def get_messages(self, username, limit = 100, older_than = None):
+		self.__test_active_user__(username)
+
+		return self.__create_stream_db__().get_messages(username, limit, older_than)
+
 	def __create_user_db__(self):
 		if self.__userdb is None:
 			self.__userdb = factory.create_user_db()
@@ -339,6 +381,11 @@ class Application:
 
 		return self.__objectdb
 
+	def __create_stream_db__(self):
+		if self.__streamdb is None:
+			self.__streamdb = factory.create_stream_db()
+
+		return self.__streamdb
 	def __test_active_user__(self, username):
 		db = self.__create_user_db__()
 
@@ -375,3 +422,18 @@ class Application:
 
 		if db.is_locked(guid):
 			raise exception.ObjectIsLockedException()
+
+	def __get_friends__(self, user):
+		friends = []
+
+		for u in user["following"]:
+			try:
+				details = self.__get_active_user__(u)
+				
+				if user["name"] in details["following"]:
+					friends.append(details["name"])
+
+			except exception.UserIsBlockedException:
+				pass
+
+		return friends

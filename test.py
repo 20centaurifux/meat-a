@@ -1383,6 +1383,11 @@ class TestApplication(unittest.TestCase, TestCase):
 			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
 			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")
 
+			# create friendship
+			a.follow("user_a", "user_b")
+			a.follow("user_b", "user_a")
+			a.follow("user_b", "user_c")
+
 			# invalid user account/object guid:
 			params = [ { "username": util.generate_junk(16), "guid": objs[0]["guid"], "code": ErrorCode.COULD_NOT_FIND_USER,
 			             "username": "user_a", "guid": util.generate_junk(64), "code": ErrorCode.OBJECT_NOT_FOUND } ]
@@ -1452,6 +1457,13 @@ class TestApplication(unittest.TestCase, TestCase):
 
 				self.assertTrue(err)
 
+			# get & validete messages:
+			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
+			self.assertEqual(len(result), 1000)
+
+			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
+			self.assertEqual(len(result), 1000)
+
 	def test_08_favorites(self):
 		objs = []
 
@@ -1467,6 +1479,11 @@ class TestApplication(unittest.TestCase, TestCase):
 			user_a = self.__create_account__(a, "user_a", "user_a@testmail.com")
 			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
 			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")	
+
+			# friendship:
+			a.follow("user_a", "user_b")
+			a.follow("user_a", "user_c")
+			a.follow("user_b", "user_a")
 
 			# test blocked users:
 			with factory.create_user_db() as db:
@@ -1502,6 +1519,13 @@ class TestApplication(unittest.TestCase, TestCase):
 			result = self.__cursor_to_array__(a.get_favorites("user_a", 0, 1000))
 			self.assertEqual(len(result), 500)
 
+			# get & validete messages:
+			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
+			self.assertEqual(len(result), 0)
+
+			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
+			self.assertEqual(len(result), 1000)
+
 			# get favorites from non-existing object:
 			params = [ { "user": "user_c", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED },
 			           { "user": "user_d", "guid": objs[0]["guid"], "code": ErrorCode.COULD_NOT_FIND_USER } ]
@@ -1532,6 +1556,11 @@ class TestApplication(unittest.TestCase, TestCase):
 			user_a = self.__create_account__(a, "user_a", "user_a@testmail.com")
 			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
 			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")	
+
+			# create friendship:
+			a.follow("user_a", "user_b")
+			a.follow("user_b", "user_a")
+			a.follow("user_b", "user_c")
 
 			# block user:
 			with factory.create_user_db() as db:
@@ -1579,6 +1608,13 @@ class TestApplication(unittest.TestCase, TestCase):
 
 				timestamp = comment["timestamp"]
 				i += 1
+
+			# get & validate messages:
+			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
+			self.assertEqual(len(result), 500)
+
+			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
+			self.assertEqual(len(result), 500)
 
 	def test_10_friendship(self):
 		with app.Application() as a:
@@ -1648,14 +1684,23 @@ class TestApplication(unittest.TestCase, TestCase):
 				a.recommend("user_a", obj["guid"], [ "user_a", "user_b", "user_c" ])
 				a.recommend("user_b", obj["guid"], [ "user_c", "foo", "user_d" ])
 
-			# get recommendations:
+			# get recommendations & messages:
 			result = self.__cursor_to_array__(a.get_recommendations("user_a", 0, 5000))
+			self.assertEqual(len(result), 0)
+
+			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
 			self.assertEqual(len(result), 0)
 
 			result = self.__cursor_to_array__(a.get_recommendations("user_b", 0, 5000))
 			self.assertEqual(len(result), 0)
 
+			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
+			self.assertEqual(len(result), 0)
+
 			result = self.__cursor_to_array__(a.get_recommendations("user_c", 0, 5000))
+			self.assertEqual(len(result), 1000)
+
+			result = self.__cursor_to_array__(a.get_messages("user_c", 5000))
 			self.assertEqual(len(result), 1000)
 
 			# test invalid & blocked users:
@@ -1760,5 +1805,6 @@ def run_test_case(case):
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestApplication ]:
+	#for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestApplication ]:
+	for case in [ TestApplication ]:
 		run_test_case(case)
