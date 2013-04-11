@@ -541,10 +541,33 @@ class MongoStreamDb(MongoDb, database.StreamDb):
 			raise InternalFailureException("Invalid message code received.")
 
 	def get_messages(self, user, limit = 100, older_than = None):
+		# get messages:
 		if older_than is None:
-			return self.find("streams", { "receiver": user }, { "_id": False }, ("timestamp", -1), limit)
+			result = self.find("streams", { "receiver": user }, { "_id": False }, ("timestamp", -1), limit)
 		else:
-			return self.find("streams", { "$and": [ { "receiver": user }, { "timestamp": { "$lte": older_than } } ] }, { "_id": False }, ("timestamp", -1), limit)
+			result = self.find("streams", { "$and": [ { "receiver": user }, { "timestamp": { "$lte": older_than } } ] }, { "_id": False }, ("timestamp", -1), limit)
+
+		# fetch & insert additional user details:
+		users = {}
+		messages = []
+
+		for msg in result:
+			name = msg["sender"]
+
+			try:
+				user = users[name]
+
+			except:
+				user = self.find_one("users", { "name": name },
+				                     { "_id": False, "name": True, "firstname": True, "lastname": True, "avatar": True, "gender": True, "blocked": True })
+				users[name] = user
+
+			if not user is None:
+				msg["sender"] = user
+
+			messages.append(msg)
+
+		return messages
 
 	def __save_recommendation__(self, sender, receiver, **args):
 		self.__test_args__([ "guid" ], [ "comment" ], **args)
