@@ -898,6 +898,11 @@ class TestStreamDb(unittest.TestCase, TestCase):
 	def setUp(self):
 		self.__clear_tables__()
 
+		# create test users:
+		with factory.create_user_db() as db:
+			db.create_user("user_a", "user_a@testmail.com", util.generate_junk(64), util.generate_junk(64), util.generate_junk(64), "m", True)
+			db.create_user("user_b", "user_b@testmail.com", util.generate_junk(64), util.generate_junk(64), util.generate_junk(64), "f", False)
+
 	def tearDown(self):
 		self.__clear_tables__()
 
@@ -922,7 +927,12 @@ class TestStreamDb(unittest.TestCase, TestCase):
 
 	def __test_message__(self, msg, code, sender, receiver):
 		self.assertEqual(msg["type_id"], code)
-		self.assertEqual(msg["sender"], sender)
+		self.assertEqual(msg["sender"]["name"], sender)
+		self.assertTrue(msg["sender"].has_key("firstname"))
+		self.assertTrue(msg["sender"].has_key("lastname"))
+		self.assertTrue(msg["sender"].has_key("avatar"))
+		self.assertTrue(msg["sender"].has_key("blocked"))
+		self.assertTrue(msg["sender"].has_key("gender"))
 		self.assertEqual(msg["receiver"], receiver)
 		self.assertTrue(msg.has_key("timestamp"))
 
@@ -1761,6 +1771,41 @@ class TestApplication(unittest.TestCase, TestCase):
 				elif user["name"] == "user_c":
 					self.__test_user_details__(user, False, False)
 
+	def test_13_messages(self):
+		with app.Application() as a:
+			# create test accounts:
+			self.__create_account__(a, "John.Doe", "john@testmail.com")
+			self.__create_account__(a, "Martin.Smith", "martin@testmail.com")
+
+			# block user:
+			with factory.create_user_db() as db:
+				db.block_user("John.Doe", True)
+
+			# invalid parameters:
+			params = [ { "username": "John.Doe", "code": ErrorCode.USER_IS_BLOCKED },
+			           { "username": util.generate_junk(16), "code": ErrorCode.COULD_NOT_FIND_USER } ]
+
+			for p in params:
+				err = False
+
+				try:
+					a.get_messages(p["username"])
+			
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
+			with factory.create_stream_db() as db:
+				for i in range(500):
+					db.add_message(StreamDb.MessageType.RECOMMENDATION, "John.Doe", "Martin.Smith", guid = util.generate_junk(128))
+
+			result = self.__cursor_to_array__(a.get_messages("Martin.Smith", 5))
+			self.assertEqual(len(result), 5)
+
+			result = self.__cursor_to_array__(a.get_messages("Martin.Smith", 1000))
+			self.assertEqual(len(result), 500)
+
 	def setUp(self):
 		self.__clear_tables__()
 		util.remove_all_files(config.AVATAR_DIR)
@@ -1805,6 +1850,5 @@ def run_test_case(case):
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	#for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestApplication ]:
-	for case in [ TestApplication ]:
+	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestApplication ]:
 		run_test_case(case)
