@@ -1469,10 +1469,10 @@ class TestApplication(unittest.TestCase, TestCase):
 
 			# get & validete messages:
 			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
-			self.assertEqual(len(result), 1000)
+			self.assertEqual(len(result), 1001)
 
 			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
-			self.assertEqual(len(result), 1000)
+			self.assertEqual(len(result), 1001)
 
 	def test_08_favorites(self):
 		objs = []
@@ -1531,10 +1531,10 @@ class TestApplication(unittest.TestCase, TestCase):
 
 			# get & validete messages:
 			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
-			self.assertEqual(len(result), 0)
+			self.assertEqual(len(result), 1)
 
 			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
-			self.assertEqual(len(result), 1000)
+			self.assertEqual(len(result), 1001)
 
 			# get favorites from non-existing object:
 			params = [ { "user": "user_c", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED },
@@ -1621,10 +1621,10 @@ class TestApplication(unittest.TestCase, TestCase):
 
 			# get & validate messages:
 			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
-			self.assertEqual(len(result), 500)
+			self.assertEqual(len(result), 501)
 
 			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
-			self.assertEqual(len(result), 500)
+			self.assertEqual(len(result), 501)
 
 	def test_10_friendship(self):
 		with app.Application() as a:
@@ -1658,6 +1658,17 @@ class TestApplication(unittest.TestCase, TestCase):
 			for p in params:
 				a.follow(p["user1"], p["user2"])
 				self.assertTrue(a.is_following(p["user1"], p["user2"]))
+
+			a.follow("Martin.Smith", "Ada.Muster", False)
+			self.assertFalse(a.is_following("Martin.Smith", "Ada.Muster"))
+			self.assertTrue(a.is_following("Ada.Muster", "Martin.Smith"))
+
+			# get & validate messages:
+			messages = self.__cursor_to_array__(a.get_messages("Martin.Smith"))
+			self.assertEqual(len(messages), 1)
+
+			messages = self.__cursor_to_array__(a.get_messages("Ada.Muster"))
+			self.assertEqual(len(messages), 2)
 
 	def test_11_recommendations(self):
 		objs = []
@@ -1699,7 +1710,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertEqual(len(result), 0)
 
 			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
-			self.assertEqual(len(result), 0)
+			self.assertEqual(len(result), 1)
 
 			result = self.__cursor_to_array__(a.get_recommendations("user_b", 0, 5000))
 			self.assertEqual(len(result), 0)
@@ -1711,7 +1722,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertEqual(len(result), 1000)
 
 			result = self.__cursor_to_array__(a.get_messages("user_c", 5000))
-			self.assertEqual(len(result), 1000)
+			self.assertEqual(len(result), 1001)
 
 			# test invalid & blocked users:
 			params = [ { "username": "user_d", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED },

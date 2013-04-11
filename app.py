@@ -355,11 +355,20 @@ class Application:
 
 		return self.__create_object_db__().get_recommendations(username, page, page_size)
 
-	def follow(self, user1, user2):
+	def follow(self, user1, user2, follow = True):
 		self.__test_active_user__(user1)
 		self.__test_active_user__(user2)
 
-		self.__create_user_db__().follow(user1, user2)
+		# create/destroy friendship:
+		self.__create_user_db__().follow(user1, user2, follow)
+
+		# send messages:
+		if follow:
+			type_id = StreamDb.MessageType.FOLLOW
+		else:
+			type_id = StreamDb.MessageType.UNFOLLOW
+
+		self.__create_stream_db__().add_message(type_id, user1, user2)
 
 	def is_following(self, user1, user2):
 		return self.__create_user_db__().is_following(user1, user2)

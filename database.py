@@ -150,7 +150,7 @@ class ObjectDb(object):
 	def recommendation_exists(self, guid, username): return False
 
 class StreamDb(object):
-	MessageType = util.enum(RECOMMENDATION = 0, COMMENT = 1, FAVOR = 2, VOTE = 3)
+	MessageType = util.enum(RECOMMENDATION = 0, COMMENT = 1, FAVOR = 2, VOTE = 3, FOLLOW = 4, UNFOLLOW = 5)
 
 	@abc.abstractmethod
 	def add_message(self, code, sender, receivers, **args): return

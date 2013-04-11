@@ -537,6 +537,10 @@ class MongoStreamDb(MongoDb, database.StreamDb):
 			self.__save_favor__(sender, receiver, **args)
 		elif code == MongoStreamDb.MessageType.VOTE:
 			self.__save_vote__(sender, receiver, **args)
+		elif code == MongoStreamDb.MessageType.FOLLOW:
+			self.__save_follow__(sender, receiver, **args)
+		elif code == MongoStreamDb.MessageType.UNFOLLOW:
+			self.__save_unfollow__(sender, receiver, **args)
 		else:
 			raise InternalFailureException("Invalid message code received.")
 
@@ -613,6 +617,18 @@ class MongoStreamDb(MongoDb, database.StreamDb):
 		                       "receiver": receiver,
 		                       "guid": args["guid"],
 		                       "up": args["up"] })
+
+	def __save_follow__(self, sender, receiver, **args):
+		self.save("streams", { "type_id": MongoStreamDb.MessageType.FOLLOW,
+		                       "timestamp": util.now(),
+		                       "sender": sender,
+		                       "receiver": receiver })
+
+	def __save_unfollow__(self, sender, receiver, **args):
+		self.save("streams", { "type_id": MongoStreamDb.MessageType.UNFOLLOW,
+		                       "timestamp": util.now(),
+		                       "sender": sender,
+		                       "receiver": receiver })
 
 	def __test_args__(self, required, optional, **args):
 		keys = args.keys()
