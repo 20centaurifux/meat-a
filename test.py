@@ -1275,6 +1275,11 @@ class TestApplication(unittest.TestCase, TestCase):
 
 				self.assertTrue(err)
 
+			# get own user profile:
+			details = a.get_user_details("Ada.Muster", "Ada.Muster")
+			self.__test_user_details__(details, with_password = True)
+			self.assertTrue(details.has_key("password"))
+
 	def test_05_add_tags(self):
 		objs = []
 
@@ -1841,13 +1846,13 @@ class TestApplication(unittest.TestCase, TestCase):
 
 		return True
 
-	def __test_user_details__(self, user, with_email = True, with_following = True):
+	def __test_user_details__(self, user, with_email = True, with_following = True, with_password = False):
 		self.assertTrue(user.has_key("name"))
 		self.assertTrue(user.has_key("firstname"))
 		self.assertTrue(user.has_key("lastname"))
 		self.assertEqual(user.has_key("email"), with_email)
 		self.assertEqual(user.has_key("following"), with_following)
-		self.assertFalse(user.has_key("password"))
+		self.assertEqual(user.has_key("password"), with_password)
 		self.assertTrue(user.has_key("gender"))
 		self.assertTrue(user.has_key("timestamp"))
 		self.assertTrue(user.has_key("avatar"))
@@ -1856,10 +1861,212 @@ class TestApplication(unittest.TestCase, TestCase):
 
 		return True
 
+class TestAuthenticatedApplication(unittest.TestCase, TestCase):
+	def test_00_user_functions(self):
+		with app.AuthenticatedApplication() as a:
+			# change password:
+			new_password = util.generate_junk(16)
+			self.__test_method__(a.change_password, "user_a", old_password = self.__users["user_a"]["password"], new_password = new_password)
+			self.__test_failed_method__(a.change_password, "user_a", ErrorCode.AUTHENTICATION_FAILED,
+			                            old_password = self.__users["user_a"]["password"], new_password = new_password)
+
+			self.__users["user_a"]["password"] = new_password
+
+			# update user details:
+			self.__test_method__(a.update_user_details, "user_a", email = "_user_a@testmail.com", firstname = "first_a", lastname = "last_a", gender = "m", protected = False)
+
+			# get user details:
+			details = self.__test_method__(a.get_user_details, "user_a", name = "user_a")
+
+			self.assertEqual(details["name"], "user_a")
+			self.assertEqual(details["email"], "_user_a@testmail.com")
+			self.assertEqual(details["firstname"], "first_a")
+			self.assertEqual(details["lastname"], "last_a")
+			self.assertEqual(details["gender"], "m")
+			self.assertEqual(details["protected"], False)
+			self.assertEqual(details["password"], util.hash(new_password))
+			self.assertIsNone(details["avatar"])
+
+			details = self.__test_method__(a.get_user_details, "user_a", name = "user_b")
+			self.assertEqual(details["name"], "user_b")
+			self.assertFalse(details.has_key("password"))
+			self.assertFalse(details.has_key("email"))
+
+			# update avatar:
+			path = os.path.join("test-data", "avatar02.jpg")
+			with open(path, "rb") as f:
+				req = self.__create_signature__("user_a", new_password, filename = "avatar02.jpg")
+				a.update_avatar(req, "avatar02.jpg", f)
+
+			details = self.__test_method__(a.get_user_details, "user_a", name = "user_a")
+			self.assertIsNotNone(details["avatar"])
+
+			# find users:
+			result = self.__cursor_to_array__(self.__test_method__(a.find_user, "user_a", query = "test"))
+			self.assertEqual(len(result), 2)
+
+	def test_01_object_functions(self):
+		# create test objects:
+		objs = []
+
+		with factory.create_object_db() as db:
+			for i in range(100):
+				obj = { "guid": util.generate_junk(64), "source": util.generate_junk(128) }
+				objs.append(obj)
+				db.create_object(obj["guid"], obj["source"])
+
+		
+		with app.AuthenticatedApplication() as a:
+			# get objects:
+			for obj in objs:
+				details = self.__test_method__(a.get_object, "user_a", guid = obj["guid"])
+				self.assertEqual(obj["source"], details["source"])
+
+			result = self.__cursor_to_array__(self.__test_method__(a.get_objects, "user_a", page = 1, page_size = 80))
+			self.assertEqual(len(result), 20)
+
+			for i in range(50):
+				self.__test_method__(a.add_tags, "user_a", guid = objs[i]["guid"], tags = [ "foo", "bar"])
+
+			result = self.__cursor_to_array__(self.__test_method__(a.get_tagged_objects, "user_a", tag = "foo", page = 1, page_size = 40))
+			self.assertEqual(len(result), 10)
+
+			# tags:
+			for obj in result:
+				assert "foo" in obj["tags"]
+
+			result = self.__cursor_to_array__(self.__test_method__(a.get_random_objects, "user_a", page_size = 25))
+			self.assertEqual(len(result), 25)
+
+			# score:
+			for obj in objs:
+				for i in range(2):
+					up = False
+
+					if random.randint(0, 1) == 1:
+						up = True
+
+					user = "user_a"
+
+					if i == 1:
+						user = "user_b"
+
+					self.__test_method__(a.rate, user, guid = obj["guid"], up = up)
+
+			result = self.__cursor_to_array__(self.__test_method__(a.get_popular_objects, "user_a", page = 0, page_size = 500))
+			self.assertEqual(len(result), 100)
+
+			for i in range(99):
+				assert result[i]["score"]["total"] >= result[i + 1]["score"]["total"]
+
+			# favorites:
+			for i in range(100):
+				user = "user_a"
+
+				if i % 2 == 0:
+					user = "user_b"
+
+				self.__test_method__(a.favor, user, guid = objs[i]["guid"], favor = True)
+
+			result = self.__cursor_to_array__(self.__test_method__(a.get_favorites, "user_a", page = 0, page_size = 500))
+			self.assertEqual(len(result), 50)
+
+			for obj in result[25:]:
+				self.__test_method__(a.favor, user, guid = obj["guid"], favor = False)
+
+			result = self.__cursor_to_array__(self.__test_method__(a.get_favorites, "user_a", page = 0, page_size = 500))
+			self.assertEqual(len(result), 25)
+
+			result = self.__cursor_to_array__(self.__test_method__(a.get_favorites, "user_b", page = 1, page_size = 40))
+			self.assertEqual(len(result), 10)
+
+			# comments:
+			for obj in objs:
+				for i in range(20):
+					user = "user_a"
+
+					if i % 2 == 0:
+						user = "user_b"
+
+					self.__test_method__(a.add_comment, user, guid = obj["guid"], text = util.generate_junk(128))
+
+			for obj in objs:
+				comments = self.__cursor_to_array__(self.__test_method__(a.get_comments, user, guid = obj["guid"], page = 0, page_size = 50))
+				self.assertEqual(len(comments), 20)
+
+			# create friendship:
+			self.__test_method__(a.follow, "user_a", user = "user_b", follow = True)
+			self.__test_method__(a.follow, "user_b", user = "user_a", follow = True)
+
+			# recommendations:
+			for obj in objs:
+				self.__test_method__(a.recommend, "user_a", guid = obj["guid"], receivers = [ "user_b", "user_c" ])
+
+			result = self.__cursor_to_array__(self.__test_method__(a.get_recommendations, "user_b", page = 0, page_size = 100))
+			self.assertEqual(len(result), 100)
+
+			result = self.__cursor_to_array__(self.__test_method__(a.get_recommendations, "user_b", page = 1, page_size = 99))
+			self.assertEqual(len(result), 1)
+
+			result = self.__cursor_to_array__(self.__test_method__(a.get_recommendations, "user_c", page = 0, page_size = 100))
+			self.assertEqual(len(result), 0)
+
+			# messages:
+			messages = self.__cursor_to_array__(self.__test_method__(a.get_messages, "user_a", limit = 10, older_than = None))
+			self.assertEqual(len(messages), 1)
+
+			messages = self.__cursor_to_array__(self.__test_method__(a.get_messages, "user_b", limit = 200, older_than = None))
+			self.assertEqual(len(messages), 101)
+
+	def setUp(self):
+		def __create_account__(username, email):
+			code = self.__app.request_account(username, email)
+
+			user, email, password = self.__app.activate_user(code)
+			self.__users[username] = { "email": email, "password": password }
+
+		self.__clear_tables__()
+		util.remove_all_files(config.AVATAR_DIR)
+
+		# create test accounts:
+		self.__app = app.AuthenticatedApplication()
+		self.__users = {}
+
+		for c in [ "a", "b", "c" ]:
+			__create_account__("user_%s" % c, "user_%s@testmail.com" % c)
+
+	def tearDown(self):
+		self.__clear_tables__()
+		util.remove_all_files(config.AVATAR_DIR)
+
+	def __create_signature__(self, username, password, **kwargs):
+			req = app.RequestData(username)
+			req.signature = util.sign_message(util.hash(password), username = username, timestamp = req.timestamp, **kwargs)
+
+			return req
+
+	def __test_method__(self, f, username, **kwargs):
+		password = self.__users[username]["password"]
+		req = self.__create_signature__(username, password, **kwargs)
+		
+		return f(req, **kwargs)
+
+	def __test_failed_method__(self, f, username, code, **kwargs):
+		err = False
+
+		try:
+			self.__test_method__(f, username, **kwargs)
+
+		except exception.Exception, ex:
+			self.assertEqual(ex.code, code)
+			err = True
+
+		self.assertTrue(err)
+
 def run_test_case(case):
 	suite = unittest.TestLoader().loadTestsFromTestCase(case)
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestApplication ]:
+	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestApplication, TestAuthenticatedApplication ]:
 		run_test_case(case)
