@@ -111,6 +111,11 @@ class Application:
 
 		return util.hash(password) == db.get_user_password(username)
 
+	def get_password(self, username):
+		user = self.__get_active_user__(username)
+
+		return user["password"]
+
 	def update_user_details(self, username, email, firstname, lastname, gender, protected):
 		# validate parameters:
 		if not validate_email(email):
@@ -202,6 +207,12 @@ class Application:
 
 	def get_user_details(self, account, username):
 		user_a = self.__get_active_user__(account)
+
+		if account == username:
+			del user_a["blocked"]
+
+			return user_a
+
 		user_b = self.__get_active_user__(username)
 
 		if (user_b["protected"] and account in user_b["following"] and username in user_a["following"]) or not user_b["protected"]:
@@ -395,6 +406,7 @@ class Application:
 			self.__streamdb = factory.create_stream_db()
 
 		return self.__streamdb
+
 	def __test_active_user__(self, username):
 		db = self.__create_user_db__()
 
@@ -446,3 +458,151 @@ class Application:
 				pass
 
 		return friends
+
+class RequestData:
+	def __init__(self, username, timestamp = None, signature = None):
+		self.username = username
+
+		if timestamp is None:
+			self.timestamp = util.unix_timestamp()
+		else:
+			self.timestamp = timestamp
+
+		self.signature = signature
+
+class AuthenticatedApplication:
+	def __init__(self):
+		self.__app = None
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, type, value, traceback):
+		if not self.__app is None:
+			del self.__app
+
+	def request_account(self, username, email, user_request_timeout = config.USER_REQUEST_TIMEOUT):
+		return self.__create_app__().request_account(username, email, user_request_timeout)
+
+	def activate_user(self, code):
+		return self.__create_app__().activate_user(code)
+
+	def change_password(self, req, old_password, new_password):
+		self.__verify_message__(req, old_password = old_password, new_password = new_password)
+		self.__create_app__().change_password(req.username, old_password, new_password)
+
+	def update_user_details(self, req, email, firstname, lastname, gender, protected):
+		self.__verify_message__(req, email = email, firstname = firstname, lastname = lastname, gender = gender, protected = protected)
+		self.__create_app__().update_user_details(req.username, email, firstname, lastname, gender, protected)
+
+	def update_avatar(self, req, filename, stream):
+		self.__verify_message__(req, filename = filename)
+		self.__create_app__().update_avatar(req.username, filename, stream)
+
+	def find_user(self, req, query):
+		self.__verify_message__(req, query = query)
+
+		return self.__create_app__().find_user(req.username, query)
+
+	def get_user_details(self, req, name):
+		self.__verify_message__(req, name = name)
+
+		return self.__create_app__().get_user_details(req.username, name)
+
+	def get_object(self, req, guid):
+		return self.__create_app__().get_object(guid)
+
+	def get_objects(self, req, page, page_size):
+		return self.__create_app__().get_objects(page, page_size)
+
+	def get_tagged_objects(self, req, tag, page, page_size):
+		return self.__create_app__().get_tagged_objects(tag, page, page_size)
+
+	def get_popular_objects(self, req, page, page_size):
+		return self.__create_app__().get_popular_objects(page, page_size)
+
+	def get_random_objects(self, req, page_size):
+		return self.__create_app__().get_random_objects(page_size)
+
+	def add_tags(self, req, guid, tags):
+		self.__verify_message__(req, guid = guid, tags = tags)
+		self.__create_app__().add_tags(req.username, guid, tags)
+
+	def rate(self, req, guid, up = True):
+		self.__verify_message__(req, guid = guid, up = up)
+		self.__create_app__().rate(req.username, guid, up)
+
+	def favor(self, req, guid, favor = True):
+		self.__verify_message__(req, guid = guid, favor = favor)
+		self.__create_app__().favor(req.username, guid, favor = favor)
+
+	def get_favorites(self, req, page, page_size):
+		self.__verify_message__(req, page = page, page_size = page_size)
+
+		return self.__create_app__().get_favorites(req.username, page, page_size)
+
+	def add_comment(self, req, guid, text):
+		self.__verify_message__(req, guid = guid, text = text)
+		self.__create_app__().add_comment(guid, req.username, text)
+
+	def get_comments(self, req, guid, page, page_size):
+		self.__verify_message__(req, guid = guid, page = page, page_size = page_size)
+
+		return self.__create_app__().get_comments(guid, page, page_size)
+
+	def recommend(self, req, guid, receivers):
+		self.__verify_message__(req, guid = guid, receivers = receivers)
+		self.__create_app__().recommend(req.username, guid, receivers)
+
+	def get_recommendations(self, req, page, page_size):
+		self.__verify_message__(req, page = page, page_size = page_size)
+
+		return self.__create_app__().get_recommendations(req.username, page, page_size)
+
+	def follow(self, req, user, follow):
+		self.__verify_message__(req, user = user, follow = follow)
+		self.__create_app__().follow(req.username, user, follow)
+
+	def get_messages(self, req, limit, older_than):
+		self.__verify_message__(req, limit = limit, older_than = older_than)
+
+		return self.__create_app__().get_messages(req.username, limit, older_than)
+
+	def __verify_message__(self, req, **kwargs):
+		try:
+			# validate timestamp:
+			if util.unix_timestamp() - req.timestamp > config.REQUEST_EXPIRY_TIME:
+				raise exception.RequestExpiredException
+
+			# get user password:
+			password = self.__get_user_password__(req.username)
+
+			if password is None:
+				raise exception.AuthenticationFailedException()
+
+			# verify signature:
+			kwargs["username"] = req.username
+			kwargs["timestamp"] = req.timestamp
+
+			signature = util.sign_message(str(password), **kwargs)
+
+			if signature != req.signature:
+				raise exception.AuthenticationFailedException()
+
+		except exception.AuthenticationFailedException, ex:
+			raise ex
+
+		except exception.RequestExpiredException, ex:
+			raise ex
+
+		except:
+			raise exception.InvalidRequestException()
+
+	def __get_user_password__(self, username):
+		return self.__create_app__().get_password(username)
+		
+	def __create_app__(self):
+		if self.__app is None:
+			self.__app = Application()
+
+		return self.__app
