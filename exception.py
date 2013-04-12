@@ -4,6 +4,9 @@ import util
 
 ErrorCode = util.enum(INTERNAL_FAILURE = 0,
                       STREAM_EXCEEDS_MAXIMUM = 1,
+                      INVALID_REQUEST = 2,
+                      AUTHENTICATION_FAILED = 3,
+                      REQUEST_EXPIRED = 4,
                       CONSTRAINT_VIOLOATION = 100,
                       INVALID_PARAMETER = 200,
                       USER_ALREADY_EXISTS = 300,
@@ -30,6 +33,18 @@ class InternalFailureException(Exception):
 class StreamExceedsMaximumException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.STREAM_EXCEEDS_MAXIMUM, "The stream exceeds the defined maximum length.")
+
+class InvalidRequestException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.INVALID_REQUEST, "The received request is invalid.")
+
+class AuthenticationFailedException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.AUTHENTICATION_FAILED, "Authentication failed.")
+
+class RequestExpiredException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.REQUEST_EXPIRED, "Request expired.")
 
 class ConstraintViolationException(Exception):
 	def __init__(self, message):
