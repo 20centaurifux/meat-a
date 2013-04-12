@@ -2,14 +2,19 @@
 
 from time import mktime
 from datetime import datetime
-from hashlib import sha256
+from hashlib import sha1, sha256
 from bson import json_util
-import random, string, json, os
+import random, string, json, os, hmac
 
 def now():
 	now = datetime.utcnow()
 
 	return mktime(now.timetuple()) * 1000 + now.microsecond / 1000
+
+def unix_timestamp():
+	now = datetime.utcnow()
+
+	return int(mktime(now.timetuple()))
 
 def hash(plain):
 	m = sha256()
@@ -26,6 +31,39 @@ def hash_file(filename, hasher, block_size = 81920):
 	stream.close()
 
 	return hasher.hexdigest()
+
+def sign_message(secret, **kwargs):
+	def serialize(value):
+		t = type(value)
+
+		if value is None:
+			return "null"
+		if t is int:
+			return str(value)
+		elif t is str:
+			return value
+		elif t is unicode:
+			return value.encode("utf-8")
+		elif t is bool:
+			return str(value).lower()
+		else:
+			raise Exception("Invalid parameter type: %s" % type(value))
+
+	if type(secret) is unicode:
+		secret = secret.encode("utf-8")
+
+	h = hmac.new(secret, "", sha1)
+
+	for key in sorted(kwargs.keys(), key = lambda k: k.upper()):
+		obj = kwargs[key]
+
+		if type(obj) is list or type(obj) is tuple:
+			for value in obj:
+				h.update(serialize(value))
+		else:
+			h.update(serialize(obj))
+
+	return h.hexdigest()
 
 def generate_junk(length, characters = None):
 	if characters is None:
