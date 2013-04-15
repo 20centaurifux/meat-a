@@ -30,7 +30,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 
 		# save users in database:
 		for user in self.users:
-			self.db.create_user(user["name"], user["email"], user["password"], user["firstname"], user["lastname"], user["gender"], user["protected"])
+			self.db.create_user(user["name"], user["email"], user["password"], user["firstname"], user["lastname"], user["gender"], user["language"], user["protected"])
 
 	def tearDown(self):
 		self.__clear_tables__()
@@ -88,7 +88,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 
 					user["protected"] = bool(random.randint(0, 1))
 
-			self.db.update_user_details(user["name"], user["email"], user["firstname"], user["lastname"], user["gender"], user["protected"])
+			self.db.update_user_details(user["name"], user["email"], user["firstname"], user["lastname"], user["gender"], user["language"], user["protected"])
 
 			# get details from database & compare fields:
 			details = self.db.get_user(user["name"])
@@ -245,6 +245,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 		         "lastname": util.generate_junk(text_length),
 		         "password": util.generate_junk(text_length),
 		         "gender": gender,
+		         "language": util.generate_junk(text_length),
 		         "protected": True,
 		         "avatar": None }
 
@@ -258,6 +259,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 		self.assertTrue(user.has_key("timestamp"))
 		self.assertTrue(user.has_key("avatar"))
 		self.assertTrue(user.has_key("blocked"))
+		self.assertTrue(user.has_key("language"))
 		self.assertTrue(user.has_key("protected"))
 
 	def __test_user_structure__(self, user):
@@ -1178,17 +1180,18 @@ class TestApplication(unittest.TestCase, TestCase):
 			user1 = self.__create_account__(a, "user1", "user1@testmail.com")
 
 			# invalid parameters:
-			parameters = [ { "firstname": util.generate_junk(128), "lastname": None, "email": "user0@testmail.com", "gender": None, "protected": False, "parameter": "firstname" },
-				       { "firstname": None, "lastname": util.generate_junk(128), "email": "user0@testmail.com", "gender": None, "protected": False, "parameter": "lastname" },
-				       { "firstname": None, "lastname": None, "email": util.generate_junk(128), "gender": None, "protected": False, "parameter": "email" },
-				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "x", "protected": False, "parameter": "gender" },
-				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "m", "protected": None, "parameter": "protected" } ]
+			parameters = [ { "firstname": util.generate_junk(128), "lastname": None, "email": "user0@testmail.com", "gender": None, "language": "en", "protected": False, "parameter": "firstname" },
+				       { "firstname": None, "lastname": util.generate_junk(128), "email": "user0@testmail.com", "gender": None, "language": "en", "protected": False, "parameter": "lastname" },
+				       { "firstname": None, "lastname": None, "email": util.generate_junk(128), "gender": None, "language": "en", "protected": False, "parameter": "email" },
+				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "x", "language": "en", "protected": False, "parameter": "gender" },
+				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "m", "language": "en", "protected": None, "parameter": "protected" },
+				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "m", "language": util.generate_junk(8), "protected": True, "parameter": "language" } ]
 
 			for p in parameters:
 				err = False
 
 				try:
-					code = a.update_user_details("user0", p["email"], p["firstname"], p["lastname"], p["gender"], p["protected"])
+					code = a.update_user_details("user0", p["email"], p["firstname"], p["lastname"], p["gender"], p["language"], p["protected"])
 
 				except exception.Exception, ex:
 					err = self.__assert_invalid_parameter__(ex, p["parameter"])
@@ -1199,7 +1202,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			err = False
 
 			try:
-				a.update_user_details("user0", "user1@testmail.com", None, None, None, True)
+				a.update_user_details("user0", "user1@testmail.com", None, None, None, "en", True)
 
 			except exception.Exception, ex:
 				err = self.__assert_error_code__(ex, ErrorCode.EMAIL_ALREADY_ASSIGNED)
@@ -1207,7 +1210,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertTrue(err)
 
 			# update user details & test result:
-			a.update_user_details("user0", "test-x@testmail.com", "_firstname", "_lastname", "f", False)
+			a.update_user_details("user0", "test-x@testmail.com", "_firstname", "_lastname", "f", "en", False)
 
 			with factory.create_user_db() as db:
 				user = db.get_user("user0")
@@ -1284,21 +1287,21 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertTrue(err)
 
 			# get user details respecting friendship:
-			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", False)
+			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", "en", False)
 			details = a.get_user_details("Martin.Smith", "Ada.Muster")
-			self.__test_user_details__(details)
+			self.__test_user_details__(details, with_language = False)
 
-			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", True)
+			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", "en", True)
 			details = a.get_user_details("Martin.Smith", "Ada.Muster")
-			self.__test_user_details__(details, False, False)
+			self.__test_user_details__(details, False, False, False, False)
 
 			a.follow("Martin.Smith", "Ada.Muster")
 			details = a.get_user_details("Martin.Smith", "Ada.Muster")
-			self.__test_user_details__(details, False, False)
+			self.__test_user_details__(details, False, False, False, False)
 
 			a.follow("Ada.Muster", "Martin.Smith")
 			details = a.get_user_details("Martin.Smith", "Ada.Muster")
-			self.__test_user_details__(details)
+			self.__test_user_details__(details, with_language = False)
 
 			params = [ { "user1": "John.Doe", "user2": "Ada.Muster", "code": ErrorCode.USER_IS_BLOCKED,
 			             "user1": "Martin.Smith", "user2": "John.Doe", "code": ErrorCode.USER_IS_BLOCKED,
@@ -1812,7 +1815,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			a.follow("user_b", "user_a")
 
 			# make user profile public:
-			a.update_user_details("user_d", "user_d@testmail.com", None, None, None, False)
+			a.update_user_details("user_d", "user_d@testmail.com", None, None, None, "en", False)
 
 			# block user:
 			with factory.create_user_db() as db:
@@ -1824,9 +1827,9 @@ class TestApplication(unittest.TestCase, TestCase):
 
 			for user in result:
 				if user["name"] == "user_b" or user["name"] == "user_d":
-					self.__test_user_details__(user)
+					self.__test_user_details__(user, with_language = False)
 				elif user["name"] == "user_c":
-					self.__test_user_details__(user, False, False)
+					self.__test_user_details__(user, False, False, False, False)
 
 	def test_13_messages(self):
 		with app.Application() as a:
@@ -1887,7 +1890,7 @@ class TestApplication(unittest.TestCase, TestCase):
 
 		return True
 
-	def __test_user_details__(self, user, with_email = True, with_following = True, with_password = False):
+	def __test_user_details__(self, user, with_email = True, with_following = True, with_password = False, with_language = True):
 		self.assertTrue(user.has_key("name"))
 		self.assertTrue(user.has_key("firstname"))
 		self.assertTrue(user.has_key("lastname"))
@@ -1898,6 +1901,7 @@ class TestApplication(unittest.TestCase, TestCase):
 		self.assertTrue(user.has_key("timestamp"))
 		self.assertTrue(user.has_key("avatar"))
 		self.assertFalse(user.has_key("blocked"))
+		self.assertEqual(user.has_key("language"), with_language)
 		self.assertTrue(user.has_key("protected"))
 
 		return True
@@ -1914,7 +1918,8 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 			self.__users["user_a"]["password"] = new_password
 
 			# update user details:
-			self.__test_method__(a.update_user_details, "user_a", email = "_user_a@testmail.com", firstname = "first_a", lastname = "last_a", gender = "m", protected = False)
+			self.__test_method__(a.update_user_details, "user_a", email = "_user_a@testmail.com", firstname = "first_a", lastname = "last_a",
+			                     gender = "m", language = "en", protected = False)
 
 			# get user details:
 			details = self.__test_method__(a.get_user_details, "user_a", name = "user_a")
@@ -1924,12 +1929,14 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 			self.assertEqual(details["firstname"], "first_a")
 			self.assertEqual(details["lastname"], "last_a")
 			self.assertEqual(details["gender"], "m")
-			self.assertEqual(details["protected"], False)
+			self.assertEqual(details["language"], "en")
+			self.assertFalse(details["protected"])
 			self.assertEqual(details["password"], util.hash(new_password))
 			self.assertIsNone(details["avatar"])
 
 			details = self.__test_method__(a.get_user_details, "user_a", name = "user_b")
 			self.assertEqual(details["name"], "user_b")
+			self.assertFalse(details.has_key("language"))
 			self.assertFalse(details.has_key("password"))
 			self.assertFalse(details.has_key("email"))
 

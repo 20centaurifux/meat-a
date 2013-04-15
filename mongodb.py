@@ -201,7 +201,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                                                      "protected": True, "avatar": True, "gender": True, "email": True,
 		                                                      "timestamp": True, "following": True }))
 
-	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None, protected = True):
+	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None, language = None, protected = True):
 		user = self.find_and_modify("users", { "$or": [ { "name": username }, { "$and": [ { "email": email }, { "blocked": False } ] } ] },
 		                            { "name": username,
 		                              "email": email,
@@ -212,6 +212,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                              "following": [],
 		                              "timestamp": util.now(),
 		                              "avatar": None,
+		                              "language": language,
 		                              "blocked": False,
 		                              "protected": protected },
 		                              True)
@@ -219,13 +220,14 @@ class MongoUserDb(MongoDb, database.UserDb):
 		if not user is None:
 			raise ConstraintViolationException("Username or email address already assigned.")
 
-	def update_user_details(self, username, email, firstname, lastname, gender, protected):
+	def update_user_details(self, username, email, firstname, lastname, gender, language, protected):
 		self.update("users", { "name": username },
 		                     { "$set": {
 		                          "email": email,
 		                          "firstname": firstname,
 		                          "lastname": lastname,
 		                          "gender": gender,
+		                          "language": language,
 		                          "protected": protected
 		                     } })
 
@@ -322,7 +324,8 @@ class MongoUserDb(MongoDb, database.UserDb):
 	def __get_user__(self, filter):
 		return self.find_one("users", filter, { "_id": False, "name": True, "firstname": True, "lastname": True,
 		                                        "email": True, "password": True, "gender": True, "timestamp": True,
-		                                        "avatar": True, "blocked": True, "protected": True, "following": True })
+		                                        "avatar": True, "blocked": True, "protected": True, "following": True,
+		                                        "language": True })
 
 class MongoObjectDb(MongoDb, database.ObjectDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):

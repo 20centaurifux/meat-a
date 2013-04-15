@@ -147,7 +147,7 @@ class Application:
 
 		return password
 
-	def update_user_details(self, username, email, firstname, lastname, gender, protected):
+	def update_user_details(self, username, email, firstname, lastname, gender, language, protected):
 		# validate parameters:
 		if not validate_email(email):
 			raise exception.InvalidParameterException("email")
@@ -160,6 +160,9 @@ class Application:
 
 		if not validate_gender(gender):
 			raise exception.InvalidParameterException("gender")
+
+		if not validate_language(language):
+			raise exception.InvalidParameterException("language")
 
 		if protected is None or (protected != True and protected != False):
 			raise exception.InvalidParameterException("protected")
@@ -175,7 +178,7 @@ class Application:
 			raise exception.EmailAlreadyAssignedException()
 
 		# update user details:
-		db.update_user_details(username, email, firstname, lastname, gender, protected)
+		db.update_user_details(username, email, firstname, lastname, gender, language, protected)
 
 	def update_avatar(self, username, filename, stream):
 		# get file extension:
@@ -247,9 +250,9 @@ class Application:
 		user_b = self.__get_active_user__(username)
 
 		if (user_b["protected"] and account in user_b["following"] and username in user_a["following"]) or not user_b["protected"]:
-			keys = [ "password", "blocked" ]
+			keys = [ "password", "blocked", "language" ]
 		else:
-			keys = [ "password", "blocked", "email", "following" ]
+			keys = [ "password", "blocked", "email", "following", "language" ]
 
 		for key in keys:
 			del user_b[key]
@@ -522,9 +525,9 @@ class AuthenticatedApplication:
 		self.__verify_message__(req, old_password = old_password, new_password = new_password)
 		self.__create_app__().change_password(req.username, old_password, new_password)
 
-	def update_user_details(self, req, email, firstname, lastname, gender, protected):
-		self.__verify_message__(req, email = email, firstname = firstname, lastname = lastname, gender = gender, protected = protected)
-		self.__create_app__().update_user_details(req.username, email, firstname, lastname, gender, protected)
+	def update_user_details(self, req, email, firstname, lastname, gender, language, protected):
+		self.__verify_message__(req, email = email, firstname = firstname, lastname = lastname, gender = gender, language = language, protected = protected)
+		self.__create_app__().update_user_details(req.username, email, firstname, lastname, gender, language, protected)
 
 	def update_avatar(self, req, filename, stream):
 		self.__verify_message__(req, filename = filename)

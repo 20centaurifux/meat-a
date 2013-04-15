@@ -4,6 +4,8 @@ MONGODB_HOST             = "127.0.0.1"
 MONGODB_PORT             = 27017
 MONGODB_DATABASE         = "meata"
 
+LANGUAGES                = [ "en", "de" ]
+
 REQUEST_EXPIRY_TIME      = 60
 
 USER_REQUEST_TIMEOUT     = 300

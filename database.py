@@ -27,10 +27,10 @@ class UserDb(object):
 	def search_user(self, query): return None
 
 	@abc.abstractmethod
-	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None, protected = True): return
+	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None, language = None, protected = True): return
 
 	@abc.abstractmethod
-	def update_user_details(self, username, email, firstname, lastname, gender, protected): return
+	def update_user_details(self, username, email, firstname, lastname, gender, language, protected): return
 
 	@abc.abstractmethod
 	def update_user_password(self, username, password): return

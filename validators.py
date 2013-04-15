@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import re, util, os
 from PIL import Image
+from config import LANGUAGES
 
 username_regex = re.compile("^\w[\w\-\.]{1,15}$", re.IGNORECASE | re.UNICODE)
 email_regex = re.compile("^[\w\-][\w\-\.]+@[\w\-][\w\-\.]+[a-zA-Z]{2,4}$", re.IGNORECASE | re.UNICODE)
@@ -44,6 +45,12 @@ def validate_comment(text):
 
 def validate_tag(tag):
 	return validate_string(tag_regex, tag)
+
+def validate_language(language):
+	if language is None:
+		return True
+
+	return language in LANGUAGES
 
 def validate_image_file(filename, max_file_size, max_width, max_height, formats):
 	img = Image.open(filename)
