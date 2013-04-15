@@ -59,7 +59,7 @@ class MongoDb(database.DbUtil):
 	def clear_tables(self):
 		self.__connect__()
 
-		for table in [ "users", "user_requests", "objects", "streams" ]:
+		for table in [ "users", "user_requests", "password_requests", "objects", "streams" ]:
 			self.remove(table)
 
 	def find(self, collection, filter = None, fields = None, sorting = None, limit = None, skip = None):
@@ -281,6 +281,25 @@ class MongoUserDb(MongoDb, database.UserDb):
 
 	def username_requested(self, username):
 		return bool(self.count("user_requests", { "$and": [ { "name": username }, { "lifetime": { "$gte": util.now() } } ] }))
+
+	def password_request_code_exists(self, code):
+		return bool(self.count("password_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] }))
+
+	def get_password_request(self, code):
+		return self.find_one("password_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] },
+		                     { "_id": False, "name": True })["name"]
+
+	def remove_password_request(self, code):
+		self.remove("password_requests", { "code": code })
+
+	def create_password_request(self, username, code, lifetime = 60):
+		request = self.find_and_modify("password_requests",
+	                                       { "$and": [ { "name": username }, { "lifetime": { "$gte": util.now() } } ] },
+                                               { "name": username, "code": code, "lifetime": lifetime * 1000 + util.now() },
+                                               True)
+
+		if not request is None:
+			raise ConstraintViolationException("Password request code does already exist.")
 
 	def follow(self, user1, user2, follow = True):
 		if follow:

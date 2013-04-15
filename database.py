@@ -69,6 +69,18 @@ class UserDb(object):
 	def username_requested(self, username): return False
 
 	@abc.abstractmethod
+	def password_request_code_exists(self, code): return False
+
+	@abc.abstractmethod
+	def get_password_request(self, code): return None
+
+	@abc.abstractmethod
+	def remove_password_request(self, code): return
+
+	@abc.abstractmethod
+	def create_password_request(self, username, code, lifetime = 60): return
+
+	@abc.abstractmethod
 	def follow(self, user1, user2, follow = True): return
 
 	@abc.abstractmethod

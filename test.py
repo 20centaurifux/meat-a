@@ -112,6 +112,19 @@ class TestUserDb(unittest.TestCase, TestCase):
 			details = self.db.get_user(user["name"])
 			self.assertEqual(details["avatar"], details["avatar"])
 
+			# request new password:
+			code = util.generate_junk(128)
+			self.assertFalse(self.db.password_request_code_exists(code))
+
+			self.db.create_password_request(user["name"], code, 60)
+			self.assertTrue(self.db.password_request_code_exists(code))
+
+			username = self.db.get_password_request(code)
+			self.assertEqual(username, user["name"])
+
+			self.db.remove_password_request(code)
+			self.assertFalse(self.db.password_request_code_exists(code))
+
 	def test_04_email_assigned(self):
 		for user in self.users:
 			self.assertTrue(self.db.email_assigned(user["email"]))
