@@ -286,15 +286,20 @@ class MongoUserDb(MongoDb, database.UserDb):
 		return bool(self.count("password_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] }))
 
 	def get_password_request(self, code):
-		return self.find_one("password_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] },
-		                     { "_id": False, "name": True })["name"]
+		result = self.find_one("password_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] },
+		                       { "_id": False, "name": True })
+
+		if not result is None:
+			return result["name"]
+
+		return None
 
 	def remove_password_request(self, code):
 		self.remove("password_requests", { "code": code })
 
 	def create_password_request(self, username, code, lifetime = 60):
 		request = self.find_and_modify("password_requests",
-	                                       { "$and": [ { "name": username }, { "lifetime": { "$gte": util.now() } } ] },
+	                                       { "code": code },
                                                { "name": username, "code": code, "lifetime": lifetime * 1000 + util.now() },
                                                True)
 

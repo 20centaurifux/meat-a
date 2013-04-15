@@ -116,6 +116,37 @@ class Application:
 
 		return user["password"]
 
+	def request_password(self, username, request_timeout = config.PASSWORD_REQUEST_TIMEOUT):
+		user = self.__get_active_user__(username)
+
+		db = self.__create_user_db__()
+
+		# create code:
+		code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
+
+		while db.password_request_code_exists(code):
+			code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
+
+		# save password request:
+		db.create_password_request(username, code, request_timeout)
+
+		return code, user["email"]
+
+	def generate_password(self, code):
+		db = self.__create_user_db__()
+
+		username = db.get_password_request(code)
+
+		if username is None:
+			raise exception.InvalidRequestCodeException()
+
+		self.__test_active_user__(username)
+
+		password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH)
+		db.update_user_password(username, util.hash(password))
+
+		return password
+
 	def update_user_details(self, username, email, firstname, lastname, gender, protected):
 		# validate parameters:
 		if not validate_email(email):

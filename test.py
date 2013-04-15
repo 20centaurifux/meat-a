@@ -1143,6 +1143,34 @@ class TestApplication(unittest.TestCase, TestCase):
 			a.change_password(username, password, new_password)
 			self.assertTrue(a.validate_password(username, new_password))
 
+			# change password using request code:
+			code, email = a.request_password(username)
+			password = a.generate_password(code)
+
+			self.assertTrue(a.validate_password(username, password))
+
+			# test invalid parameters:
+			parameters = [ { "username": username, "timeout": 60, "code": ErrorCode.INVALID_REQUEST_CODE },
+			               { "username": util.generate_junk(16), "timeout": 60, "code": ErrorCode.COULD_NOT_FIND_USER },
+			               { "username": username, "timeout": 1, "code": ErrorCode.INVALID_REQUEST_CODE } ]
+
+			for p in parameters:
+				err = False
+
+				try:
+					code, email = a.request_password(p["username"], p["timeout"])
+					sleep(1.1)
+
+					if p.has_key("code"):
+						code = p["code"]
+
+					password = a.generate_password(code)
+				
+				except exception.Exception, ex:
+					err = self.__assert_error_code__(ex, p["code"])
+
+				self.assertTrue(err)
+
 	def test_02_change_user_details(self):
 		with app.Application() as a:
 			# create test users:
