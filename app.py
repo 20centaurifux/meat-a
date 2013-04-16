@@ -88,6 +88,11 @@ class Application:
 
 		return request["name"], request["email"], password
 
+	def disable_user(self, username):
+		self.__test_active_user__(username)
+
+		self.__create_user_db__().block_user(username)
+
 	def change_password(self, username, old_password, new_password):
 		if not validate_password(new_password):
 			raise exception.InvalidParameterException("new_password")
@@ -520,6 +525,9 @@ class AuthenticatedApplication:
 
 	def activate_user(self, code):
 		return self.__create_app__().activate_user(code)
+
+	def disable_user(self, username):
+		self.__create_app__().disable_user(username)
 
 	def change_password(self, req, old_password, new_password):
 		self.__verify_message__(req, old_password = old_password, new_password = new_password)

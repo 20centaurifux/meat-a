@@ -1170,7 +1170,7 @@ class TestApplication(unittest.TestCase, TestCase):
 
 				self.assertTrue(err)
 
-			# block user:
+			# blocked user:
 			err = False
 
 			with factory.create_user_db() as db:
@@ -1322,8 +1322,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertEqual(user["email"], "john@testmail.com")
 
 			# block user & try to get details:
-			with factory.create_user_db() as db:
-				db.block_user("John.Doe", True)
+			a.disable_user("John.Doe")
 
 			err = False
 
@@ -1389,8 +1388,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			user_a = self.__create_account__(a, "user_a", "usera@testmail.com")
 			user_b = self.__create_account__(a, "user_b", "userb@testmail.com")
 
-			with factory.create_user_db() as db:
-				db.block_user("user_b")
+			a.disable_user("user_b")
 
 			for i in range(1000):
 				if i % 2 == 0:
@@ -1512,8 +1510,7 @@ class TestApplication(unittest.TestCase, TestCase):
 				self.assertTrue(err)
 
 			# (b)locked user/object:
-			with factory.create_user_db() as db:
-				db.block_user("user_c")
+			a.disable_user("user_c")
 
 			with factory.create_object_db() as db:
 				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
@@ -1594,8 +1591,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			a.follow("user_b", "user_a")
 
 			# test blocked users:
-			with factory.create_user_db() as db:
-				db.block_user("user_c")
+			a.disable_user("user_c")
 
 			# test blocked/invalid users & invalid objects:
 			params = [ { "user": "user_c", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED },
@@ -1671,8 +1667,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			a.follow("user_b", "user_c")
 
 			# block user:
-			with factory.create_user_db() as db:
-				db.block_user("user_c")
+			a.disable_user("user_c")
 
 			# test blocked/invalid users, invalid/locked objects & invalid comments:
 			params = [ { "user": "user_c", "guid": obj["guid"], "comment": util.generate_junk(64), "code": ErrorCode.USER_IS_BLOCKED },
@@ -1732,8 +1727,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.__create_account__(a, "Ada.Muster", "ada@testmail.com")
 
 			# invalid parameters:
-			with factory.create_user_db() as db:
-				db.block_user("John.Doe", True)
+			a.disable_user("John.Doe")
 
 			params = [ { "user1": "John.Doe", "user2": "Ada.Muster", "code": ErrorCode.USER_IS_BLOCKED,
 			             "user1": "Martin.Smith", "user2": "John.Doe", "code": ErrorCode.USER_IS_BLOCKED,
@@ -1789,11 +1783,9 @@ class TestApplication(unittest.TestCase, TestCase):
 			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")	
 			user_d = self.__create_account__(a, "user_d", "user_d@testmail.com")	
 
-		# block account:
-		with factory.create_user_db() as db:
-			db.block_user("user_d")
+			# block account:
+			a.disable_user("user_d")
 
-		with app.Application() as a:
 			# create friendship:
 			a.follow("user_a", "user_c")
 			a.follow("user_c", "user_a")
@@ -1867,8 +1859,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			a.update_user_details("user_d", "user_d@testmail.com", None, None, None, "en", False)
 
 			# block user:
-			with factory.create_user_db() as db:
-				db.block_user("user_e")
+			a.disable_user("user_e")
 
 			# search users:
 			result = self.__cursor_to_array__(a.find_user("user_a", "user"))
@@ -1887,8 +1878,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.__create_account__(a, "Martin.Smith", "martin@testmail.com")
 
 			# block user:
-			with factory.create_user_db() as db:
-				db.block_user("John.Doe", True)
+			a.disable_user("John.Doe")
 
 			# invalid parameters:
 			params = [ { "username": "John.Doe", "code": ErrorCode.USER_IS_BLOCKED },
