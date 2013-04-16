@@ -1,6 +1,6 @@
 #-*- coding: utf-8 -*-
 
-import unittest, factory, util, config, app, exception, random, string, os, hashlib
+import unittest, factory, util, config, app, exception, random, string, os, hashlib, re
 from time import sleep
 from exception import ErrorCode
 from database import StreamDb
@@ -993,6 +993,55 @@ class TestStreamDb(unittest.TestCase, TestCase):
 		self.__test_message__(v, StreamDb.MessageType.VOTE, sender, receiver)
 		self.assertTrue(v.has_key("guid"))
 		self.assertTrue(v.has_key("up"))
+
+class TestMailDb(unittest.TestCase, TestCase):
+	def test_00_mails(self):
+		with factory.create_mail_db() as db:
+			# create test messages:
+			for i in range(1000):
+				db.append_message("subject-%d" % i, "body-%d" % i, "test@testmail.com", 120)
+
+			# get & validate messages:
+			result = self.__cursor_to_array__(db.get_outstanding_messages(10))
+			self.assertEqual(len(result), 10)
+
+			result = self.__cursor_to_array__(db.get_outstanding_messages(5000))
+			self.assertEqual(len(result), 1000)
+
+			i = 0
+			created = 0
+
+			reg_subject = re.compile("^subject-[\d]{1,3}$")
+			reg_body = re.compile("^body-[\d]{1,3}$")
+
+			for msg in result:
+				self.assertIsNotNone(msg["id"])
+				self.assertIsNotNone(reg_subject.match(msg["subject"]))
+				self.assertIsNotNone(reg_body.match(msg["body"]))
+				self.assertEqual(msg["receiver"], "test@testmail.com")
+				assert msg["created"] >= created
+
+				created = msg["created"]
+				i += 1
+
+				# mark message as sent:
+				db.mark_sent(msg["id"])
+
+			result = self.__cursor_to_array__(db.get_outstanding_messages(5000))
+			self.assertEqual(len(result), 0)
+
+			# test lifetime:
+			db.append_message("foo", "bar", "test@testmail.com", 1)
+			sleep(1.5)
+
+			result = self.__cursor_to_array__(db.get_outstanding_messages())
+			self.assertEqual(len(result), 0)
+
+	def setUp(self):
+		self.__clear_tables__()
+
+	def tearDown(self):
+		self.__clear_tables__()
 
 class TestApplication(unittest.TestCase, TestCase):
 	def test_00_account_creation(self):
@@ -2116,5 +2165,5 @@ def run_test_case(case):
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestApplication, TestAuthenticatedApplication ]:
+	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestMailDb, TestApplication, TestAuthenticatedApplication ]:
 		run_test_case(case)
