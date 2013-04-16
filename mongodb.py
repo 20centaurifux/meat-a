@@ -146,6 +146,7 @@ class MongoDb(database.DbUtil):
 			self.__db.objects.ensure_index("tags", 1)
 			self.__db.objects.ensure_index("voters", 1)
 			self.__db.objects.ensure_index([ ("receiver", 1), ("timestamp", -1) ])
+			self.__db.mails.ensure_index("lifetime", 1)
 
 class MongoUserDb(MongoDb, database.UserDb):
 	def __init__(self, database, host = "127.0.0.1", port = 27017):
