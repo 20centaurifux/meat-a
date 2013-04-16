@@ -10,19 +10,20 @@ class Application:
 		self.__userdb = None
 		self.__objectdb = None
 		self.__streamdb = None
+		self.__shared_client = None
 
 	def __del__(self):
 		if not self.__userdb is None:
-			self.__userdb.close()
 			self.__userdb = None
 
 		if not self.__objectdb is None:
-			self.__objectdb.close()
 			self.__objectdb = None
 
 		if not self.__streamdb is None:
-			self.__streamdb.close()
 			self.__streamdb = None
+
+		if not self.__shared_client is None:
+			self.__shared_client.disconnect()
 
 	def __enter__(self):
 		return Application()
@@ -428,21 +429,27 @@ class Application:
 
 		return self.__create_stream_db__().get_messages(username, limit, older_than)
 
+	def __create_shared_client__(self):
+		if self.__shared_client is None:
+			self.__shared_client = factory.create_shared_client()
+
+		return self.__shared_client
+
 	def __create_user_db__(self):
 		if self.__userdb is None:
-			self.__userdb = factory.create_user_db()
+			self.__userdb = factory.create_shared_user_db(self.__create_shared_client__())
 
 		return self.__userdb
 
 	def __create_object_db__(self):
 		if self.__objectdb is None:
-			self.__objectdb = factory.create_object_db()
+			self.__objectdb = factory.create_shared_object_db(self.__create_shared_client__())
 
 		return self.__objectdb
 
 	def __create_stream_db__(self):
 		if self.__streamdb is None:
-			self.__streamdb = factory.create_stream_db()
+			self.__streamdb = factory.create_shared_stream_db(self.__create_shared_client__())
 
 		return self.__streamdb
 

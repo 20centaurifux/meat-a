@@ -1,60 +1,30 @@
 # -*- coding: utf-8 -*-
 
-import database, pymongo, util, re, runtime
+import database, pymongo, util, re
 from bson.code import Code
 from bson import ObjectId
 from random import random
 from exception import ConstraintViolationException, InternalFailureException
-from collections import deque
-
-# global connection pool:
-pool = None
-
-class MongoClientPool:
-	def __init__(self, host = "127.0.0.1", port = 27017, max_size = 20):
-		self.__max_size = max_size
-		self.__host = host
-		self.__port = port
-		self.__queue = deque()
-
-	def __del__(self):
-		for connection in self.__queue:
-			connection.disconnect()
-
-	def connect(self):
-		try:
-			connection = self.__queue.popleft()
-		
-		except IndexError:
-			connection = pymongo.MongoClient(self.__host, self.__port)
-			connection.write_concern = { "j": True }
-
-		return connection
-
-	def detach(self, connection):
-		if len(self.__queue) > self.__max_size:
-			connection.disconnect()
-		else:
-			self.__queue.append(connection)
 
 class MongoDb(database.DbUtil):
-	def __init__(self, database, host = "127.0.0.1", port = 27017):
+	def __init__(self, database, **kwargs):
 		self.__database = database
-		self.__host = host
-		self.__port = port
-		self.__client = None
 		self.__db = None
 		self.__open = False
+		self.__client = None
+		self.__shared_client = False
+
+		if kwargs.has_key("host") and kwargs.has_key("port"):
+			self.__host = kwargs["host"]
+			self.__port = kwargs["port"]
+		else:
+			self.__client = kwargs["client"]
+			self.__shared_client = True
 
 	def close(self):
-		global pool
-
-		if self.__open:
-			if runtime.ENABLE_MONGOCLIENT_POOL:
-				pool.detach(self.__client)
-			else:
-				self.__client.disconnect()
-
+		if self.__open and not self.__shared_client:
+			self.__client.disconnect()
+			self.__client = None
 			self.__open = False
 
 	def clear_tables(self):
@@ -120,16 +90,7 @@ class MongoDb(database.DbUtil):
 
 	def __connect__(self):
 		if not self.__open:
-			global pool
-
-			if runtime.ENABLE_MONGOCLIENT_POOL:
-				# initialize global connection pool if necessary:
-				if pool is None:
-					pool = MongoClientPool(self.__host, self.__port)
-
-				self.__client = pool.connect()
-			else:
-				# don't use pool:
+			if self.__client is None:
 				self.__client = pymongo.MongoClient(self.__host, self.__port)
 
 			self.__db = self.__client[self.__database]
@@ -149,8 +110,8 @@ class MongoDb(database.DbUtil):
 			self.__db.mails.ensure_index("lifetime", 1)
 
 class MongoUserDb(MongoDb, database.UserDb):
-	def __init__(self, database, host = "127.0.0.1", port = 27017):
-		MongoDb.__init__(self, database, host, port)
+	def __init__(self, database, **kwargs):
+		MongoDb.__init__(self, database, **kwargs)
 
 	def __enter__(self):
 		return self
@@ -330,8 +291,8 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                                        "language": True })
 
 class MongoObjectDb(MongoDb, database.ObjectDb):
-	def __init__(self, database, host = "127.0.0.1", port = 27017):
-		MongoDb.__init__(self, database, host, port)
+	def __init__(self, database, **kwargs):
+		MongoDb.__init__(self, database, **kwargs)
 
 	def __enter__(self):
 		return self
@@ -548,8 +509,8 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		return bool(self.count("objects", { "guid": guid, "recommendations.user": username }))
 
 class MongoStreamDb(MongoDb, database.StreamDb):
-	def __init__(self, database, host = "127.0.0.1", port = 27017):
-		MongoDb.__init__(self, database, host, port)
+	def __init__(self, database, **kwargs):
+		MongoDb.__init__(self, database, **kwargs)
 
 	def __enter__(self):
 		return self
@@ -674,8 +635,8 @@ class MongoStreamDb(MongoDb, database.StreamDb):
 				raise InternalFailureException("Unknown argument: '%s'" % key)
 
 class MongoMailDb(MongoDb):
-	def __init__(self, database, host = "127.0.0.1", port = 27017):
-		MongoDb.__init__(self, database, host, port)
+	def __init__(self, database, **kwargs):
+		MongoDb.__init__(self, database, **kwargs)
 
 	def __enter__(self):
 		return self
