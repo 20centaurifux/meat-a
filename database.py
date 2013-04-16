@@ -169,3 +169,10 @@ class StreamDb(object):
 
 	@abc.abstractmethod
 	def get_messages(self, user, limit = 100, older_than = None): return None
+
+class MailDb(object):
+	@abc.abstractmethod
+	def append_message(self, subject, body, receiver, lifetime): return
+
+	@abc.abstractmethod
+	def get_outstanding_mails(self, limit = 100): return None
