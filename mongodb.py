@@ -2,6 +2,7 @@
 
 import database, pymongo, util, re, runtime
 from bson.code import Code
+from bson import ObjectId
 from random import random
 from exception import ConstraintViolationException, InternalFailureException
 from collections import deque
@@ -59,7 +60,7 @@ class MongoDb(database.DbUtil):
 	def clear_tables(self):
 		self.__connect__()
 
-		for table in [ "users", "user_requests", "password_requests", "objects", "streams" ]:
+		for table in [ "users", "user_requests", "password_requests", "objects", "streams", "mails" ]:
 			self.remove(table)
 
 	def find(self, collection, filter = None, fields = None, sorting = None, limit = None, skip = None):
@@ -670,3 +671,37 @@ class MongoStreamDb(MongoDb, database.StreamDb):
 		for key in keys:
 			if not key in required and not key in optional:
 				raise InternalFailureException("Unknown argument: '%s'" % key)
+
+class MongoMailDb(MongoDb):
+	def __init__(self, database, host = "127.0.0.1", port = 27017):
+		MongoDb.__init__(self, database, host, port)
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, type, value, traceback):
+		self.close()
+
+	def append_message(self, subject, body, receiver, lifetime):
+		self.save("mails", { "subject": subject,
+		                     "body": body,
+		                     "receiver": receiver,
+		                     "created": util.now(),
+		                     "lifetime": util.now() + lifetime * 1000,
+		                     "sent": False })
+
+	def get_outstanding_messages(self, limit = 100):
+		msgs = []
+
+		for m in self.find("mails", { "lifetime": { "$gte": util.now() }, "sent": False },
+		                            { "_id": True, "subject": True, "body": True, "receiver": True, "created": True },
+		                            sorting = [ "created", 1 ], limit = limit):
+			m["id"] = str(m["_id"])
+			del m["_id"]
+
+			msgs.append(m)
+
+		return msgs
+
+	def mark_sent(self, id):
+		self.update("mails", { "_id": ObjectId(id) }, { "$set": { "sent": True } })

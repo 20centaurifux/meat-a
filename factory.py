@@ -13,3 +13,6 @@ def create_object_db():
 
 def create_stream_db():
 	return mongodb.MongoStreamDb(config.MONGODB_DATABASE, config.MONGODB_HOST, config.MONGODB_PORT)
+
+def create_mail_db():
+	return mongodb.MongoMailDb(config.MONGODB_DATABASE, config.MONGODB_HOST, config.MONGODB_PORT)
