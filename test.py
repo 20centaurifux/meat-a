@@ -1,6 +1,7 @@
 #-*- coding: utf-8 -*-
 
-import unittest, factory, util, config, app, exception, random, string, os, hashlib, re
+import unittest, random, string, os, hashlib, re, json
+import factory, util, config, app, client, exception
 from time import sleep
 from exception import ErrorCode
 from database import StreamDb
@@ -1002,10 +1003,10 @@ class TestMailDb(unittest.TestCase, TestCase):
 				db.append_message("subject-%d" % i, "body-%d" % i, "test@testmail.com", 120)
 
 			# get & validate messages:
-			result = self.__cursor_to_array__(db.get_outstanding_messages(10))
+			result = self.__cursor_to_array__(db.get_unsent_messages(10))
 			self.assertEqual(len(result), 10)
 
-			result = self.__cursor_to_array__(db.get_outstanding_messages(5000))
+			result = self.__cursor_to_array__(db.get_unsent_messages(5000))
 			self.assertEqual(len(result), 1000)
 
 			i = 0
@@ -1027,14 +1028,14 @@ class TestMailDb(unittest.TestCase, TestCase):
 				# mark message as sent:
 				db.mark_sent(msg["id"])
 
-			result = self.__cursor_to_array__(db.get_outstanding_messages(5000))
+			result = self.__cursor_to_array__(db.get_unsent_messages(5000))
 			self.assertEqual(len(result), 0)
 
 			# test lifetime:
 			db.append_message("foo", "bar", "test@testmail.com", 1)
 			sleep(1.5)
 
-			result = self.__cursor_to_array__(db.get_outstanding_messages())
+			result = self.__cursor_to_array__(db.get_unsent_messages())
 			self.assertEqual(len(result), 0)
 
 	def setUp(self):
@@ -1195,27 +1196,30 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertTrue(a.validate_password(username, new_password))
 
 			# change password using request code:
-			code, email = a.request_password(username)
-			password = a.generate_password(code)
+			code = a.request_password(username, email)
+			name, addr, password = a.generate_password(code)
 
+			self.assertEqual(addr, email)
+			self.assertEqual(name, username)
 			self.assertTrue(a.validate_password(username, password))
 
 			# test invalid parameters:
-			parameters = [ { "username": username, "timeout": 60, "code": ErrorCode.INVALID_REQUEST_CODE },
-			               { "username": util.generate_junk(16), "timeout": 60, "code": ErrorCode.COULD_NOT_FIND_USER },
-			               { "username": username, "timeout": 1, "code": ErrorCode.INVALID_REQUEST_CODE } ]
+			parameters = [ { "username": username, "email": email, "timeout": 60, "code": ErrorCode.INVALID_REQUEST_CODE },
+			               { "username": util.generate_junk(16), "email": email, "timeout": 60, "code": ErrorCode.COULD_NOT_FIND_USER },
+			               { "username": username, "email": util.generate_junk(16), "timeout": 1, "code": ErrorCode.INVALID_EMAIL_ADDRESS },
+			               { "username": username, "email": email, "timeout": 1, "code": ErrorCode.INVALID_REQUEST_CODE } ]
 
 			for p in parameters:
 				err = False
 
 				try:
-					code, email = a.request_password(p["username"], p["timeout"])
+					code = a.request_password(p["username"], p["email"], p["timeout"])
 					sleep(1.1)
 
 					if p.has_key("code"):
 						code = p["code"]
 
-					password = a.generate_password(code)
+					name, addr, password = a.generate_password(code)
 				
 				except exception.Exception, ex:
 					err = self.__assert_error_code__(ex, p["code"])
@@ -2012,16 +2016,17 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 			result = self.__cursor_to_array__(self.__test_method__(a.get_objects, "user_a", page = 1, page_size = 80))
 			self.assertEqual(len(result), 20)
 
+			# tags:
 			for i in range(50):
 				self.__test_method__(a.add_tags, "user_a", guid = objs[i]["guid"], tags = [ "foo", "bar"])
 
 			result = self.__cursor_to_array__(self.__test_method__(a.get_tagged_objects, "user_a", tag = "foo", page = 1, page_size = 40))
 			self.assertEqual(len(result), 10)
 
-			# tags:
 			for obj in result:
 				assert "foo" in obj["tags"]
 
+			# random objects:
 			result = self.__cursor_to_array__(self.__test_method__(a.get_random_objects, "user_a", page_size = 25))
 			self.assertEqual(len(result), 25)
 
@@ -2150,10 +2155,284 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 
 		self.assertTrue(err)
 
+class TestHttpServer(unittest.TestCase, TestCase):
+	def test_00_create_user_accounts(self):
+		password = self.__create_user__("user_a", "user_a@testmail.com")
+		password = self.__create_user__("user_b", "user_b@testmail.com")
+
+		with factory.create_user_db() as db:
+			result = self.__cursor_to_array__(db.search_user("testmail.com"))
+			self.assertEqual(len(result), 2)
+
+	def test_01_update_users(self):
+		password = self.__create_user__("user_a", "user_a@testmail.com")
+		
+		# update password:
+		new_password = util.generate_junk(16)
+		self.client.update_password("user_a", password, new_password)
+
+		# update details:
+		self.client.update_user_details("user_a", new_password, "user_a@testmail.org", "firstname", "lastname", "f", "de", False)
+
+		# get details:
+		details = json.loads(self.client.get_user_details("user_a", new_password, "user_a"))
+		self.assertEqual(details["name"], "user_a")
+		self.assertEqual(details["firstname"], "firstname")
+		self.assertEqual(details["lastname"], "lastname")
+		self.assertEqual(details["email"], "user_a@testmail.org")
+		self.assertEqual(details["gender"], "f")
+		self.assertEqual(details["language"], "de")
+		self.assertIsNone(details["avatar"])
+		self.assertFalse(details["protected"])
+
+		# update avatar:
+		self.client.update_avatar("user_a", new_password, os.path.join("test-data", "avatar02.jpg"))
+		details = json.loads(self.client.get_user_details("user_a", new_password, "user_a"))
+		self.assertIsNotNone(details["avatar"])
+
+	def test_02_reset_password(self):
+		# create test user:
+		self.__create_user__("user_a", "user_a@testmail.com")
+
+		# request new password:
+		self.client.request_password("user_a", "user_a@testmail.com")
+
+		# get password reset URL from mail:
+		with factory.create_mail_db() as db:
+			mail = db.get_unsent_messages()[0]
+			db.mark_sent(mail["id"])
+
+			m = re.search("(http://.*)\n", mail["body"])
+			url = m.group()
+
+			# reset password:
+			self.client.get(url)
+
+			# get new password:
+			mail = db.get_unsent_messages()[0]
+			db.mark_sent(mail["id"])
+
+			m = re.search("login:\r\n\r\n(.*)\r\n\r\n", mail["body"])
+			password = m.group(1)
+
+			with app.Application() as a:
+				self.assertTrue(a.validate_password("user_a", password))
+
+	def test_03_disable_account(self):
+		# create test user:
+		password = self.__create_user__("user_a", "user_a@testmail.com")
+
+		# disable account:
+		self.client.disable_user("user_a", password, "user_a@testmail.com")
+
+		# check if account has been disabled successfully:
+		with factory.create_user_db() as db:
+			self.assertTrue(db.user_is_blocked("user_a"))
+
+	def test_04_search_users(self):
+		users = {}
+		i = 0
+
+		for c in [ "a", "b", "c", "d", "e", "f" ]:
+			name = "user_%s" % c
+
+			if i % 2 == 0:
+				email = "%s@testmail.com" % name
+			else:
+				email = "%s@testmail.org" % name
+
+			users["user_%s" % c] = self.__create_user__(name, email)
+
+			i += 1
+
+		result = json.loads(self.client.find_user("user_a", users["user_a"], "testmail.com"))
+		self.assertEqual(len(result), 2)
+
+		result = json.loads(self.client.find_user("user_a", users["user_a"], "testmail.org"))
+		self.assertEqual(len(result), 3)
+
+		result = json.loads(self.client.find_user("user_a", users["user_a"], "testmail"))
+		self.assertEqual(len(result), 5)
+
+		result = json.loads(self.client.find_user("user_a", users["user_a"], "user_b"))
+		self.assertEqual(len(result), 1)
+
+	def test_05_objects(self):
+		# create test users & objects:
+		password_a = self.__create_user__("user_a", "user_a@testmail.com")
+		password_b = self.__create_user__("user_b", "user_b@testmail.com")
+		objs = self.__generate_objects__(100)
+
+		# get objects:
+		for obj in objs[:10]:
+			details = json.loads(self.client.get_object("user_a", password_a, obj["guid"]))
+			self.assertEqual(details["guid"], obj["guid"])
+
+		result = json.loads(self.client.get_objects("user_a", password_a, 0, 50))
+		self.assertEqual(len(result), 50)
+
+		result = json.loads(self.client.get_objects("user_a", password_a, 1, 90))
+		self.assertEqual(len(result), 10)
+
+		result = json.loads(self.client.get_random_objects("user_a", password_a, 50))
+		self.assertEqual(len(result), 50)
+
+		for obj in objs[:15]:
+			self.client.add_tags("user_a", password_a, obj["guid"], ( "foo", "bar" ))
+
+		result = json.loads(self.client.get_tagged_objects("user_a", password_a, "foo", 0, 50))
+		self.assertEqual(len(result), 15)
+
+		result = json.loads(self.client.get_tagged_objects("user_a", password_a, "foobar", 0, 50))
+		self.assertEqual(len(result), 0)
+
+		# score:
+		for obj in objs[:20]:
+			for i in range(2):
+				up = True
+
+				if random.randint(0, 100) >= 70:
+					up = False
+
+				user = "user_a"
+				password = password_a
+
+				if i == 1:
+					user = "user_b"
+					password = password_b
+				
+				self.client.rate(user, password, obj["guid"], up = up)
+
+		result = json.loads(self.client.get_popular_objects("user_a", password_a, 0, 15))
+		self.assertEqual(len(result), 15)
+
+		for i in range(14):
+			assert result[i]["score"]["total"] >= result[i + 1]["score"]["total"]
+
+		# favorites:
+		for i in range(20):
+			user = "user_a"
+			password = password_a
+
+			if i % 2 == 0:
+				user = "user_b"
+				password = password_b
+
+			self.client.favor(user, password, objs[i]["guid"], favor = True)
+
+		result = json.loads(self.client.get_favorites("user_a", password_a, 0, 15))
+		self.assertEqual(len(result), 10)
+
+		result = json.loads(self.client.get_favorites("user_a", password_a, 1, 9))
+		self.assertEqual(len(result), 1)
+
+		# comments:
+		for obj in objs[:5]:
+			for i in range(4):
+				user = "user_a"
+				password = password_a
+
+				if i % 2 == 0:
+					user = "user_b"
+					password = password_b
+
+				self.client.add_comment(user, password, obj["guid"], util.generate_junk(128))
+
+		for obj in objs[:5]:
+			comments = json.loads(self.client.get_comments("user_a", password_a, obj["guid"], 0, 10))
+			self.assertEqual(len(comments), 4)
+
+			comments = json.loads(self.client.get_comments("user_b", password_b, obj["guid"], 1, 3))
+			self.assertEqual(len(comments), 1)
+
+		# create frienship:
+		self.client.follow("user_a", password_a, "user_b")
+		self.client.follow("user_b", password_b, "user_a")
+
+		# recommendations:
+		for obj in objs[:10]:
+			self.client.recommend("user_a", password_a, obj["guid"], ( "user_a", "user_b" ))
+
+		result = json.loads(self.client.get_recommendations("user_a", password_a, 0, 100))
+		self.assertEqual(len(result), 0)
+
+		result = json.loads(self.client.get_recommendations("user_b", password_b, 0, 100))
+		self.assertEqual(len(result), 10)
+
+		result = json.loads(self.client.get_recommendations("user_b", password_b, 1, 8))
+		self.assertEqual(len(result), 2)
+
+		# messages:
+		messages = json.loads(self.client.get_messages("user_a", password_a, 100, None))
+		self.assertEqual(len(messages), 1)
+
+		messages = json.loads(self.client.get_messages("user_b", password_b, 100, None))
+		self.assertEqual(len(messages), 11)
+		timestamp = int(messages[0]["timestamp"]) - 1000
+
+		messages = json.loads(self.client.get_messages("user_b", password_b, 100, timestamp))
+		assert len(messages) > 0
+
+	def setUp(self):
+		# get test url & port:
+		self.port = 80
+
+		m = re.match("(http://.*):(\d+)", config.WEBSITE_URL)
+
+		if m is None:
+			self.url = config.WEBSITE_URL
+		else:
+			self.url = m.group(1)
+			self.port = int(m.group(2))
+
+		# create test client:
+		self.client = client.Client(self.url, self.port)
+
+		# clear tables & remove test files:
+		self.__clear_tables__()
+		util.remove_all_files(config.AVATAR_DIR)
+
+	def tearDown(self):
+		self.__clear_tables__()
+		util.remove_all_files(config.AVATAR_DIR)
+
+	def __create_user__(self, username, email):
+		# send account request:
+		response = self.client.request_account(username, email)
+
+		with factory.create_mail_db() as db:
+			# get activation code from generated mail:
+			mail = db.get_unsent_messages()[0]
+			db.mark_sent(mail["id"])
+
+			m = re.search("(http://.*)\n", mail["body"])
+			url = m.group()
+
+			self.client.get(url)
+
+			mail = db.get_unsent_messages()[0]
+			db.mark_sent(mail["id"])
+
+			m = re.search("login:\r\n\r\n(.*)\r\n\r\n", mail["body"])
+			password = m.group(1)
+
+			return password
+
+	def __generate_objects__(self, count):
+		objs = []
+
+		with factory.create_object_db() as db:
+			for i in range(count):
+				obj = { "guid": util.generate_junk(32), "source": util.generate_junk(64) }
+				db.create_object(obj["guid"], obj["source"])
+				objs.append(obj)
+
+		return objs
+
 def run_test_case(case):
 	suite = unittest.TestLoader().loadTestsFromTestCase(case)
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestMailDb, TestApplication, TestAuthenticatedApplication ]:
+	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestMailDb, TestApplication, TestAuthenticatedApplication, TestHttpServer ]:
 		run_test_case(case)
