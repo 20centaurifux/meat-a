@@ -2,11 +2,12 @@
 
 import util
 
-ErrorCode = util.enum(INTERNAL_FAILURE = 0,
-                      STREAM_EXCEEDS_MAXIMUM = 1,
-                      INVALID_REQUEST = 2,
-                      AUTHENTICATION_FAILED = 3,
-                      REQUEST_EXPIRED = 4,
+ErrorCode = util.enum(SUCCESS = 0,
+                      INTERNAL_FAILURE = 1,
+                      STREAM_EXCEEDS_MAXIMUM = 2,
+                      INVALID_REQUEST = 3,
+                      AUTHENTICATION_FAILED = 4,
+                      REQUEST_EXPIRED = 5,
                       CONSTRAINT_VIOLOATION = 100,
                       INVALID_PARAMETER = 200,
                       USER_ALREADY_EXISTS = 300,
@@ -16,10 +17,12 @@ ErrorCode = util.enum(INTERNAL_FAILURE = 0,
                       EMAIL_ALREADY_ASSIGNED = 304,
                       INVALID_REQUEST_CODE = 305,
                       INVALID_PASSWORD = 306,
+                      INVALID_EMAIL_ADDRESS = 307,
                       INVALID_IMAGE_FORMAT = 400,
                       OBJECT_IS_LOCKED = 500,
                       OBJECT_NOT_FOUND = 501,
-                      USER_ALREADY_RATED = 502)
+                      USER_ALREADY_RATED = 502,
+                      HTTP_FAILURE = 600)
 
 class Exception:
 	def __init__(self, code, message):
@@ -83,6 +86,10 @@ class InvalidPasswordException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.INVALID_PASSWORD, "Invalid password.")
 
+class InvalidEmailAddressException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.INVALID_EMAIL_ADDRESS, "Invalid email address.")
+
 class InvalidImageFormatException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.INVALID_IMAGE_FORMAT, "The given image has an invalid format.")
@@ -99,3 +106,7 @@ class UserAlreadyRatedException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.USER_ALREADY_RATED, "The user has already rated for the given object.")
 
+class HttpException(Exception):
+	def __init__(self, http_status, message):
+		Exception.__init__(self, ErrorCode.HTTP_FAILURE, message)
+		self.http_status = http_status
