@@ -91,7 +91,6 @@ class Application:
 
 	def disable_user(self, username):
 		self.__test_active_user__(username)
-
 		self.__create_user_db__().block_user(username)
 
 	def change_password(self, username, old_password, new_password):
@@ -118,12 +117,15 @@ class Application:
 		return util.hash(password) == db.get_user_password(username)
 
 	def get_password(self, username):
-		user = self.__get_active_user__(username)
+		user = self.get_active_user(username)
 
 		return user["password"]
 
-	def request_password(self, username, request_timeout = config.PASSWORD_REQUEST_TIMEOUT):
-		user = self.__get_active_user__(username)
+	def request_password(self, username, email, request_timeout = config.PASSWORD_REQUEST_TIMEOUT):
+		user = self.get_active_user(username)
+
+		if user["email"] != email:
+			raise exception.InvalidEmailAddressException()
 
 		db = self.__create_user_db__()
 
@@ -136,7 +138,7 @@ class Application:
 		# save password request:
 		db.create_password_request(username, code, request_timeout)
 
-		return code, user["email"]
+		return code
 
 	def generate_password(self, code):
 		db = self.__create_user_db__()
@@ -146,12 +148,12 @@ class Application:
 		if username is None:
 			raise exception.InvalidRequestCodeException()
 
-		self.__test_active_user__(username)
+		user = self.get_active_user(username)
 
 		password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH)
 		db.update_user_password(username, util.hash(password))
 
-		return password
+		return username, user["email"], password
 
 	def update_user_details(self, username, email, firstname, lastname, gender, language, protected):
 		# validate parameters:
@@ -246,14 +248,14 @@ class Application:
 		return details
 
 	def get_user_details(self, account, username):
-		user_a = self.__get_active_user__(account)
+		user_a = self.get_active_user(account)
 
 		if account == username:
 			del user_a["blocked"]
 
 			return user_a
 
-		user_b = self.__get_active_user__(username)
+		user_b = self.get_active_user(username)
 
 		if (user_b["protected"] and account in user_b["following"] and username in user_a["following"]) or not user_b["protected"]:
 			keys = [ "password", "blocked", "language" ]
@@ -266,7 +268,7 @@ class Application:
 		return user_b
 
 	def find_user(self, account, query):
-		user_a = self.__get_active_user__(account)
+		user_a = self.get_active_user(account)
 		result = []
 
 		for user_b in self.__create_user_db__().search_user(query):
@@ -308,7 +310,7 @@ class Application:
 
 	def rate(self, username, guid, up = True):
 		self.__test_object_write_access__(guid)
-		user = self.__get_active_user__(username)
+		user = self.get_active_user(username)
 
 		# rate:
 		db = self.__create_object_db__()
@@ -327,7 +329,7 @@ class Application:
 
 	def favor(self, username, guid, favor = True):
 		self.__test_object_exists__(guid)
-		user = self.__get_active_user__(username)
+		user = self.get_active_user(username)
 
 		# create favorite:
 		db = self.__create_object_db__()
@@ -350,7 +352,7 @@ class Application:
 			raise exception.InvalidParameterException("comment")
 
 		self.__test_object_write_access__(guid)
-		user = self.__get_active_user__(username)
+		user = self.get_active_user(username)
 
 		# create comment:
 		db = self.__create_object_db__()
@@ -369,7 +371,7 @@ class Application:
 		return self.__create_object_db__().get_comments(guid, page, page_size)
 
 	def recommend(self, username, guid, receivers):
-		sender = self.__get_active_user__(username)
+		sender = self.get_active_user(username)
 		self.__test_object_exists__(guid)
 
 		# build valid receiver list:
@@ -381,7 +383,7 @@ class Application:
 		for r in receivers:
 			if r != username and r in sender["following"]:
 				try:
-					user = self.__get_active_user__(r)
+					user = self.get_active_user(r)
 
 					if username in user["following"] and not objdb.recommendation_exists(guid, r):
 						valid_receivers.append(r)
@@ -429,6 +431,19 @@ class Application:
 
 		return self.__create_stream_db__().get_messages(username, limit, older_than)
 
+	def get_active_user(self, username):
+		db = self.__create_user_db__()
+
+		user = db.get_user(username)
+
+		if user is None:
+			raise exception.UserNotFoundException()
+
+		if user["blocked"]:
+			raise exception.UserIsBlockedException()
+
+		return user
+
 	def __create_shared_client__(self):
 		if self.__shared_client is None:
 			self.__shared_client = factory.create_shared_client()
@@ -462,19 +477,6 @@ class Application:
 		if db.user_is_blocked(username):
 			raise exception.UserIsBlockedException()
 
-	def __get_active_user__(self, username):
-		db = self.__create_user_db__()
-
-		user = db.get_user(username)
-
-		if user is None:
-			raise exception.UserNotFoundException()
-
-		if user["blocked"]:
-			raise exception.UserIsBlockedException()
-
-		return user
-
 	def __test_object_exists__(self, guid):
 		db = self.__create_object_db__()
 
@@ -495,7 +497,7 @@ class Application:
 
 		for u in user["following"]:
 			try:
-				details = self.__get_active_user__(u)
+				details = self.get_active_user(u)
 				
 				if user["name"] in details["following"]:
 					friends.append(details["name"])
@@ -530,11 +532,25 @@ class AuthenticatedApplication:
 	def request_account(self, username, email, user_request_timeout = config.USER_REQUEST_TIMEOUT):
 		return self.__create_app__().request_account(username, email, user_request_timeout)
 
+	def request_password(self, username, email):
+		return self.__create_app__().request_password(username, email)
+
+	def generate_password(self, code):
+		return self.__create_app__().generate_password(code)
+
 	def activate_user(self, code):
 		return self.__create_app__().activate_user(code)
 
-	def disable_user(self, username):
-		self.__create_app__().disable_user(username)
+	def disable_user(self, req, email):
+		self.__verify_message__(req, email = email)
+
+		app = self.__create_app__()
+		user = app.get_active_user(req.username)
+
+		if user["email"] != email:
+			raise exception.InvalidEmailAddressException()
+
+		app.disable_user(req.username)
 
 	def change_password(self, req, old_password, new_password):
 		self.__verify_message__(req, old_password = old_password, new_password = new_password)
@@ -559,18 +575,27 @@ class AuthenticatedApplication:
 		return self.__create_app__().get_user_details(req.username, name)
 
 	def get_object(self, req, guid):
+		self.__verify_message__(req, guid = guid)
+
 		return self.__create_app__().get_object(guid)
 
 	def get_objects(self, req, page, page_size):
+		self.__verify_message__(req, page = page, page_size = page_size)
+
 		return self.__create_app__().get_objects(page, page_size)
 
 	def get_tagged_objects(self, req, tag, page, page_size):
+		self.__verify_message__(req, tag = tag, page = page, page_size = page_size)
 		return self.__create_app__().get_tagged_objects(tag, page, page_size)
 
 	def get_popular_objects(self, req, page, page_size):
+		self.__verify_message__(req, page = page, page_size = page_size)
+
 		return self.__create_app__().get_popular_objects(page, page_size)
 
 	def get_random_objects(self, req, page_size):
+		self.__verify_message__(req, page_size = page_size)
+
 		return self.__create_app__().get_random_objects(page_size)
 
 	def add_tags(self, req, guid, tags):
@@ -644,7 +669,7 @@ class AuthenticatedApplication:
 		except exception.RequestExpiredException, ex:
 			raise ex
 
-		except:
+		except Exception:
 			raise exception.InvalidRequestException()
 
 	def __get_user_password__(self, username):
