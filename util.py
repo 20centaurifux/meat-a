@@ -40,6 +40,8 @@ def sign_message(secret, **kwargs):
 			return "null"
 		if t is int:
 			return str(value)
+		if t is long:
+			return str(value)
 		elif t is str:
 			return value
 		elif t is unicode:
@@ -57,7 +59,9 @@ def sign_message(secret, **kwargs):
 	for key in sorted(kwargs.keys(), key = lambda k: k.upper()):
 		obj = kwargs[key]
 
-		if type(obj) is list or type(obj) is tuple:
+		t = type(obj)
+
+		if t is list or t is tuple:
 			for value in obj:
 				h.update(serialize(value))
 		else:
@@ -90,6 +94,20 @@ def strip(text):
 		text = ""
 
 	return text.strip()
+
+def to_bool(obj):
+	t = type(obj)
+
+	if t is bool:
+		return obj
+
+	if t is str or t is unicode:
+		if obj.lower() == "true":
+			return True
+		else:
+			return False
+
+	return bool(obj)
 
 def remove_all_files(directory):
 	for file in os.listdir(directory):
