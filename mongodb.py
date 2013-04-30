@@ -102,6 +102,7 @@ class MongoDb(database.DbUtil):
 			self.__db.users.ensure_index("blocked", 1)
 			self.__db.users.ensure_index("following", 1)
 			self.__db.objects.ensure_index("random", 1)
+			self.__db.objects.ensure_index("score_total", -1)
 			self.__db.objects.ensure_index("timestamp", -1)
 			self.__db.objects.ensure_index("fans", 1)
 			self.__db.objects.ensure_index("tags", 1)
@@ -305,7 +306,8 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		                       "source": source,
 		                       "locked": False,
 		                       "tags": [],
-		                       "score": { "up": 0, "down": 0, "fav": 0, "total": 0 },
+		                       "score": { "up": 0, "down": 0, "fav": 0 },
+		                       "score_total": 0,
 		                       "voters": [],
 		                       "fans": [],
 		                       "recommendations": [],
@@ -332,34 +334,38 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		return bool(self.count("objects", { "guid": guid }))
 
 	def get_object(self, guid):
-		return self.find_one("objects", { "guid": guid }, { "_id": False, "guid": True, "source": True, "locked": True,
-		                                                    "tags": True, "score": True, "timestamp": True, "comments_n": True } )
+		obj = self.find_one("objects", { "guid": guid }, { "_id": False, "guid": True, "source": True, "locked": True,
+		                                                   "tags": True, "score": True, "score_total": True, "timestamp": True, "comments_n": True } )
+
+		return self.__prepare_object__(obj)
 
 	def get_objects(self, page = 0, page_size = 10, filter = None, sorting = [ "timestamp", -1 ]):
 		if page_size > 1:
-			return self.find("objects", sorting = sorting, limit = page_size, skip = page * page_size,
+			objs = self.find("objects", sorting = sorting, limit = page_size, skip = page * page_size,
 			                 fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
-			                            "score": True, "timestamp": True, "comments_n": True }, filter = filter)
+			                            "score": True, "score_total": True, "timestamp": True, "comments_n": True }, filter = filter)
+
+			result = []
+
+			for obj in objs:
+				result.append(self.__prepare_object__(obj))
+
+			return result
 		else:
-			return self.find_one("objects", fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
-			                                           "score": True, "timestamp": True, "comments_n": True }, filter = filter)
+			obj = self.find_one("objects", fields = { "_id": False, "guid": True, "source": True, "locked": True, "tags": True,
+			                                           "score": True, "score_total": True, "timestamp": True, "comments_n": True }, filter = filter)
+
+			return self.__prepare_object__(obj)
 
 	def get_tagged_objects(self, tag, page = 0, page_size = 10):
 		return self.get_objects(page, page_size, { "tags": tag })
 
 	def get_popular_objects(self, page = 0, page_size = 10):
-		result = []
-
-		for obj in self.get_objects(page, page_size):
-			result.append(obj)
-
-		result.sort(key = lambda x: x["score"]["total"], reverse = True)
-
-		return result
+		return self.get_objects(page, page_size, sorting = [ "score_total", -1 ])
 
 	def get_random_objects(self, page_size = 10):
 		result = []
-		limit = page_size * 2
+		limit = page_size * 3
 		count = 0
 
 		while len(result) != page_size and count < limit:
@@ -412,9 +418,9 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		query = { "guid": guid, "voters": { "$ne": username } };
 
 		if up:
-			update = { "$push": { "voters": username }, "$inc": { "score.up": 1, "score.total": 1 } }
+			update = { "$push": { "voters": username }, "$inc": { "score.up": 1, "score_total": 1 } }
 		else:
-			update = { "$push": { "voters": username }, "$inc": { "score.down": 1, "score.total": -1 } }
+			update = { "$push": { "voters": username }, "$inc": { "score.down": 1, "score_total": -1 } }
 
 		self.update("objects", query, update)
 
@@ -460,9 +466,9 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		query = { "guid": guid, "": { "$ne": username } };
 
 		if favor:
-			update = { "$push": { "fans": { "user": username, "timestamp": util.now() } }, "$inc": { "score.up": 1, "score.total": 1 } }
+			update = { "$push": { "fans": { "user": username, "timestamp": util.now() } }, "$inc": { "score.up": 1, "score_total": 1 } }
 		else:
-			update = { "$pull": { "fans": { "user": username } }, "$inc": { "score.down": 1, "score.total": -1 } }
+			update = { "$pull": { "fans": { "user": username } }, "$inc": { "score.down": 1, "score_total": -1 } }
 
 		self.update("objects", query, update)
 
@@ -507,6 +513,15 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def recommendation_exists(self, guid, username):
 		return bool(self.count("objects", { "guid": guid, "recommendations.user": username }))
+
+	def __prepare_object__(self, obj):
+		if obj is None:
+			return None
+
+		obj["score"]["total"] = obj["score_total"]
+		del obj["score_total"]
+		
+		return obj
 
 class MongoStreamDb(MongoDb, database.StreamDb):
 	def __init__(self, database, **kwargs):
@@ -652,7 +667,7 @@ class MongoMailDb(MongoDb):
 		                     "lifetime": util.now() + lifetime * 1000,
 		                     "sent": False })
 
-	def get_outstanding_messages(self, limit = 100):
+	def get_unsent_messages(self, limit = 100):
 		msgs = []
 
 		for m in self.find("mails", { "lifetime": { "$gte": util.now() }, "sent": False },

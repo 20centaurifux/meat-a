@@ -175,4 +175,4 @@ class MailDb(object):
 	def append_message(self, subject, body, receiver, lifetime): return
 
 	@abc.abstractmethod
-	def get_outstanding_mails(self, limit = 100): return None
+	def get_unsent_mails(self, limit = 100): return None
