@@ -66,9 +66,7 @@ def sign_message(secret, **kwargs):
 
 		if value is None:
 			return "null"
-		if t is int:
-			return str(value)
-		if t is long:
+		if t is int or t is long:
 			return str(value)
 		elif t is str:
 			return value

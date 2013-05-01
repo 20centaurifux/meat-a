@@ -42,7 +42,7 @@ class MultiPartForm:
 	def add_field(self, name, value):
 		self.form_fields.append((name, value))
 
-	def add_file(self, fieldname, filename, fileHandle, mimetype=None):
+	def add_file(self, fieldname, filename, fileHandle, mimetype=  None):
 		body = fileHandle.read()
 
 		if mimetype is None:

@@ -59,7 +59,6 @@ class CheetahTemplate(Template):
 
 	def bind(self, **kwargs):
 		self.__namespace = kwargs
-		self.__def = None
 
 	def render(self):
 		if self.__def is None:
@@ -78,7 +77,6 @@ class CheetahMailTemplate(Template):
 
 	def bind(self, **kwargs):
 		self.__namespace = kwargs
-		self.__defs = None
 
 	def render(self):
 		if self.__defs is None:

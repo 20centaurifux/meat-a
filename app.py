@@ -41,14 +41,9 @@ class Application:
 		self.__shared_client = None
 
 	def __del__(self):
-		if not self.__userdb is None:
-			self.__userdb = None
-
-		if not self.__objectdb is None:
-			self.__objectdb = None
-
-		if not self.__streamdb is None:
-			self.__streamdb = None
+		self.__userdb = None
+		self.__objectdb = None
+		self.__streamdb = None
 
 		if not self.__shared_client is None:
 			self.__shared_client.disconnect()
@@ -101,7 +96,7 @@ class Application:
 		if request is None:
 			raise exception.InvalidRequestCodeException()
 
-		# test if username exist or email is already assigned:
+		# test if username exists or email is already assigned:
 		if db.user_exists(request["name"]):
 			raise exception.UserAlreadyExistsException()
 
@@ -172,6 +167,7 @@ class Application:
 		db = self.__create_user_db__()
 
 		username = db.get_password_request(code)
+		db.remove_password_request(code)
 
 		if username is None:
 			raise exception.InvalidRequestCodeException()
@@ -258,7 +254,6 @@ class Application:
 		# update database:
 		db = self.__create_user_db__()
 		db.update_avatar(username, filename)
-
 
 	def get_full_user_details(self, username):
 		db = self.__create_user_db__()
@@ -614,6 +609,7 @@ class AuthenticatedApplication:
 
 	def get_tagged_objects(self, req, tag, page, page_size):
 		self.__verify_message__(req, tag = tag, page = page, page_size = page_size)
+
 		return self.__create_app__().get_tagged_objects(tag, page, page_size)
 
 	def get_popular_objects(self, req, page, page_size):
