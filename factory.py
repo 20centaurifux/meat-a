@@ -56,3 +56,6 @@ def create_mail_db():
 
 def create_shared_client():
 	return pymongo.MongoClient(config.MONGODB_HOST, config.MONGODB_PORT)
+
+def create_request_db():
+	return mongodb.RequestDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
