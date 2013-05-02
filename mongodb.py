@@ -58,7 +58,7 @@ class MongoDb(database.DbUtil):
 	def clear_tables(self):
 		self.__connect__()
 
-		for table in [ "users", "user_requests", "password_requests", "objects", "streams", "mails" ]:
+		for table in [ "users", "user_requests", "password_requests", "objects", "streams", "mails", "requests" ]:
 			self.remove(table)
 
 	def find(self, collection, filter = None, fields = None, sorting = None, limit = None, skip = None):
@@ -137,6 +137,8 @@ class MongoDb(database.DbUtil):
 			self.__db.objects.ensure_index("voters", 1)
 			self.__db.objects.ensure_index([ ("receiver", 1), ("timestamp", -1) ])
 			self.__db.mails.ensure_index("lifetime", 1)
+			self.__db.requests.ensure_index([ ("ip", 1), ("lifetime", -1), ("type_id", 1) ])
+			self.__db.requests.ensure_index("lifetime", 1)
 
 class MongoUserDb(MongoDb, database.UserDb):
 	def __init__(self, database, **kwargs):
@@ -710,3 +712,25 @@ class MongoMailDb(MongoDb):
 
 	def mark_sent(self, id):
 		self.update("mails", { "_id": ObjectId(id) }, { "$set": { "sent": True } })
+
+class RequestDb(MongoDb):
+	def __init__(self, database, **kwargs):
+		MongoDb.__init__(self, database, **kwargs)
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, type, value, traceback):
+		self.close()
+
+	def append_request(self, code, ip, lifetime = 360):
+		self.save("requests", { "type_id": code, "ip": ip, "lifetime": util.now() + lifetime * 1000 })
+
+	def count_requests(self, code, ip):
+		return self.count("requests", { "$and": [ { "type_id": code }, { "ip": ip }, { "lifetime": { "$gte": util.now() } } ] })
+
+	def remove_old_requests(self):
+		self.remove("requests", { "lifetime": { "$lte": util.now() } })
+
+	def total_requests(self):
+		return self.count("requests")

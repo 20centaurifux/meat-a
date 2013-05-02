@@ -204,3 +204,18 @@ class MailDb(object):
 
 	@abc.abstractmethod
 	def get_unsent_mails(self, limit = 100): return None
+
+class RequestDb(object):
+	RequestType = util.enum(ACCOUNT_REQUEST = 0, PASSWORD_RESET = 1)
+
+	@abc.abstractmethod
+	def append_request(self, code, ip, lifetime = 360): return
+
+	@abc.abstractmethod
+	def count_requests(self, code, ip, timeframe): return 0
+
+	@abc.abstractmethod
+	def remove_old_requests(self, timeframe): return
+
+	@abc.abstractmethod
+	def total_requests(self): return
