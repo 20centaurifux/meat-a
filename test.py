@@ -32,7 +32,7 @@ import unittest, random, string, os, hashlib, re, json
 import factory, util, config, app, client, exception
 from time import sleep
 from exception import ErrorCode
-from database import StreamDb
+from database import StreamDb, RequestDb
 
 class TestCase:
 	def __cursor_to_array__(self, cur):
@@ -1065,6 +1065,48 @@ class TestMailDb(unittest.TestCase, TestCase):
 
 			result = self.__cursor_to_array__(db.get_unsent_messages())
 			self.assertEqual(len(result), 0)
+
+	def setUp(self):
+		self.__clear_tables__()
+
+	def tearDown(self):
+		self.__clear_tables__()
+
+class TestRequestDb(unittest.TestCase, TestCase):
+	def test_00_requests(self):
+		with factory.create_request_db() as db:
+			# append a single request & test lifetime:
+			db.append_request(RequestDb.RequestType.ACCOUNT_REQUEST, "127.0.0.1", 1)
+			sleep(1.5)
+
+			self.assertEqual(db.count_requests(RequestDb.RequestType.ACCOUNT_REQUEST, "127.0.0.1"), 0)
+			self.assertEqual(db.total_requests(), 1)
+
+			db.remove_old_requests()
+
+			self.assertEqual(db.total_requests(), 0)
+
+			# insert multiple requests:
+			for i in range(1000):
+				if i % 2 == 0:
+					ip = "127.0.0.1"
+				else:
+					ip = "192.168.1.1"
+
+				if i % 5 == 0:
+					code = RequestDb.RequestType.ACCOUNT_REQUEST
+				else:
+					code = RequestDb.RequestType.PASSWORD_RESET
+
+				db.append_request(code, ip)
+	
+			self.assertEqual(db.count_requests(RequestDb.RequestType.ACCOUNT_REQUEST, "127.0.0.1"), 100)
+			self.assertEqual(db.count_requests(RequestDb.RequestType.PASSWORD_RESET, "127.0.0.1"), 400)
+
+			self.assertEqual(db.count_requests(RequestDb.RequestType.ACCOUNT_REQUEST, "192.168.1.1"), 100)
+			self.assertEqual(db.count_requests(RequestDb.RequestType.PASSWORD_RESET, "192.168.1.1"), 400)
+
+			self.assertEqual(db.count_requests(RequestDb.RequestType.PASSWORD_RESET, "255.255.255.0"), 0)
 
 	def setUp(self):
 		self.__clear_tables__()
@@ -2462,5 +2504,5 @@ def run_test_case(case):
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestMailDb, TestApplication, TestAuthenticatedApplication, TestHttpServer ]:
+	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestMailDb, TestRequestDb, TestApplication, TestAuthenticatedApplication, TestHttpServer ]:
 		run_test_case(case)
