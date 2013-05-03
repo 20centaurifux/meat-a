@@ -28,19 +28,49 @@
 	empty folders or remove empty folders on the remote site.
 """
 
-import exception, view, factory, template, config, json
+import exception, view, factory, template, config, json, atexit
 from app import RequestData
 from database import RequestDb
 from util import to_bool
 
 SUCCESS = exception.ErrorCode.SUCCESS
 
+"""
+	store request & mail database instances globally, both instances share the same connection:
+"""
+shared_client = None
+request_db = None
+mail_db = None
+
+# factory method to create shared client:
+def create_shared_client():
+	global shared_client
+
+	if shared_client is None:
+		shared_client = factory.create_shared_client()
+
+	return shared_client
+
+def close_shared_client():
+	if not shared_client is None:
+		shared_client.disconnect()
+
+# register exit function to close shared client:
+atexit.register(close_shared_client)
+
+"""
+	helper functions to create mails, HTML pages & count requests:
+"""
 def generate_mail(m, email, lifetime, **kwargs):
+	global mail_db 
+
 	m.bind(**kwargs)
 	subject, body = m.render()
 
-	with factory.create_mail_db() as db:
-		db.append_message(subject, body, email, lifetime)
+	if mail_db is None:
+		mail_db = factory.create_shared_mail_db(create_shared_client())
+
+	mail_db.append_message(subject, body, email, lifetime)
 
 def generate_html(t, **kwargs):
 	v = view.View("text/html", 200)
@@ -50,19 +80,29 @@ def generate_html(t, **kwargs):
 	return v
 
 def count_requests(env, code, max_count):
+	global request_db
+
+	if not config.LIMIT_REQUESTS:
+		return
+
 	try:
 		ip = env["HTTP_X_FORWARDED_FOR"].split(",")[-1].strip()
 
 	except KeyError:
 		ip = env["REMOTE_ADDR"]
 
-	with factory.create_request_db() as db:
-		db.append_request(code, ip)
-		count = db.count_requests(code, ip)
+	if request_db is None:
+		request_db = factory.create_shared_request_db(create_shared_client())
+
+	request_db.append_request(code, ip)
+	count = request_db.count_requests(code, ip)
 
 	if count > max_count:
 		raise exception.TooManyRequestsException()
 
+"""
+	controller:
+"""
 def request_account(app, env, username, email):
 	v = view.JSONView(200)
 

@@ -54,8 +54,14 @@ def create_shared_stream_db(client):
 def create_mail_db():
 	return mongodb.MongoMailDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
-def create_shared_client():
-	return pymongo.MongoClient(config.MONGODB_HOST, config.MONGODB_PORT)
+def create_shared_mail_db(client):
+	return mongodb.MongoMailDb(config.MONGODB_DATABASE, client = client)
 
 def create_request_db():
-	return mongodb.RequestDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
+	return mongodb.MongoRequestDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
+
+def create_shared_request_db(client):
+	return mongodb.MongoRequestDb(config.MONGODB_DATABASE, client = client)
+
+def create_shared_client():
+	return pymongo.MongoClient(config.MONGODB_HOST, config.MONGODB_PORT)

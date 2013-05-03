@@ -713,7 +713,7 @@ class MongoMailDb(MongoDb):
 	def mark_sent(self, id):
 		self.update("mails", { "_id": ObjectId(id) }, { "$set": { "sent": True } })
 
-class RequestDb(MongoDb):
+class MongoRequestDb(MongoDb):
 	def __init__(self, database, **kwargs):
 		MongoDb.__init__(self, database, **kwargs)
 
