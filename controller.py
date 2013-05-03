@@ -30,6 +30,7 @@
 
 import exception, view, factory, template, config, json
 from app import RequestData
+from database import RequestDb
 from util import to_bool
 
 SUCCESS = exception.ErrorCode.SUCCESS
@@ -48,10 +49,26 @@ def generate_html(t, **kwargs):
 
 	return v
 
-def request_account(app, username, email):
+def count_requests(env, code, max_count):
+	try:
+		ip = env["HTTP_X_FORWARDED_FOR"].split(",")[-1].strip()
+
+	except KeyError:
+		ip = env["REMOTE_ADDR"]
+
+	with factory.create_request_db() as db:
+		db.append_request(code, ip)
+		count = db.count_requests(code, ip)
+
+	if count > max_count:
+		raise exception.TooManyRequestsException()
+
+def request_account(app, env, username, email):
 	v = view.JSONView(200)
 
 	try:
+		count_requests(env, RequestDb.RequestType.ACCOUNT_REQUEST, config.ACCOUNT_REQUESTS_PER_HOUR)
+
 		code = app.request_account(username, email)
 		generate_mail(template.AccountRequestMail(), email, config.USER_REQUEST_TIMEOUT, username = username, url = "%s/account/activate?code=%s" % (config.WEBSITE_URL, code))
 		v.bind({ "status": SUCCESS, "message": "ok" })
@@ -64,8 +81,10 @@ def request_account(app, username, email):
 
 	return v
 
-def activate_account(app, code):
+def activate_account(app, env, code):
 	try:
+		count_requests(env, RequestDb.RequestType.ACCOUNT_REQUEST, config.ACCOUNT_REQUESTS_PER_HOUR)
+
 		username, email, password = app.activate_user(code)
 		generate_mail(template.AccountActivationMail(), email, config.USER_REQUEST_TIMEOUT, username = username, password = password)
 
@@ -74,7 +93,7 @@ def activate_account(app, code):
 	except exception.Exception, ex:
 		return generate_html(template.FailureMessagePage(), message = ex.message)
 
-def disable_account(app, username, timestamp, signature, email):
+def disable_account(app, env, username, timestamp, signature, email):
 	v = view.JSONView(200)
 
 	try:
@@ -87,13 +106,15 @@ def disable_account(app, username, timestamp, signature, email):
 
 	return v
 
-def update_password(app, username, timestamp, signature, old_password, new_password):
-	return default_controller(app.change_password, (username, timestamp, signature, old_password, new_password))
+def update_password(app,env, username, timestamp, signature, old_password, new_password):
+	return default_controller(app.change_password, env, (username, timestamp, signature, old_password, new_password))
 
-def request_password(app, username, email):
+def request_password(app, env, username, email):
 	v = view.JSONView(200)
 
 	try:
+		count_requests(env, RequestDb.RequestType.PASSWORD_RESET, config.PASSWORD_RESETS_PER_HOUR)
+
 		code = app.request_password(username, email)
 		generate_mail(template.RequestNewPasswordMail(), email, config.PASSWORD_RESET_TIMEOUT,
 		              username = username, url = "%s/account/password/reset?code=%s" % (config.WEBSITE_URL, code))
@@ -104,8 +125,10 @@ def request_password(app, username, email):
 		
 	return v
 
-def password_reset(app, code):
+def password_reset(app, env, code):
 	try:
+		count_requests(env, RequestDb.RequestType.PASSWORD_RESET, config.PASSWORD_RESETS_PER_HOUR)
+
 		username, email, password = app.generate_password(code)
 		generate_mail(template.PasswordResetMail(), email, config.DEFAULT_EMAIL_LIFETIME, username = username, password = password)
 
@@ -114,72 +137,74 @@ def password_reset(app, code):
 	except exception.Exception, ex:
 		return generate_html(template.FailureMessagePage(), message = ex.message)
 		
-def update_user_details(app, username, timestamp, signature, email, firstname, lastname, gender, language, protected):
-	return default_controller(app.update_user_details, (username, timestamp, signature, email, firstname, lastname, gender, language, to_bool(protected)))
+def update_user_details(app, env, username, timestamp, signature, email, firstname, lastname, gender, language, protected):
+	return default_controller(app.update_user_details, env, (username, timestamp, signature, email, firstname, lastname, gender, language, to_bool(protected)))
 
-def update_avatar(app, username, timestamp, signature, filename, stream):
-	return default_controller(app.update_avatar, (username, timestamp, signature, filename, stream))
+def update_avatar(app, env, username, timestamp, signature, filename, stream):
+	return default_controller(app.update_avatar, env, (username, timestamp, signature, filename, stream))
 
-def search_user(app, username, timestamp, signature, query):
-	return default_controller(app.find_user, (username, timestamp, signature, query), return_result = True)
+def search_user(app, env, username, timestamp, signature, query):
+	return default_controller(app.find_user, env, (username, timestamp, signature, query), return_result = True)
 
-def get_user_details(app, username, timestamp, signature, user):
-	return default_controller(app.get_user_details, (username, timestamp, signature, user), return_result = True)
+def get_user_details(app, env, username, timestamp, signature, user):
+	return default_controller(app.get_user_details, env, (username, timestamp, signature, user), return_result = True)
 
-def get_object(app, username, timestamp, signature, guid):
-	return default_controller(app.get_object, (username, timestamp, signature, guid), return_result = True)
+def get_object(app, env, username, timestamp, signature, guid):
+	return default_controller(app.get_object, env, (username, timestamp, signature, guid), return_result = True)
 
-def get_objects(app, username, timestamp, signature, page, page_size):
-	return default_controller(app.get_objects, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
+def get_objects(app, env, username, timestamp, signature, page, page_size):
+	return default_controller(app.get_objects, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
 
-def get_tagged_objects(app, username, timestamp, signature, tag, page, page_size):
-	return default_controller(app.get_tagged_objects, (username, timestamp, signature, tag, int(page), int(page_size)), return_result = True, to_array = True)
+def get_tagged_objects(app, env, username, timestamp, signature, tag, page, page_size):
+	return default_controller(app.get_tagged_objects, env, (username, timestamp, signature, tag, int(page), int(page_size)), return_result = True, to_array = True)
 
-def get_popular_objects(app, username, timestamp, signature, page, page_size):
-	return default_controller(app.get_popular_objects, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
+def get_popular_objects(app, env, username, timestamp, signature, page, page_size):
+	return default_controller(app.get_popular_objects, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
 
-def get_random_objects(app, username, timestamp, signature, page_size):
-	return default_controller(app.get_random_objects, (username, timestamp, signature, int(page_size)), return_result = True)
+def get_random_objects(app, env, username, timestamp, signature, page_size):
+	return default_controller(app.get_random_objects, env, (username, timestamp, signature, int(page_size)), return_result = True)
 
-def add_tags(app, username, timestamp, signature, guid, tags):
-	return default_controller(app.add_tags, (username, timestamp, signature, guid, json.loads("[%s]" % tags)))
+def add_tags(app, env, username, timestamp, signature, guid, tags):
+	return default_controller(app.add_tags, env, (username, timestamp, signature, guid, json.loads("[%s]" % tags)))
 
-def rate(app, username, timestamp, signature, guid, up = True):
-	return default_controller(app.rate, (username, timestamp, signature, guid, to_bool(up)))
+def rate(app, env, username, timestamp, signature, guid, up = True):
+	return default_controller(app.rate, env, (username, timestamp, signature, guid, to_bool(up)))
 
-def favor(app, username, timestamp, signature, guid, favor = True):
-	return default_controller(app.favor, (username, timestamp, signature, guid, favor))
+def favor(app, env, username, timestamp, signature, guid, favor = True):
+	return default_controller(app.favor, env, (username, timestamp, signature, guid, favor))
 
-def get_favorites(app, username, timestamp, signature, page, page_size):
-	return default_controller(app.get_favorites, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
+def get_favorites(app, env, username, timestamp, signature, page, page_size):
+	return default_controller(app.get_favorites, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
 
-def add_comment(app, username, timestamp, signature, guid, text):
-	return default_controller(app.add_comment, (username, timestamp, signature, guid, text))
+def add_comment(app, env, username, timestamp, signature, guid, text):
+	return default_controller(app.add_comment, env, (username, timestamp, signature, guid, text))
 
-def get_comments(app, username, timestamp, signature, guid, page, page_size):
-	return default_controller(app.get_comments, (username, timestamp, signature, guid, int(page), int(page_size)), return_result = True, to_array = True)
+def get_comments(app, env, username, timestamp, signature, guid, page, page_size):
+	return default_controller(app.get_comments, env, (username, timestamp, signature, guid, int(page), int(page_size)), return_result = True, to_array = True)
 
-def recommend(app, username, timestamp, signature, guid, receivers):
-	return default_controller(app.recommend, (username, timestamp, signature, guid, json.loads("[%s]" % receivers)))
+def recommend(app, env, username, timestamp, signature, guid, receivers):
+	return default_controller(app.recommend, env, (username, timestamp, signature, guid, json.loads("[%s]" % receivers)))
 
-def get_recommendations(app, username, timestamp, signature, page, page_size):
-	return default_controller(app.get_recommendations, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
+def get_recommendations(app, env, username, timestamp, signature, page, page_size):
+	return default_controller(app.get_recommendations, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
 
-def follow(app, username, timestamp, signature, user, follow):
-	return default_controller(app.follow, (username, timestamp, signature, user, to_bool(follow)))
+def follow(app, env, username, timestamp, signature, user, follow):
+	return default_controller(app.follow, env, (username, timestamp, signature, user, to_bool(follow)))
 
-def get_messages(app, username, timestamp, signature, limit, older_than):
+def get_messages(app, env, username, timestamp, signature, limit, older_than):
 	if older_than == "null":
 		older_than = None
 	else:
 		older_than = int(older_than)
 
-	return default_controller(app.get_messages, (username, timestamp, signature, int(limit), older_than), return_result = True, to_array = True)
+	return default_controller(app.get_messages, env, (username, timestamp, signature, int(limit), older_than), return_result = True, to_array = True)
 
-def default_controller(f, args, return_result = False, to_array = False):
+def default_controller(f, env, args, return_result = False, to_array = False):
 	v = view.JSONView(200)
 
 	try:
+		count_requests(env, RequestDb.RequestType.DEFAULT_REQUEST, config.REQUESTS_PER_HOUR)
+
 		result = f(RequestData(args[0], int(args[1]), args[2]), *args[3:])
 
 		if return_result:

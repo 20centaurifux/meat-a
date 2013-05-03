@@ -140,7 +140,7 @@ def index(env, start_response):
 				if form is None:
 					args.append(data[p][0])
 
-		view = handler["controller"](application, *args)
+		view = handler["controller"](application, env, *args)
 
 	except exception.HttpException, ex:
 		status = ex.http_status

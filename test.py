@@ -2443,6 +2443,21 @@ class TestHttpServer(unittest.TestCase, TestCase):
 		messages = json.loads(self.client.get_messages("user_b", password_b, 100, timestamp))
 		assert len(messages) > 0
 
+	def test_06_request_counter(self):
+		for i in range(config.ACCOUNT_REQUESTS_PER_HOUR):
+			username = "user-%d" % i
+			email = "%s@testmail.com" % username
+
+			response = json.loads(self.client.request_account(username, email))
+			self.assertEqual(response["status"], ErrorCode.SUCCESS)
+
+		username = "user-x"
+		email = "%s@testmail.com" % username
+
+		response = self.client.request_account(username, email)
+		response = json.loads(self.client.request_account(username, email))
+		self.assertEqual(response["status"], ErrorCode.TOO_MANY_REQUESTS)
+
 	def setUp(self):
 		# get test url & port:
 		self.port = 80
