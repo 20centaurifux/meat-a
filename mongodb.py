@@ -723,7 +723,7 @@ class RequestDb(MongoDb):
 	def __exit__(self, type, value, traceback):
 		self.close()
 
-	def append_request(self, code, ip, lifetime = 360):
+	def append_request(self, code, ip, lifetime = 3600):
 		self.save("requests", { "type_id": code, "ip": ip, "lifetime": util.now() + lifetime * 1000 })
 
 	def count_requests(self, code, ip):
