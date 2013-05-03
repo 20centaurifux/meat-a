@@ -36,6 +36,7 @@ ErrorCode = util.enum(SUCCESS = 0,
                       INVALID_REQUEST = 3,
                       AUTHENTICATION_FAILED = 4,
                       REQUEST_EXPIRED = 5,
+                      TOO_MANY_REQUESTS = 6,
                       CONSTRAINT_VIOLOATION = 100,
                       INVALID_PARAMETER = 200,
                       USER_ALREADY_EXISTS = 300,
@@ -76,6 +77,10 @@ class AuthenticationFailedException(Exception):
 class RequestExpiredException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.REQUEST_EXPIRED, "Request expired.")
+
+class TooManyRequestsException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.TOO_MANY_REQUESTS, "Too many requests.")
 
 class ConstraintViolationException(Exception):
 	def __init__(self, message):
