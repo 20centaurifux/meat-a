@@ -169,8 +169,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		regex = re.compile("\W")
 		parts = []
 
-		for p in re.compile("\s").split(query):
-			parts.append(regex.sub("", p).strip())
+		map(lambda p: parts.append(regex.sub("", p).strip()), re.compile("\s").split(query))
 
 		for i in range(1, len(parts) + 1):
 			a = " ".join(parts[:i]).strip()
@@ -191,9 +190,9 @@ class MongoUserDb(MongoDb, database.UserDb):
 
 		filter = { "$and": [ { "blocked": False }, filter ] }
 
-		return (user for user in self.find("users", filter, { "_id": False, "name": True, "firstname": True, "lastname": True,
-		                                                      "protected": True, "avatar": True, "gender": True, "email": True,
-		                                                      "timestamp": True, "following": True }))
+		return [ user for user in self.find("users", filter, { "_id": False, "name": True, "firstname": True, "lastname": True,
+		                                                       "protected": True, "avatar": True, "gender": True, "email": True,
+		                                                       "timestamp": True, "following": True }) ]
 
 	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None, language = None, protected = True):
 		user = self.find_and_modify("users", { "$or": [ { "name": username }, { "$and": [ { "email": email }, { "blocked": False } ] } ] },
@@ -377,8 +376,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 			result = []
 
-			for obj in objs:
-				result.append(self.__prepare_object__(obj))
+			map(lambda obj: result.append(self.__prepare_object__(obj)), objs)
 
 			return result
 		else:
@@ -395,6 +393,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def get_random_objects(self, page_size = 10):
 		result = []
+		result_append = result.append
 		limit = page_size * 3
 		count = 0
 
@@ -415,7 +414,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 						break
 
 				if not exists:
-					result.append(obj)
+					result_append(obj)
 
 			count += 1
 
@@ -439,8 +438,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 	def get_tags(self, limit = None):
 		tags = []
 
-		for tag in self.find("tag_statistic", sorting = [ "value", -1 ], fields = [ "_id", "value" ], limit = limit):
-			tags.append( { "tag": tag["_id"], "count": tag["value"] } )
+		map(lambda tag: tags.append( { "tag": tag["_id"], "count": tag["value"] } ), self.find("tag_statistic", sorting = [ "value", -1 ], fields = [ "_id", "value" ], limit = limit))
 
 		return tags
 
@@ -509,11 +507,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		return False
 
 	def get_favorites(self, username, page = 0, page_size = 10):
-		comments = []
-
-		for item in self.get_objects(page, page_size, { "fans.user": username }):
-			comments.append(item)
-
+		comments = [ c for c in self.get_objects(page, page_size, { "fans.user": username }) ]
 		comments.sort(key = lambda x: x["timestamp"])
 
 		return comments
@@ -532,11 +526,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 			self.update("objects", query, update)
 
 	def get_recommendations(self, username, page = 0, page_size = 10):
-		recommendations = []
-
-		for item in self.get_objects(page, page_size, { "recommendations.user": username }):
-			recommendations.append(item)
-
+		recommendations = [ r for r in self.get_objects(page, page_size, { "recommendations.user": username }) ]
 		recommendations.sort(key = lambda x: x["timestamp"])
 
 		return recommendations
@@ -589,6 +579,7 @@ class MongoStreamDb(MongoDb, database.StreamDb):
 		# fetch & insert additional user details:
 		users = {}
 		messages = []
+		messages_append = messages.append
 
 		for msg in result:
 			name = msg["sender"]
@@ -604,7 +595,7 @@ class MongoStreamDb(MongoDb, database.StreamDb):
 			if not user is None:
 				msg["sender"] = user
 
-			messages.append(msg)
+			messages_append(msg)
 
 		return messages
 
@@ -699,6 +690,7 @@ class MongoMailDb(MongoDb):
 
 	def get_unsent_messages(self, limit = 100):
 		msgs = []
+		msgs_append = msgs.append
 
 		for m in self.find("mails", { "lifetime": { "$gte": util.now() }, "sent": False },
 		                            { "_id": True, "subject": True, "body": True, "receiver": True, "created": True },
@@ -706,7 +698,7 @@ class MongoMailDb(MongoDb):
 			m["id"] = str(m["_id"])
 			del m["_id"]
 
-			msgs.append(m)
+			msgs_append(m)
 
 		return msgs
 

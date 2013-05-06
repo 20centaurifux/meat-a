@@ -117,6 +117,7 @@ def index(env, start_response):
 
 		# validate parameters:
 		args = []
+		args_append = args.append
 
 		if data is None:
 			# handle multipart:
@@ -127,9 +128,9 @@ def index(env, start_response):
 
 			for p in handler["params"]:
 				if not file_key is None and p == file_key:
-					args.append(form[p].file)
+					args_append(form[p].file)
 				else:
-					args.append(form.getvalue(p))
+					args_append(form.getvalue(p))
 
 		else:
 			# handle x-www-form-urlencoded:
@@ -138,7 +139,7 @@ def index(env, start_response):
 
 			for p in handler["params"]:
 				if form is None:
-					args.append(data[p][0])
+					args_append(data[p][0])
 
 		view = handler["controller"](application, env, *args)
 

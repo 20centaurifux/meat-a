@@ -35,14 +35,6 @@ from exception import ErrorCode
 from database import StreamDb, RequestDb
 
 class TestCase:
-	def __cursor_to_array__(self, cur):
-		a = []
-
-		for i in cur:
-			a.append(i)
-
-		return a
-
 	def __clear_tables__(self):
 		util = factory.create_db_util()
 		util.clear_tables()
@@ -171,7 +163,7 @@ class TestUserDb(unittest.TestCase, TestCase):
 			queries.append("%s, %s" % (user["firstname"], user["lastname"]))
 
 			for query in queries:
-				result = self.__cursor_to_array__(self.db.search_user(query))
+				result = self.db.search_user(query)
 
 				# test if search result contains at least one user:
 				self.assertTrue(len(result) >= 1)
@@ -340,14 +332,14 @@ class TestObjectDb(unittest.TestCase, TestCase):
 			sleep(0.2)
 
 		# test paging:
-		page = self.__cursor_to_array__(self.db.get_objects(0, 5))
+		page = self.db.get_objects(0, 5)
 		self.assertEqual(len(page), 5)
 		self.assertEqual(objs[11]["guid"], page[0]["guid"])
 
 		for details in page:
 			self.__test_object_structure__(details)
 
-		page = self.__cursor_to_array__(self.db.get_objects(2, 5))
+		page = self.db.get_objects(2, 5)
 		self.assertEqual(len(page), 2)
 		self.assertEqual(objs[0]["guid"], page[1]["guid"])
 
@@ -438,7 +430,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.db.build_tag_statistic()
 
 		# get statistic:
-		statistic = self.__cursor_to_array__(self.db.get_tags(2))
+		statistic = self.db.get_tags(2)
 		self.assertIsNotNone(statistic)
 		self.assertEqual(len(statistic), 2)
 		self.assertEqual(statistic[0]["count"], 4)
@@ -446,7 +438,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.assertEqual(statistic[1]["count"], 3)
 		self.assertEqual(statistic[1]["tag"], "1")
 
-		statistic = self.__cursor_to_array__(self.db.get_tags())
+		statistic = self.db.get_tags()
 		self.assertIsNotNone(statistic)
 		self.assertEqual(len(statistic), 8)
 		self.assertEqual(statistic[0]["count"], 4)
@@ -473,29 +465,29 @@ class TestObjectDb(unittest.TestCase, TestCase):
 		self.db.add_tags(objs[2]["guid"], [ "6", "2", "1" ])
 
 		# get objects:
-		result = self.__cursor_to_array__(self.db.get_tagged_objects("1"))
+		result = self.db.get_tagged_objects("1")
 		self.assertEqual(len(result), 3)
 		self.assertEqual(result[0]["guid"], objs[2]["guid"])
 		self.assertEqual(result[1]["guid"], objs[1]["guid"])
 		self.assertEqual(result[2]["guid"], objs[0]["guid"])
 		map(self.__test_object_structure__, result)
 
-		result = self.__cursor_to_array__(self.db.get_tagged_objects("1", page = 0, page_size = 2))
+		result = self.db.get_tagged_objects("1", page = 0, page_size = 2)
 		self.assertEqual(len(result), 2)
 		self.assertEqual(result[0]["guid"], objs[2]["guid"])
 		self.assertEqual(result[1]["guid"], objs[1]["guid"])
 		map(self.__test_object_structure__, result)
 
-		result = self.__cursor_to_array__(self.db.get_tagged_objects("1", page = 1, page_size = 2))
+		result = self.db.get_tagged_objects("1", page = 1, page_size = 2)
 		self.assertEqual(len(result), 1)
 		self.assertEqual(result[0]["guid"], objs[0]["guid"])
 		map(self.__test_object_structure__, result)
 
-		result = self.__cursor_to_array__(self.db.get_tagged_objects("5"))
+		result = self.db.get_tagged_objects("5")
 		self.assertEqual(len(result), 2)
 		map(self.__test_object_structure__, result)
 
-		result = self.__cursor_to_array__(self.db.get_tagged_objects("2"))
+		result = self.db.get_tagged_objects("2")
 		self.assertEqual(len(result), 1)
 		map(self.__test_object_structure__, result)
 
@@ -549,25 +541,25 @@ class TestObjectDb(unittest.TestCase, TestCase):
 					self.assertEqual(details["score"]["up"] - details["score"]["down"], details["score"]["total"])
 
 		# get favorites assigned to user:
-		favs = self.__cursor_to_array__(self.db.get_favorites("h"))
+		favs = self.db.get_favorites("h")
 		self.assertEqual(len(favs), 0)
 
 		for i in range(10):
 			self.db.favor_object(objs[i]["guid"], "h", True)
 
-		favs = self.__cursor_to_array__(self.db.get_favorites("h"))
+		favs = self.db.get_favorites("h")
 		self.assertEqual(len(favs), 10)
 
-		favs = self.__cursor_to_array__(self.db.get_favorites("h", 0, 8))
+		favs = self.db.get_favorites("h", 0, 8)
 		self.assertEqual(len(favs), 8)
 
-		favs = self.__cursor_to_array__(self.db.get_favorites("h", 1, 8))
+		favs = self.db.get_favorites("h", 1, 8)
 		self.assertEqual(len(favs), 2)
 
 		for i in range(0, 10, 2):
 			self.db.favor_object(objs[i]["guid"], "h", False)
 
-		favs = self.__cursor_to_array__(self.db.get_favorites("h"))
+		favs = self.db.get_favorites("h")
 		self.assertEqual(len(favs), 5)
 
 		for fav in favs:
@@ -586,7 +578,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 			self.db.favor_object(objs[i]["guid"], "h", True)
 			sleep(0.1)
 
-		r = self.__cursor_to_array__(self.db.get_favorites("h", 0, 20))
+		r = self.db.get_favorites("h", 0, 20)
 
 		timestamp = 0
 
@@ -631,7 +623,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 			self.assertEqual(obj["score"]["up"] - obj["score"]["down"], obj["score"]["total"])
 
 		# get popular objects:
-		result = self.__cursor_to_array__(self.db.get_popular_objects(0, 1000))
+		result = self.db.get_popular_objects(0, 1000)
 		self.assertEqual(len(result), 500)
 
 		for i in range(499):
@@ -652,13 +644,13 @@ class TestObjectDb(unittest.TestCase, TestCase):
 				self.db.recommend(objs[i]["guid"], "b", [ "a", "c" ])
 
 		# get recommendations:
-		r = self.__cursor_to_array__(self.db.get_recommendations("c", 0, 500))
+		r = self.db.get_recommendations("c", 0, 500)
 		self.assertEqual(len(r), 100)
 
-		r = self.__cursor_to_array__(self.db.get_recommendations("a", 0, 30))
+		r = self.db.get_recommendations("a", 0, 30)
 		self.assertEqual(len(r), 30)
 
-		r = self.__cursor_to_array__(self.db.get_recommendations("a", 1, 30))
+		r = self.db.get_recommendations("a", 1, 30)
 		self.assertEqual(len(r), 20)
 
 		for user in [ "a", "b" ]:
@@ -691,7 +683,7 @@ class TestObjectDb(unittest.TestCase, TestCase):
 			sleep(0.1)
 
 
-		r = self.__cursor_to_array__(self.db.get_recommendations("d", 0, 20))
+		r = self.db.get_recommendations("d", 0, 20)
 
 		timestamp = 0
 
@@ -724,17 +716,17 @@ class TestObjectDb(unittest.TestCase, TestCase):
 			sleep(0.2)
 
 		# get comments:
-		comments = self.__cursor_to_array__(self.db.get_comments(objs[0]["guid"], 0, 100))
+		comments = self.db.get_comments(objs[0]["guid"], 0, 100)
 		self.assertEqual(len(comments), 12)
 
 		# test paging:
-		comments = self.__cursor_to_array__(self.db.get_comments(objs[0]["guid"], 0, 10))
+		comments = self.db.get_comments(objs[0]["guid"], 0, 10)
 		self.assertEqual(len(comments), 10)
 
-		comments = self.__cursor_to_array__(self.db.get_comments(objs[0]["guid"], 1, 10))
+		comments = self.db.get_comments(objs[0]["guid"], 1, 10)
 		self.assertEqual(len(comments), 2)
 
-		comments = self.__cursor_to_array__(self.db.get_comments(objs[1]["guid"], 0, 100))
+		comments = self.db.get_comments(objs[1]["guid"], 0, 100)
 		self.assertEqual(len(comments), 4)
 
 		# test fields:
@@ -987,14 +979,14 @@ class TestStreamDb(unittest.TestCase, TestCase):
 		self.__test_order__(messages)
 
 	def __validate_messages__(self, db, len_a, len_b, validator):
-		result = self.__cursor_to_array__(db.get_messages("user_a", len_a * 2))
+		result = db.get_messages("user_a", len_a * 2)
 		self.assertEqual(len(result), len_a)
 		self.__test_messages__(result, "user_b", "user_a", validator)
 
-		result = self.__cursor_to_array__(db.get_messages("user_b", len_a / 2))
+		result = db.get_messages("user_b", len_a / 2)
 		self.assertEqual(len(result), len_a / 2)
 
-		result = self.__cursor_to_array__(db.get_messages("user_b", len_b * 2))
+		result = db.get_messages("user_b", len_b * 2)
 		self.assertEqual(len(result), len_b)
 		self.__test_messages__(result, "user_a", "user_b", validator)
 
@@ -1003,7 +995,7 @@ class TestStreamDb(unittest.TestCase, TestCase):
 
 		count = len(result)
 
-		result = self.__cursor_to_array__(db.get_messages("user_b", len_b, timestamp))
+		result = db.get_messages("user_b", len_b, timestamp)
 		self.assertEqual(count - index, len(result))
 
 	def __test_recommendation__(self, r, sender, receiver):
@@ -1031,10 +1023,10 @@ class TestMailDb(unittest.TestCase, TestCase):
 				db.append_message("subject-%d" % i, "body-%d" % i, "test@testmail.com", 120)
 
 			# get & validate messages:
-			result = self.__cursor_to_array__(db.get_unsent_messages(10))
+			result = db.get_unsent_messages(10)
 			self.assertEqual(len(result), 10)
 
-			result = self.__cursor_to_array__(db.get_unsent_messages(5000))
+			result = db.get_unsent_messages(5000)
 			self.assertEqual(len(result), 1000)
 
 			i = 0
@@ -1056,14 +1048,14 @@ class TestMailDb(unittest.TestCase, TestCase):
 				# mark message as sent:
 				db.mark_sent(msg["id"])
 
-			result = self.__cursor_to_array__(db.get_unsent_messages(5000))
+			result = db.get_unsent_messages(5000)
 			self.assertEqual(len(result), 0)
 
 			# test lifetime:
 			db.append_message("foo", "bar", "test@testmail.com", 1)
 			sleep(1.5)
 
-			result = self.__cursor_to_array__(db.get_unsent_messages())
+			result = db.get_unsent_messages()
 			self.assertEqual(len(result), 0)
 
 	def setUp(self):
@@ -1532,19 +1524,19 @@ class TestApplication(unittest.TestCase, TestCase):
 				details = a.get_object(obj["guid"])
 				self.assertEqual(details["source"], obj["source"])
 
-			result = self.__cursor_to_array__(a.get_objects(0, 100))
+			result = a.get_objects(0, 100)
 			self.assertEqual(len(result), 100)
 
 			for i in range(0, 1000, 2):
 				a.add_tags("user_a", objs[i]["guid"], [ "foo", "bar" ])
 
-			result = self.__cursor_to_array__(a.get_tagged_objects("foo", 0, 1000))
+			result = a.get_tagged_objects("foo", 0, 1000)
 			self.assertEqual(len(result), 500)
 
-			result = self.__cursor_to_array__(a.get_random_objects(100))
+			result = a.get_random_objects(100)
 			self.assertEqual(len(result), 100)
 
-			result = self.__cursor_to_array__(a.get_popular_objects(0, 100))
+			result = a.get_popular_objects(0, 100)
 			self.assertEqual(len(result), 100)
 
 	def test_07_score(self):
@@ -1637,10 +1629,10 @@ class TestApplication(unittest.TestCase, TestCase):
 				self.assertTrue(err)
 
 			# get & validete messages:
-			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
+			result = a.get_messages("user_a", 5000)
 			self.assertEqual(len(result), 1001)
 
-			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
+			result = a.get_messages("user_b", 5000)
 			self.assertEqual(len(result), 1001)
 
 	def test_08_favorites(self):
@@ -1691,17 +1683,17 @@ class TestApplication(unittest.TestCase, TestCase):
 				a.favor("user_a", objs[i]["guid"], False)
 
 			# get favorites:
-			result = self.__cursor_to_array__(a.get_favorites("user_b"))
+			result = a.get_favorites("user_b")
 			self.assertEqual(len(result), 0)
 
-			result = self.__cursor_to_array__(a.get_favorites("user_a", 0, 1000))
+			result = a.get_favorites("user_a", 0, 1000)
 			self.assertEqual(len(result), 500)
 
 			# get & validete messages:
-			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
+			result = a.get_messages("user_a", 5000)
 			self.assertEqual(len(result), 1)
 
-			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
+			result = a.get_messages("user_b", 5000)
 			self.assertEqual(len(result), 1001)
 
 			# get favorites from non-existing object:
@@ -1772,7 +1764,7 @@ class TestApplication(unittest.TestCase, TestCase):
 				a.add_comment(obj["guid"], users[i % 2], str(i))
 
 			# get comments & validate order:
-			result = self.__cursor_to_array__(a.get_comments(obj["guid"], 0, 5000))
+			result = a.get_comments(obj["guid"], 0, 5000)
 			self.assertEqual(len(result), 1000)
 
 			timestamp = 0
@@ -1787,10 +1779,10 @@ class TestApplication(unittest.TestCase, TestCase):
 				i += 1
 
 			# get & validate messages:
-			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
+			result = a.get_messages("user_a", 5000)
 			self.assertEqual(len(result), 501)
 
-			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
+			result = a.get_messages("user_b", 5000)
 			self.assertEqual(len(result), 501)
 
 	def test_10_friendship(self):
@@ -1830,10 +1822,10 @@ class TestApplication(unittest.TestCase, TestCase):
 			self.assertTrue(a.is_following("Ada.Muster", "Martin.Smith"))
 
 			# get & validate messages:
-			messages = self.__cursor_to_array__(a.get_messages("Martin.Smith"))
+			messages = a.get_messages("Martin.Smith")
 			self.assertEqual(len(messages), 1)
 
-			messages = self.__cursor_to_array__(a.get_messages("Ada.Muster"))
+			messages = a.get_messages("Ada.Muster")
 			self.assertEqual(len(messages), 2)
 
 	def test_11_recommendations(self):
@@ -1870,22 +1862,22 @@ class TestApplication(unittest.TestCase, TestCase):
 				a.recommend("user_b", obj["guid"], [ "user_c", "foo", "user_d" ])
 
 			# get recommendations & messages:
-			result = self.__cursor_to_array__(a.get_recommendations("user_a", 0, 5000))
+			result = a.get_recommendations("user_a", 0, 5000)
 			self.assertEqual(len(result), 0)
 
-			result = self.__cursor_to_array__(a.get_messages("user_a", 5000))
+			result = a.get_messages("user_a", 5000)
 			self.assertEqual(len(result), 1)
 
-			result = self.__cursor_to_array__(a.get_recommendations("user_b", 0, 5000))
+			result = a.get_recommendations("user_b", 0, 5000)
 			self.assertEqual(len(result), 0)
 
-			result = self.__cursor_to_array__(a.get_messages("user_b", 5000))
+			result = a.get_messages("user_b", 5000)
 			self.assertEqual(len(result), 0)
 
-			result = self.__cursor_to_array__(a.get_recommendations("user_c", 0, 5000))
+			result = a.get_recommendations("user_c", 0, 5000)
 			self.assertEqual(len(result), 1000)
 
-			result = self.__cursor_to_array__(a.get_messages("user_c", 5000))
+			result = a.get_messages("user_c", 5000)
 			self.assertEqual(len(result), 1001)
 
 			# test invalid & blocked users:
@@ -1936,7 +1928,7 @@ class TestApplication(unittest.TestCase, TestCase):
 			a.disable_user("user_e")
 
 			# search users:
-			result = self.__cursor_to_array__(a.find_user("user_a", "user"))
+			result = a.find_user("user_a", "user")
 			self.assertEqual(len(result), 3)
 
 			for user in result:
@@ -1973,10 +1965,10 @@ class TestApplication(unittest.TestCase, TestCase):
 				for i in range(500):
 					db.add_message(StreamDb.MessageType.RECOMMENDATION, "John.Doe", "Martin.Smith", guid = util.generate_junk(128))
 
-			result = self.__cursor_to_array__(a.get_messages("Martin.Smith", 5))
+			result = a.get_messages("Martin.Smith", 5)
 			self.assertEqual(len(result), 5)
 
-			result = self.__cursor_to_array__(a.get_messages("Martin.Smith", 1000))
+			result = a.get_messages("Martin.Smith", 1000)
 			self.assertEqual(len(result), 500)
 
 	def setUp(self):
@@ -2063,7 +2055,7 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 			self.assertIsNotNone(details["avatar"])
 
 			# find users:
-			result = self.__cursor_to_array__(self.__test_method__(a.find_user, "user_a", query = "test"))
+			result = self.__test_method__(a.find_user, "user_a", query = "test")
 			self.assertEqual(len(result), 2)
 
 	def test_01_object_functions(self):
@@ -2083,21 +2075,21 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 				details = self.__test_method__(a.get_object, "user_a", guid = obj["guid"])
 				self.assertEqual(obj["source"], details["source"])
 
-			result = self.__cursor_to_array__(self.__test_method__(a.get_objects, "user_a", page = 1, page_size = 80))
+			result = self.__test_method__(a.get_objects, "user_a", page = 1, page_size = 80)
 			self.assertEqual(len(result), 20)
 
 			# tags:
 			for i in range(50):
 				self.__test_method__(a.add_tags, "user_a", guid = objs[i]["guid"], tags = [ "foo", "bar"])
 
-			result = self.__cursor_to_array__(self.__test_method__(a.get_tagged_objects, "user_a", tag = "foo", page = 1, page_size = 40))
+			result = self.__test_method__(a.get_tagged_objects, "user_a", tag = "foo", page = 1, page_size = 40)
 			self.assertEqual(len(result), 10)
 
 			for obj in result:
 				assert "foo" in obj["tags"]
 
 			# random objects:
-			result = self.__cursor_to_array__(self.__test_method__(a.get_random_objects, "user_a", page_size = 25))
+			result = self.__test_method__(a.get_random_objects, "user_a", page_size = 25)
 			self.assertEqual(len(result), 25)
 
 			# score:
@@ -2115,7 +2107,7 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 
 					self.__test_method__(a.rate, user, guid = obj["guid"], up = up)
 
-			result = self.__cursor_to_array__(self.__test_method__(a.get_popular_objects, "user_a", page = 0, page_size = 500))
+			result = self.__test_method__(a.get_popular_objects, "user_a", page = 0, page_size = 500)
 			self.assertEqual(len(result), 100)
 
 			for i in range(99):
@@ -2130,16 +2122,16 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 
 				self.__test_method__(a.favor, user, guid = objs[i]["guid"], favor = True)
 
-			result = self.__cursor_to_array__(self.__test_method__(a.get_favorites, "user_a", page = 0, page_size = 500))
+			result = self.__test_method__(a.get_favorites, "user_a", page = 0, page_size = 500)
 			self.assertEqual(len(result), 50)
 
 			for obj in result[25:]:
 				self.__test_method__(a.favor, user, guid = obj["guid"], favor = False)
 
-			result = self.__cursor_to_array__(self.__test_method__(a.get_favorites, "user_a", page = 0, page_size = 500))
+			result = self.__test_method__(a.get_favorites, "user_a", page = 0, page_size = 500)
 			self.assertEqual(len(result), 25)
 
-			result = self.__cursor_to_array__(self.__test_method__(a.get_favorites, "user_b", page = 1, page_size = 40))
+			result = self.__test_method__(a.get_favorites, "user_b", page = 1, page_size = 40)
 			self.assertEqual(len(result), 10)
 
 			# comments:
@@ -2153,7 +2145,7 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 					self.__test_method__(a.add_comment, user, guid = obj["guid"], text = util.generate_junk(128))
 
 			for obj in objs:
-				comments = self.__cursor_to_array__(self.__test_method__(a.get_comments, user, guid = obj["guid"], page = 0, page_size = 50))
+				comments = self.__test_method__(a.get_comments, user, guid = obj["guid"], page = 0, page_size = 50)
 				self.assertEqual(len(comments), 20)
 
 			# create friendship:
@@ -2164,20 +2156,20 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 			for obj in objs:
 				self.__test_method__(a.recommend, "user_a", guid = obj["guid"], receivers = [ "user_b", "user_c" ])
 
-			result = self.__cursor_to_array__(self.__test_method__(a.get_recommendations, "user_b", page = 0, page_size = 100))
+			result = self.__test_method__(a.get_recommendations, "user_b", page = 0, page_size = 100)
 			self.assertEqual(len(result), 100)
 
-			result = self.__cursor_to_array__(self.__test_method__(a.get_recommendations, "user_b", page = 1, page_size = 99))
+			result = self.__test_method__(a.get_recommendations, "user_b", page = 1, page_size = 99)
 			self.assertEqual(len(result), 1)
 
-			result = self.__cursor_to_array__(self.__test_method__(a.get_recommendations, "user_c", page = 0, page_size = 100))
+			result = self.__test_method__(a.get_recommendations, "user_c", page = 0, page_size = 100)
 			self.assertEqual(len(result), 0)
 
 			# messages:
-			messages = self.__cursor_to_array__(self.__test_method__(a.get_messages, "user_a", limit = 10, older_than = None))
+			messages = self.__test_method__(a.get_messages, "user_a", limit = 10, older_than = None)
 			self.assertEqual(len(messages), 1)
 
-			messages = self.__cursor_to_array__(self.__test_method__(a.get_messages, "user_b", limit = 200, older_than = None))
+			messages = self.__test_method__(a.get_messages, "user_b", limit = 200, older_than = None)
 			self.assertEqual(len(messages), 101)
 
 	def setUp(self):
@@ -2231,7 +2223,7 @@ class TestHttpServer(unittest.TestCase, TestCase):
 		password = self.__create_user__("user_b", "user_b@testmail.com")
 
 		with factory.create_user_db() as db:
-			result = self.__cursor_to_array__(db.search_user("testmail.com"))
+			result = db.search_user("testmail.com")
 			self.assertEqual(len(result), 2)
 
 	def test_01_update_users(self):

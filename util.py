@@ -82,16 +82,17 @@ def sign_message(secret, **kwargs):
 
 	h = hmac.new(secret, "", sha1)
 
+	update = h.update
+
 	for key in sorted(kwargs.keys(), key = lambda k: k.upper()):
 		obj = kwargs[key]
 
 		t = type(obj)
 
 		if t is list or t is tuple:
-			for value in obj:
-				h.update(serialize(value))
+			map(update, (serialize(v) for v in obj))
 		else:
-			h.update(serialize(obj))
+			update(serialize(obj))
 
 	return h.hexdigest()
 
@@ -101,7 +102,7 @@ def generate_junk(length, characters = None):
 
 	result = []
 
-	for i in range(length):
+	for i in xrange(length):
 		index = random.randint(0, len(characters) - 1)
 		result.append(characters[index])
 

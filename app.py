@@ -224,8 +224,7 @@ class Application:
 
 		# write temporary file:
 		with tempfile.NamedTemporaryFile(mode = "wb", dir = config.TMP_DIR, delete = False) as f:
-			for bytes in util.read_from_stream(stream, max_size = config.AVATAR_MAX_FILESIZE):
-				f.write(bytes)
+			map(f.write, util.read_from_stream(stream, max_size = config.AVATAR_MAX_FILESIZE))
 
 		# validate image format:
 		try:
@@ -293,16 +292,17 @@ class Application:
 	def find_user(self, account, query):
 		user_a = self.get_active_user(account)
 		result = []
+		result_append = result.append
 
 		for user_b in self.__create_user_db__().search_user(query):
 			if user_b["name"] != account:
 				if (user_b["protected"] and account in user_b["following"] and user_b["name"] in user_a["following"]) or not user_b["protected"]:
-					result.append(user_b)
+					result_append(user_b)
 				else:
 					del user_b["email"]
 					del user_b["following"]
 
-					result.append(user_b)
+					result_append(user_b)
 
 		return result
 
@@ -346,9 +346,7 @@ class Application:
 		# send messages:
 		if len(user["following"]) > 0:
 			streamdb = self.__create_stream_db__()
-
-			for friend in self.__get_friends__(user):
-				streamdb.add_message(StreamDb.MessageType.VOTE, username, friend, guid = guid, up = up)
+			map(lambda friend: streamdb.add_message(StreamDb.MessageType.VOTE, username, friend, guid = guid, up = up), self.__get_friends__(user))
 
 	def favor(self, username, guid, favor = True):
 		self.__test_object_exists__(guid)
@@ -361,9 +359,7 @@ class Application:
 		# create messages:
 		if favor and len(user["following"]) > 0:
 			streamdb = self.__create_stream_db__()
-
-			for friend in self.__get_friends__(user):
-				streamdb.add_message(StreamDb.MessageType.FAVOR, username, friend, guid = guid)
+			map(lambda friend: streamdb.add_message(StreamDb.MessageType.FAVOR, username, friend, guid = guid), self.__get_friends__(user))
 
 	def get_favorites(self, username, page = 0, page_size = 10):
 		self.__test_active_user__(username)
@@ -384,9 +380,7 @@ class Application:
 		# send messages:
 		if len(user["following"]) > 0:
 			streamdb = self.__create_stream_db__()
-
-			for friend in self.__get_friends__(user):
-				streamdb.add_message(StreamDb.MessageType.COMMENT, username, friend, guid = guid, comment = text)
+			map(lambda friend:  streamdb.add_message(StreamDb.MessageType.COMMENT, username, friend, guid = guid, comment = text), self.__get_friends__(user))
 
 	def get_comments(self, guid, page = 0, page_size = 10):
 		self.__test_object_exists__(guid)
@@ -399,6 +393,7 @@ class Application:
 
 		# build valid receiver list:
 		valid_receivers = []
+		receivers_append = valid_receivers.append
 
 		userdb = self.__create_user_db__()
 		objdb = self.__create_object_db__()
@@ -409,7 +404,7 @@ class Application:
 					user = self.get_active_user(r)
 
 					if username in user["following"] and not objdb.recommendation_exists(guid, r):
-						valid_receivers.append(r)
+						receivers_append(r)
 
 				except exception.UserNotFoundException:
 					pass
@@ -422,9 +417,7 @@ class Application:
 
 		# send messages:
 		streamdb = self.__create_stream_db__()
-
-		for r in valid_receivers:
-			streamdb.add_message(StreamDb.MessageType.RECOMMENDATION, username, r, guid = guid)
+		map(lambda r: streamdb.add_message(StreamDb.MessageType.RECOMMENDATION, username, r, guid = guid), valid_receivers)
 
 	def get_recommendations(self, username, page = 0, page_size = 10):
 		self.__test_active_user__(username)
@@ -517,13 +510,14 @@ class Application:
 
 	def __get_friends__(self, user):
 		friends = []
+		friends_append = friends.append
 
 		for u in user["following"]:
 			try:
 				details = self.get_active_user(u)
 				
 				if user["name"] in details["following"]:
-					friends.append(details["name"])
+					friends_append(details["name"])
 
 			except exception.UserIsBlockedException:
 				pass

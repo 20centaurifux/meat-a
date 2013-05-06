@@ -193,13 +193,13 @@ def get_object(app, env, username, timestamp, signature, guid):
 	return default_controller(app.get_object, env, (username, timestamp, signature, guid), return_result = True)
 
 def get_objects(app, env, username, timestamp, signature, page, page_size):
-	return default_controller(app.get_objects, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
+	return default_controller(app.get_objects, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True)
 
 def get_tagged_objects(app, env, username, timestamp, signature, tag, page, page_size):
-	return default_controller(app.get_tagged_objects, env, (username, timestamp, signature, tag, int(page), int(page_size)), return_result = True, to_array = True)
+	return default_controller(app.get_tagged_objects, env, (username, timestamp, signature, tag, int(page), int(page_size)), return_result = True)
 
 def get_popular_objects(app, env, username, timestamp, signature, page, page_size):
-	return default_controller(app.get_popular_objects, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
+	return default_controller(app.get_popular_objects, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True)
 
 def get_random_objects(app, env, username, timestamp, signature, page_size):
 	return default_controller(app.get_random_objects, env, (username, timestamp, signature, int(page_size)), return_result = True)
@@ -214,19 +214,19 @@ def favor(app, env, username, timestamp, signature, guid, favor = True):
 	return default_controller(app.favor, env, (username, timestamp, signature, guid, favor))
 
 def get_favorites(app, env, username, timestamp, signature, page, page_size):
-	return default_controller(app.get_favorites, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
+	return default_controller(app.get_favorites, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True)
 
 def add_comment(app, env, username, timestamp, signature, guid, text):
 	return default_controller(app.add_comment, env, (username, timestamp, signature, guid, text))
 
 def get_comments(app, env, username, timestamp, signature, guid, page, page_size):
-	return default_controller(app.get_comments, env, (username, timestamp, signature, guid, int(page), int(page_size)), return_result = True, to_array = True)
+	return default_controller(app.get_comments, env, (username, timestamp, signature, guid, int(page), int(page_size)), return_result = True)
 
 def recommend(app, env, username, timestamp, signature, guid, receivers):
 	return default_controller(app.recommend, env, (username, timestamp, signature, guid, json.loads("[%s]" % receivers)))
 
 def get_recommendations(app, env, username, timestamp, signature, page, page_size):
-	return default_controller(app.get_recommendations, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True, to_array = True)
+	return default_controller(app.get_recommendations, env, (username, timestamp, signature, int(page), int(page_size)), return_result = True)
 
 def follow(app, env, username, timestamp, signature, user, follow):
 	return default_controller(app.follow, env, (username, timestamp, signature, user, to_bool(follow)))
@@ -237,9 +237,9 @@ def get_messages(app, env, username, timestamp, signature, limit, older_than):
 	else:
 		older_than = int(older_than)
 
-	return default_controller(app.get_messages, env, (username, timestamp, signature, int(limit), older_than), return_result = True, to_array = True)
+	return default_controller(app.get_messages, env, (username, timestamp, signature, int(limit), older_than), return_result = True)
 
-def default_controller(f, env, args, return_result = False, to_array = False):
+def default_controller(f, env, args, return_result = False):
 	v = view.JSONView(200)
 
 	try:
@@ -248,10 +248,7 @@ def default_controller(f, env, args, return_result = False, to_array = False):
 		result = f(RequestData(args[0], int(args[1]), args[2]), *args[3:])
 
 		if return_result:
-			if to_array:
-				v.bind([ r for r in result ])
-			else:
-				v.bind(result)
+			v.bind(result)
 		else:
 			v.bind({ "status": SUCCESS, "message": "ok" })
 
