@@ -29,7 +29,7 @@
 """
 
 import unittest, random, string, os, hashlib, re, json
-import factory, util, config, app, client, exception
+import factory, util, config, app, client, mailer, exception
 from time import sleep
 from exception import ErrorCode
 from database import StreamDb, RequestDb
@@ -2506,10 +2506,72 @@ class TestHttpServer(unittest.TestCase, TestCase):
 
 		return objs
 
+class TestMailer(unittest.TestCase, TestCase):
+	class TestMTA(mailer.MTA):
+		def __init__(self):
+			mailer.MTA.__init__(self)
+			self.count = 0
+
+		def start_session(self): return
+
+		def send(self, subject, body, receiver):
+			self.count += 1
+
+			return True
+
+		def end_session(self): return
+
+	def test_00_mailer(self):
+		mta = TestMailer.TestMTA()
+		m = mailer.Mailer(config.MAILER_HOST, config.MAILER_PORT, mta)
+
+		m.start()
+
+		with factory.create_mail_db() as db:
+			for i in range(1000):
+				db.append_message("subject-%d" % i, "body-%d" % i, "test@testmail.com", 120)
+
+				if i % 10 == 0:
+					mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
+
+		sleep(2)
+		m.quit()
+
+		self.assertEqual(mta.count, 1000)
+
+		with factory.create_mail_db() as db:
+			mails = db.get_unsent_messages(1000)
+			self.assertEqual(len(mails), 0)
+
+	def setUp(self):
+		# get test url & port:
+		self.port = 80
+
+		m = re.match("(http://.*):(\d+)", config.WEBSITE_URL)
+
+		if m is None:
+			self.url = config.WEBSITE_URL
+		else:
+			self.url = m.group(1)
+			self.port = int(m.group(2))
+
+		# create test client:
+		self.client = client.Client(self.url, self.port)
+
+		# clear tables & remove test files:
+		self.__clear_tables__()
+		util.remove_all_files(config.AVATAR_DIR)
+
+	def tearDown(self):
+		self.__clear_tables__()
+		util.remove_all_files(config.AVATAR_DIR)
+
+
 def run_test_case(case):
 	suite = unittest.TestLoader().loadTestsFromTestCase(case)
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestMailDb, TestRequestDb, TestApplication, TestAuthenticatedApplication, TestHttpServer ]:
+	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestMailDb, TestRequestDb,
+	              TestApplication, TestAuthenticatedApplication, TestHttpServer, TestMailer ]:
 		run_test_case(case)
