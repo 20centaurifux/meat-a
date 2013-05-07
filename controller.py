@@ -32,6 +32,7 @@ import exception, view, factory, template, config, json, atexit
 from app import RequestData
 from database import RequestDb
 from util import to_bool
+from mailer import ping
 
 SUCCESS = exception.ErrorCode.SUCCESS
 
@@ -111,6 +112,7 @@ def request_account(app, env, username, email):
 
 		code = app.request_account(username, email)
 		generate_mail(template.AccountRequestMail(), email, config.USER_REQUEST_TIMEOUT, username = username, url = "%s/account/activate?code=%s" % (config.WEBSITE_URL, code))
+		ping(config.MAILER_HOST, config.MAILER_PORT)
 		v.bind({ "status": SUCCESS, "message": "ok" })
 
 	except exception.InvalidParameterException, ex:
@@ -127,6 +129,7 @@ def activate_account(app, env, code):
 
 		username, email, password = app.activate_user(code)
 		generate_mail(template.AccountActivationMail(), email, config.USER_REQUEST_TIMEOUT, username = username, password = password)
+		ping(config.MAILER_HOST, config.MAILER_PORT)
 
 		return generate_html(template.AccountActivatedPage(), username = username)
 
@@ -139,6 +142,7 @@ def disable_account(app, env, username, timestamp, signature, email):
 	try:
 		app.disable_user(RequestData(username, int(timestamp), signature), email)
 		generate_mail(template.AccountDisabledMail(), email, config.DEFAULT_EMAIL_LIFETIME, username = username)
+		ping(config.MAILER_HOST, config.MAILER_PORT)
 		v.bind({ "status": SUCCESS, "message": "ok" })
 
 	except exception.Exception, ex:
@@ -158,6 +162,7 @@ def request_password(app, env, username, email):
 		code = app.request_password(username, email)
 		generate_mail(template.RequestNewPasswordMail(), email, config.PASSWORD_RESET_TIMEOUT,
 		              username = username, url = "%s/account/password/reset?code=%s" % (config.WEBSITE_URL, code))
+		ping(config.MAILER_HOST, config.MAILER_PORT)
 		v.bind({ "status": SUCCESS, "message": "ok" })
 
 	except exception.Exception, ex:
@@ -171,6 +176,7 @@ def password_reset(app, env, code):
 
 		username, email, password = app.generate_password(code)
 		generate_mail(template.PasswordResetMail(), email, config.DEFAULT_EMAIL_LIFETIME, username = username, password = password)
+		ping(config.MAILER_HOST, config.MAILER_PORT)
 
 		return generate_html(template.PasswordResetPage(), username = username)
 
