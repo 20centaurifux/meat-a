@@ -55,7 +55,7 @@ AVATAR_MAX_WIDTH          = 180
 AVATAR_MAX_HEIGHT         = 180
 AVATAR_FORMATS            = [ "JPEG", "PNG", "GIF" ]
 AVATAR_EXTENSIONS         = [ ".jpg", ".jpeg", ".png", ".gif" ]
-AVATAR_DIR                = "images\users"
+AVATAR_DIR                = "images/users"
 
 WSGI_MAX_REQUEST_LENGTH   = 1024 * 1024
 

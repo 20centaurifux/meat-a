@@ -2274,7 +2274,7 @@ class TestHttpServer(unittest.TestCase, TestCase):
 			mail = db.get_unsent_messages()[0]
 			db.mark_sent(mail["id"])
 
-			m = re.search("login:\r\n\r\n(.*)\r\n\r\n", mail["body"])
+			m = re.search("login:\n\n(.*)\n\n", mail["body"])
 			password = m.group(1)
 
 			with app.Application() as a:
@@ -2430,7 +2430,7 @@ class TestHttpServer(unittest.TestCase, TestCase):
 
 		messages = json.loads(self.client.get_messages("user_b", password_b, 100, None))
 		self.assertEqual(len(messages), 11)
-		timestamp = int(messages[0]["timestamp"]) - 1000
+		timestamp = messages[0]["timestamp"] - 1000
 
 		messages = json.loads(self.client.get_messages("user_b", password_b, 100, timestamp))
 		assert len(messages) > 0
@@ -2490,7 +2490,7 @@ class TestHttpServer(unittest.TestCase, TestCase):
 			mail = db.get_unsent_messages()[0]
 			db.mark_sent(mail["id"])
 
-			m = re.search("login:\r\n\r\n(.*)\r\n\r\n", mail["body"])
+			m = re.search("login:\n\n(.*)\n\n", mail["body"])
 			password = m.group(1)
 
 			return password

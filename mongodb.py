@@ -83,7 +83,12 @@ class MongoDb(database.DbUtil):
 	def find_and_modify(self, collection, query = None, update = None, upsert = False, sort = None):
 		self.__connect__()
 
-		return self.__db[collection].find_and_modify(query, update, upsert, sort)
+		result = self.__db[collection].find_and_modify(query, update, upsert, sort)
+
+		if not result:
+			return None
+
+		return result
 
 	def find_one(self, collection, filter, fields = None):
 		self.__connect__()

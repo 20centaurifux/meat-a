@@ -74,6 +74,8 @@ def sign_message(secret, **kwargs):
 			return value.encode("utf-8")
 		elif t is bool:
 			return str(value).lower()
+		elif t is float:
+			return str("%.2f" % value)
 		else:
 			raise Exception("Invalid parameter type: %s" % type(value))
 
