@@ -27,6 +27,12 @@
 	This synchronziation procedure works only file-based. It will not upload
 	empty folders or remove empty folders on the remote site.
 """
+##
+#  @file util.py
+#  Utility functions.
+
+## package util
+#  Utility functions.
 
 from time import mktime
 from datetime import datetime
@@ -34,22 +40,34 @@ from hashlib import sha1, sha256
 from bson import json_util
 import random, string, json, os, hmac
 
+## Gets the current timestamp (UTC) in milliseconds.
+#  @return a float
 def now():
 	now = datetime.utcnow()
 
 	return mktime(now.timetuple()) * 1000 + now.microsecond / 1000
 
+## Gets the current UNIX timestamp (UTC).
+#  @return an integer
 def unix_timestamp():
 	now = datetime.utcnow()
 
 	return int(mktime(now.timetuple()))
 
+## Calculates the checksum of a string.
+#  @param plain a string
+#  @return checksum as hex-string
 def hash(plain):
 	m = sha256()
 	m.update(plain)
 
 	return m.hexdigest()
 
+## Calculates the checksum of a file.
+#  @param filename name of a file
+#  @param hasher hash algorithm (e.g. hashlib.md5) to calculate checksum
+#  @param block_size size of blocks read from file
+#  @return checksum as hex-string
 def hash_file(filename, hasher, block_size = 81920):
 	stream = open(filename, "rb")
 
@@ -60,6 +78,12 @@ def hash_file(filename, hasher, block_size = 81920):
 
 	return hasher.hexdigest()
 
+## Calculates the checksum of multiple arguments. At first the parameters will be
+#  sorted alphabetically. Then the HMAC-SHA1 checksum will be calculated using the
+#  given secret.
+#  @param secret secret used to calculate checksum
+#  @param **kwargs arguments
+#  @return checksum as hex-string
 def sign_message(secret, **kwargs):
 	def serialize(value):
 		t = type(value)
@@ -98,6 +122,12 @@ def sign_message(secret, **kwargs):
 
 	return h.hexdigest()
 
+## Generates a random string.
+#  @param length length of the generated string
+#  @param characters characters which should be used to generate the string - if this
+#                    parameter has not been specified string.ascii_letters + string.digits
+#                    will be used
+#  @return a string
 def generate_junk(length, characters = None):
 	if characters is None:
 		characters = string.ascii_letters + string.digits
@@ -112,18 +142,31 @@ def generate_junk(length, characters = None):
 
 	return "".join(result)
 
+## Converts an object to JSON.
+#  @param obj object to serialize
+#  @return a JSON string
 def to_json(obj):
 	return json.dumps(obj, sort_keys = True, default = json_util.default)
 
+## Generates an enumeration.
+#  @param enums definition of the enumeration
+#  @return a new enumeration
 def enum(**enums):
     return type('Enum', (), enums)
 
+## Returns a copy of a string without leading and trailing whitespace. When None is
+#  specified an empty string is returned.
+#  @param text text to create copy of
+#  @return a new string
 def strip(text):
 	if text is None:
 		text = ""
 
 	return text.strip()
 
+## Converts an object to bool.
+#  @param obj an object
+#  @return True or False
 def to_bool(obj):
 	t = type(obj)
 
@@ -138,11 +181,19 @@ def to_bool(obj):
 
 	return bool(obj)
 
+## Removes all files found in a directory.
+#  @param directory path to a directory
 def remove_all_files(directory):
 	for file in os.listdir(directory):
 		path = os.path.join(directory, file)
 		os.remove(path)
 
+## Generator to read blocks from an input stream.
+#  @param stream input stream
+#  @param block_size size of blocks read from stream
+#  @param max_size if the stream exceeds max_size an exception.StreamExceedsMaximumException 
+#                  will be thrown
+#  @return read bytes
 def read_from_stream(stream, block_size = 81920, max_size = None):
 	bytes = stream.read(block_size)
 	total = len(bytes)
