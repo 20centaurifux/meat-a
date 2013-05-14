@@ -30,10 +30,10 @@
 
 ##
 #  @file app.py
-#  Application layer.
+#  Domain layer.
 
-## package app
-#  Application layer.
+## @package app
+#  Domain layer.
 
 import factory, exception, util, config, tempfile, os
 from validators import *
@@ -312,7 +312,7 @@ class Application:
 	## Gets all details of a user account excepting blocked status & password.
 	#  @param username a user account
 	#  @return a dictionary holding user information ({ "name": str, "firstname": str, "lastname": str, "email": str,
-	#          "gender": str, "timestamp": int, "avatar": str, "protected": bool, "following":  [ str, str, ... ],
+	#          "gender": str, "timestamp": float, "avatar": str, "protected": bool, "following":  [ str, str, ... ],
 	#          "language": str })
 	def get_full_user_details(self, username):
 		db = self.__create_user_db__()
@@ -333,7 +333,7 @@ class Application:
 	#  @param account user account who wants to receive the user details
 	#  @param username user to get details from
 	#  @return a dictionary holding user information ({ "name": str, "firstname": str, "lastname": str, "email": str,
-	#          "gender": str, "timestamp": int, "avatar": str, "protected": bool, "following":  [ str, str, ... ] };
+	#          "gender": str, "timestamp": float, "avatar": str, "protected": bool, "following":  [ str, str, ... ] };
 	#           only friends can see the "email" and "following" fields)
 	def get_user_details(self, account, username):
 		user_a = self.get_active_user(account)
@@ -359,7 +359,7 @@ class Application:
 	#  @param account user account who searches the data store
 	#  @param query a search query
 	#  @return an array, each element is a dictionary holding user information ({ "name": str, "firstname": str, "lastname": str, "email": str,
-	#          "gender": str, "timestamp": int, "avatar": str, "protected": bool, "following":  [ str, str, ... ] };
+	#          "gender": str, "timestamp": float, "avatar": str, "protected": bool, "following":  [ str, str, ... ] };
 	#           only friends can see the "email" and "following" fields)
 	def find_user(self, account, query):
 		user_a = self.get_active_user(account)
@@ -382,7 +382,7 @@ class Application:
 	#  @param guid an object guid
 	#  @return a dictionary holding object details ({ "guid": str, "source": str, "locked": bool,
 	#          "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": int, "comments_n": int })
+	#          "timestamp": float, "comments_n": int })
 	def get_object(self, guid):
 		return self.__create_object_db__().get_object(guid)
 
@@ -391,7 +391,7 @@ class Application:
 	#  @param page_size size of each page
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": int, "comments_n": int })
+	#          "timestamp": float, "comments_n": int })
 	def get_objects(self, page = 0, page_size = 10):
 		return self.__create_object_db__().get_objects(page, page_size)
 
@@ -401,7 +401,7 @@ class Application:
 	#  @param page_size size of each page
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": int, "comments_n": int })
+	#          "timestamp": float, "comments_n": int })
 	def get_tagged_objects(self, tag, page = 0, page_size = 10):
 		return self.__create_object_db__().get_tagged_objects(tag, page, page_size)
 		
@@ -410,7 +410,7 @@ class Application:
 	#  @param page_size size of each page
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": int, "comments_n": int })
+	#          "timestamp": float, "comments_n": int })
 	def get_popular_objects(self, page = 0, page_size = 10):
 		return self.__create_object_db__().get_popular_objects(page, page_size)
 
@@ -418,7 +418,7 @@ class Application:
 	#  @param page_size number of objects the method should(!) return
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": int, "comments_n": int })
+	#          "timestamp": float, "comments_n": int })
 	def get_random_objects(self, page_size = 10):
 		return self.__create_object_db__().get_random_objects(page_size)
 
@@ -480,7 +480,7 @@ class Application:
 	#  @param page_size size of each page
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": int, "comments_n": int })
+	#          "timestamp": float, "comments_n": int })
 	def get_favorites(self, username, page = 0, page_size = 10):
 		self.__test_active_user__(username)
 
@@ -510,7 +510,7 @@ class Application:
 	#  @param guid guid of an object
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return an array, each element is a dictionary holding a comment ({ "text": str, "timestamp": int,
+	#  @return an array, each element is a dictionary holding a comment ({ "text": str, "timestamp": float,
 	#          "user": { "name": str, "firstname": str, "lastname": str, "gender": str, "avatar": str, "blocked": bool })
 	def get_comments(self, guid, page = 0, page_size = 10):
 		self.__test_object_exists__(guid)
@@ -559,7 +559,7 @@ class Application:
 	#  @param page_size size of each page
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": int, "comments_n": int })
+	#          "timestamp": float, "comments_n": int })
 	def get_recommendations(self, username, page = 0, page_size = 10):
 		self.__test_active_user__(username)
 
@@ -595,7 +595,7 @@ class Application:
 	#  @param username a user account
 	#  @param limit number of messages to receive
 	#  @param older_than filter to get only messages older than the specified timestamp
-	#  @return an array, each element is a dictionary holding a message ({ "type_id": int, "timestamp": int,
+	#  @return an array, each element is a dictionary holding a message ({ "type_id": int, "timestamp": float,
 	#          "sender": { "name": str, "firstname": str, "lastname": str, "gender": str, "avatar": str, "blocked": bool },
 	#          [ optional fields depending on message type] })
 	def get_messages(self, username, limit = 100, older_than = None):
@@ -606,7 +606,7 @@ class Application:
 	## Gets details of a user account. This methods also checks if the user is blocked or not.
 	#  @param username a user account
 	#  @return a dictionary holding user information ({ "name": str, "firstname": str, "lastname": str, "email": str,
-	#          "gender": str, "timestamp": int, "avatar": str, "protected": bool, "following":  [ str, str, ... ],
+	#          "gender": str, "timestamp": float, "avatar": str, "protected": bool, "following":  [ str, str, ... ],
 	#          "language": str, "password": str, "blocked": bool })
 	def get_active_user(self, username):
 		db = self.__create_user_db__()

@@ -27,6 +27,12 @@
 	This synchronziation procedure works only file-based. It will not upload
 	empty folders or remove empty folders on the remote site.
 """
+##
+#  @file mongodb.py
+#  MongoDB database classes.
+
+## @package mongodb
+#  MongoDB database classes.
 
 import database, pymongo, util, re
 from bson.code import Code
@@ -34,7 +40,19 @@ from bson import ObjectId
 from random import random
 from exception import ConstraintViolationException, InternalFailureException
 
+## Base class for MongoDB database classes. This class provides access to the
+#  database and some wrapped pymongo functions.
 class MongoDb(database.DbUtil):
+	## The constructor.
+	#  There are two ways to connect to a Mongo database. When specifying
+	#  "host" and "port" this class will create its own MongoClient instance to
+	#  connect to the database. It's also possible to use an already existing
+	#  MongoClient instance using the "client" parameter. Kindly note that this
+	#  class will not close the connection if you have specified the "client"
+	#  parameter. The benefit of this option is that you can share one MongoClient
+	#  instance between multiple objects inherited from this class.
+	#  @param database database name
+	#  @param kwargs "host" & "port" or "client" to share an existing MongoClient instance
 	def __init__(self, database, **kwargs):
 		self.__database = database
 		self.__db = None
@@ -49,18 +67,28 @@ class MongoDb(database.DbUtil):
 			self.__client = kwargs["client"]
 			self.__shared_client = True
 
+	## Closes the database connection.
 	def close(self):
 		if self.__open and not self.__shared_client:
 			self.__client.disconnect()
 			self.__client = None
 			self.__open = False
 
+	## Deletes data from all tables.
 	def clear_tables(self):
 		self.__connect__()
 
 		for table in [ "users", "user_requests", "password_requests", "objects", "streams", "mails", "requests" ]:
 			self.remove(table)
 
+	## Wrapper of the pymongo::find() function.
+	#  @param collection name of a collection
+	#  @param filter dictionary holding filter settings
+	#  @param fields fields to return (e.g. { "_id": False, "name": True })
+	#  @param sorting the sort order (e.g. [ "timestamp", -1 ])
+	#  @param limit maximum number of records to return
+	#  @param skip number of records to skip
+	#  @return dictionary containing documents
 	def find(self, collection, filter = None, fields = None, sorting = None, limit = None, skip = None):
 		self.__connect__()
 
@@ -80,6 +108,13 @@ class MongoDb(database.DbUtil):
 
 		return cur
 
+	## Wrapper of the pymongo::find_and_modify() function.
+	#  @param collection name of a collection
+	#  @param query a search query
+	#  @param update an update query
+	#  @param upsert True to create a new document
+	#  @param sort determines which document the operation will modify if the query selects multiple documents
+	#  @return the found document or None
 	def find_and_modify(self, collection, query = None, update = None, upsert = False, sort = None):
 		self.__connect__()
 
@@ -90,6 +125,11 @@ class MongoDb(database.DbUtil):
 
 		return result
 
+	## Wrapper of the pymongo::find_one() function.
+	#  @param collection name of a collection
+	#  @param filter dictionary holding filter settings
+	#  @param fields fields to return (e.g. { "_id": False, "name": True })
+	#  @return the found document
 	def find_one(self, collection, filter, fields = None):
 		self.__connect__()
 
@@ -98,24 +138,44 @@ class MongoDb(database.DbUtil):
 
 		return self.__db[collection].find_one(filter, fields)
 
+	## Wrapper of the pymongo::save function.
+	#  @param collection name of a collection
+	#  @param document document to save
 	def save(self, collection, document):
 		self.__connect__()
 		self.__db[collection].save(document)
 
+	## Wrapper of the pymongo::update function.
+	#  @param collection name of a collection
+	#  @param filter dictionary holding filter settings
+	#  @param document document to update
 	def update(self, collection, filter, document):
 		self.__connect__()
 		self.__db[collection].update(filter, document)
 
+	## Wrapper of the pymongo::remove function.
+	#  @param collection name of a collection
+	#  @param filter dictionary holding filter settings
 	def remove(self, collection, filter = None):
 		self.__connect__()
 		self.__db[collection].remove(filter)
 
+	## Counts documents in a collection.
+	#  @param collection name of a collection
+	#  @param filter dictionary holding filter settings
+	#  @return number of found documents
 	def count(self, collection, filter = None):
 		self.__connect__()
 
 		# pymongo doesn't support a filter in the count() method :(
 		return self.find(collection, filter).count()
 
+	## Wrapper of the pymongo::map_reduce() function.
+	#  @param source collection
+	#  @param map_function the map function
+	#  @param reduce_function the reduce function
+	#  @param destination collection to store the result
+	#  @return documents stored in the destination collection
 	def map_reduce(self, source, map_function, reduce_function, destination):
 		self.__connect__()
 
@@ -145,6 +205,7 @@ class MongoDb(database.DbUtil):
 			self.__db.requests.ensure_index([ ("ip", 1), ("lifetime", -1), ("type_id", 1) ])
 			self.__db.requests.ensure_index("lifetime", 1)
 
+## Implementation of database.UserDb base class using MongoDB as backend.
 class MongoUserDb(MongoDb, database.UserDb):
 	def __init__(self, database, **kwargs):
 		MongoDb.__init__(self, database, **kwargs)
@@ -325,6 +386,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                                        "avatar": True, "blocked": True, "protected": True, "following": True,
 		                                        "language": True })
 
+## Implementation of database.ObjectDb base class using MongoDB as backend.
 class MongoObjectDb(MongoDb, database.ObjectDb):
 	def __init__(self, database, **kwargs):
 		MongoDb.__init__(self, database, **kwargs)
@@ -548,6 +610,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		
 		return obj
 
+## Implementation of database.StreamDb base class using MongoDB as backend.
 class MongoStreamDb(MongoDb, database.StreamDb):
 	def __init__(self, database, **kwargs):
 		MongoDb.__init__(self, database, **kwargs)
@@ -675,7 +738,8 @@ class MongoStreamDb(MongoDb, database.StreamDb):
 			if not key in required and not key in optional:
 				raise InternalFailureException("Unknown argument: '%s'" % key)
 
-class MongoMailDb(MongoDb):
+## Implementation of database.MailDb base class using MongoDB as backend.
+class MongoMailDb(MongoDb, database.MailDb):
 	def __init__(self, database, **kwargs):
 		MongoDb.__init__(self, database, **kwargs)
 
@@ -710,7 +774,8 @@ class MongoMailDb(MongoDb):
 	def mark_sent(self, id):
 		self.update("mails", { "_id": ObjectId(id) }, { "$set": { "sent": True } })
 
-class MongoRequestDb(MongoDb):
+## Implementation of database.RequestDb base class using MongoDB as backend.
+class MongoRequestDb(MongoDb, database.RequestDb):
 	def __init__(self, database, **kwargs):
 		MongoDb.__init__(self, database, **kwargs)
 

@@ -31,7 +31,7 @@
 #  @file util.py
 #  Utility functions.
 
-## package util
+## @package util
 #  Utility functions.
 
 from time import mktime
