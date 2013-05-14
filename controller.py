@@ -242,7 +242,6 @@ def get_messages(app, env, username, timestamp, signature, limit, older_than):
 		older_than = None
 	else:
 		older_than = float(older_than)
-		print older_than
 
 	return default_controller(app.get_messages, env, (username, timestamp, signature, int(limit), older_than), return_result = True)
 
