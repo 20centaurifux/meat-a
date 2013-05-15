@@ -553,7 +553,7 @@ class Application:
 		streamdb = self.__create_stream_db__()
 		map(lambda r: streamdb.add_message(StreamDb.MessageType.RECOMMENDATION, username, r, guid = guid), valid_receivers)
 
-	## Gets objects recommended to a user
+	## Gets objects recommended to a user.
 	#  @param username a user account
 	#  @param page page number
 	#  @param page_size size of each page

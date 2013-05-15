@@ -27,13 +27,21 @@
 	This synchronziation procedure works only file-based. It will not upload
 	empty folders or remove empty folders on the remote site.
 """
+##
+#  @file wsgi.py
+#  The WSGI application.
+
+## @package wsgi
+#  The WSGI application.
 
 import urlparse, config, exception, controller, logging, traceback
 from app import AuthenticatedApplication
 from cgi import FieldStorage
 
+## An app.AuthenticatedApplication instance.
 application = AuthenticatedApplication()
 
+## Dictionary defining urls, their related controllers, required parameters & the allowed request method ("POST" or "GET").
 routing = { "/account/new": { "controller": controller.request_account, "method": "POST", "params": [ "username", "email" ] },
             "/account/activate": { "controller": controller.activate_account, "method": "GET", "params": [ "code" ] },
             "/account/disable": { "controller": controller.disable_account, "method": "POST", "params": [ "username", "timestamp", "signature", "email" ] },
@@ -66,6 +74,10 @@ routing = { "/account/new": { "controller": controller.request_account, "method"
             "/object/comments": { "controller": controller.get_comments, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "page", "page_size" ] },
             "/object/recommend": { "controller": controller.recommend, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "receivers" ] } }
 
+## The WSGI callback function.
+#  @param env environment
+#  @param start_response function to start response
+#  @return response text
 def index(env, start_response):
 	def validate_parameters(required, available):
 		for p in required:
