@@ -25,16 +25,32 @@
 	OTHER DEALINGS IN THE SOFTWARE.
 """
 
+##
+#  @file validators.py
+#  Various functions used to validate values.
+
+## @package validators
+#  Various functions used to validate values.
+
 import re, util, os
 from PIL import Image
 from config import LANGUAGES
 
+## Regex used to validate usernames.
 username_regex = re.compile("^\w[\w\-\.]{1,15}$", re.IGNORECASE | re.UNICODE)
+## Regex used to validate email addresses.
 email_regex = re.compile("^[\w\-][\w\-\.]+@[\w\-][\w\-\.]+[a-zA-Z]{2,4}$", re.IGNORECASE | re.UNICODE)
+## Regex used to validate passwords.
 password_regex = re.compile("^[\w%s]{8,32}$" % re.escape("!\"§$%&/()=?`´'*#+-_,.;:<>|"), re.IGNORECASE | re.UNICODE)
+## Regex used to validate names (e.g. firstname or lastname).
 name_regex = re.compile("^.{0,32}$", re.IGNORECASE | re.UNICODE)
+## Regex used to validate tags.
 tag_regex = re.compile("^\w[\w\-\.]{2,15}$", re.IGNORECASE | re.UNICODE)
 
+## Validates a string using a given regex.
+#  @param regex a regular expression
+#  @param value string to validate
+#  @return True if the regex.match() succeeds, the specified string is stripped automatically
 def validate_string(regex, value):
 	value = util.strip(value)
 
@@ -43,24 +59,45 @@ def validate_string(regex, value):
 
 	return False
 
+## Validates a username.
+#  @param username username to validate
+#  @return True if the username is valid
 def validate_username(username):
 	return validate_string(username_regex, username)
 
+## Validates an email address.
+#  @param email email address to validate
+#  @return True if the email address is valid
 def validate_email(email):
 	return validate_string(email_regex, email)
 
+## Validates a password.
+#  @param password password validate
+#  @return True if the password is valid
 def validate_password(password):
 	return validate_string(password_regex, password)
 
+## Validates firstname of a user.
+#  @param name firstname to validate
+#  @return True if the firstname is valid
 def validate_firstname(name):
 	return validate_string(name_regex, name)
 
+## Validates lastname of a user.
+#  @param name lastname to validate
+#  @return True if the lastname is valid
 def validate_lastname(name):
 	return validate_string(name_regex, name)
 
+## Validates gender of a user.
+#  @param gender gender to validate
+#  @return True if the gender is valid
 def validate_gender(gender):
 	return gender is None or gender == "m" or gender == "f"
 
+## Validates a comment.
+#  @param text text to validate
+#  @return True if the comment is valid
 def validate_comment(text):
 	length = len(util.strip(text))
 
@@ -69,15 +106,28 @@ def validate_comment(text):
 
 	return True
 
+## Validates a tag.
+#  @param tag tag to validate
+#  @return True if the tag is valid
 def validate_tag(tag):
 	return validate_string(tag_regex, tag)
 
+## Validates a language.
+#  @param language language to validate
+#  @return True if the language is valid
 def validate_language(language):
 	if language is None:
 		return True
 
 	return language in LANGUAGES
 
+## Validates an image.
+#  @param filename filename of the image
+#  @param max_file_size maximum file size
+#  @param max_width maximum width of the image
+#  @param max_height maximum height of the image
+#  @param formats array holding allowed image formats (e.g. [ "PNG", "JPEG" ])
+#  @return True if the image is valid
 def validate_image_file(filename, max_file_size, max_width, max_height, formats):
 	img = Image.open(filename)
 	info = os.stat(filename)
