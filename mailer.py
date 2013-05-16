@@ -27,22 +27,45 @@
 	This synchronziation procedure works only file-based. It will not upload
 	empty folders or remove empty folders on the remote site.
 """
+##
+#  @file mailer.py
+#  A service sending mails found in the mail queue. Mails will be sent after an interval.
+#  This process can also be triggered by UDP.
+
+## @package mailer
+#  A service sending mails found in the mail queue. Mails will be sent after an interval.
+#  This process can also be triggered by UDP.
 
 import abc, socket, threading, logging, traceback, factory, config
 
+## Base class for mail transfer agents.
 class MTA():
 	__metaclass__ = abc.ABCMeta
 
+	## Called when the Mailer starts a new session.
 	@abc.abstractmethod
 	def start_session(self): return
 
+	## Sends an mail to a receiver.
+	#  @param subject subject of the mail
+	#  @param body body of the mail
+	#  @param receiver receiver of the mail
+	#  @return if True the Mailer sets the "Sent" flag of the mail, otherwise it stays
+	#          in the queue
 	@abc.abstractmethod
 	def send(self, subject, body, receiver): return False
 
+	## Called when a Mailer sessions ends.
 	@abc.abstractmethod
 	def end_session(self): return
 
+## A service sending mail from the mail queue using an assigned MTA. It sends mails after an
+#  interval or when triggered over UDP.
 class Mailer:
+	## The constructor.
+	#  @param host host where the service should listen
+	#  @param port port of the service
+	#  @param mta a MTA instance used to send mails
 	def __init__(self, host, port, mta):
 		self.host = host
 		self.port = port
@@ -61,6 +84,7 @@ class Mailer:
 
 		self.__mta = mta
 
+	## Starts the service.
 	def start(self):
 		self.socket.bind((self.host, self.port))
 		self.__set_running__(True)
@@ -71,6 +95,7 @@ class Mailer:
 		self.__consumer_thread = threading.Thread(target = self.__consumer__)
 		self.__consumer_thread.start()
 
+	## Stops the service.
 	def quit(self):
 		# unset "running" flag:
 		self.__set_running__(False)
@@ -84,6 +109,8 @@ class Mailer:
 		self.socket.close()
 		self.socket= None
 
+	## Test if service is running.
+	#  @return True if the service is running
 	def is_running(self):
 		self.__running_lock.acquire()
 		running = self.__running
@@ -147,6 +174,9 @@ class Mailer:
 		self.__consumer_cond.notify()
 		self.__consumer_cond.release()
 
+## Triggers the Mailer to send emails.
+#  @param host host of the mailer
+#  @param port port of the mailer
 def ping(host, port):
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.sendto("ping\n", (host, port))
