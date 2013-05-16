@@ -36,7 +36,7 @@
 
 from util import to_json
 
-## A base class views. A view can be exported to a string which contains binded data.
+## A base class for views. A view can be exported to a string which contains binded data.
 class View(object):
 	## The constructor.
 	#  @param content_type content type of the view (e.g. "text/html")
