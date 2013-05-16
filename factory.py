@@ -28,40 +28,64 @@
 	empty folders or remove empty folders on the remote site.
 """
 
+##
+#  @file factory.py
+#  Various factory functions.
+
+## @package factory
+#  Various factory functions.
+
 import config, mongodb, pymongo
 
+## Creates a database.DbUtil instance.
 def create_db_util():
 	return mongodb.MongoDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
+## Creates a database.UserDb instance.
 def create_user_db():
 	return mongodb.MongoUserDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
+## Creates a database.UserDb instance using a shared connecion.
+#  @param client a shared connection
 def create_shared_user_db(client):
 	return mongodb.MongoUserDb(config.MONGODB_DATABASE, client = client)
 
+## Creates a database.ObjectDb instance.
 def create_object_db():
 	return mongodb.MongoObjectDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
+## Creates a database.ObjectDb instance using a shared connection.
+#  @param client a shared connection
 def create_shared_object_db(client):
 	return mongodb.MongoObjectDb(config.MONGODB_DATABASE, client = client)
 
+## Creates a database.StreamDb instance.
 def create_stream_db():
 	return mongodb.MongoStreamDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
+## Creates a database.StreamDb instance using a shared client.
+#  @param client a shared connection
 def create_shared_stream_db(client):
 	return mongodb.MongoStreamDb(config.MONGODB_DATABASE, client = client)
 
+## Creates a database.MailDb instance.
 def create_mail_db():
 	return mongodb.MongoMailDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
+## Creates a database.MailDb instance using a shared client.
+#  @param client a shared connection
 def create_shared_mail_db(client):
 	return mongodb.MongoMailDb(config.MONGODB_DATABASE, client = client)
 
+## Creates a database.RequestDb instance.
 def create_request_db():
 	return mongodb.MongoRequestDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
+## Creates a database.RequestDb instance using a shared client.
+#  @param client a shared connection
 def create_shared_request_db(client):
 	return mongodb.MongoRequestDb(config.MONGODB_DATABASE, client = client)
 
+## Creates a connection instance which can be shared by multiple data stores.
 def create_shared_client():
 	return pymongo.MongoClient(config.MONGODB_HOST, config.MONGODB_PORT)
