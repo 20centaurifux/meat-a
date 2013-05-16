@@ -27,10 +27,16 @@
 	This synchronziation procedure works only file-based. It will not upload
 	empty folders or remove empty folders on the remote site.
 """
+##
+#  @file rocket_server.py
+#  HTTP example server.
 
+## @package rocket_server
+#  HTTP example server.
 from rocket import Rocket
 from wsgi import index
 
 if __name__ == "__main__":
+	## HTTP example server using the Rocket module.
 	server = Rocket(("127.0.0.1", 8000), "wsgi", { "wsgi_app": index })
 	server.start()
