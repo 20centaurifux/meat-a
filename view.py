@@ -27,24 +27,46 @@
 	This synchronziation procedure works only file-based. It will not upload
 	empty folders or remove empty folders on the remote site.
 """
+##
+#  @file view.py
+#  Base class for views and implementations.
+
+## @package view
+#  Base class for views and implementations.
 
 from util import to_json
 
+## A base class views. A view can be exported to a string which contains binded data.
 class View(object):
+	## The constructor.
+	#  @param content_type content type of the view (e.g. "text/html")
+	#  @param status an HTTP status code
 	def __init__(self, content_type, status):
+		## Content type of the view.
 		self.content_type = content_type
+		## An HTTP status.
 		self.status = status
+		## Data stored in the view.
 		self.model = None
 
+	## Binds data.
+	#  @param model data to bind
 	def bind(self, model):
 		self.model = model
 
+	## Converts the view to a string.
+	#  @return a string
 	def render(self):
 		return self.model
 
+## A view generating a JSON string.
 class JSONView(View):
+	## The constructor.
+	#  @param status an HTTP status code
 	def __init__(self, status):
 		View.__init__(self, "application/json", status)
 
+	## Converts the assigned model to a JSON string.
+	#  @return a JSON string
 	def render(self):
 		return to_json(self.model)
