@@ -452,7 +452,7 @@ class Application:
 		# send messages:
 		if len(user["following"]) > 0:
 			streamdb = self.__create_stream_db__()
-			map(lambda friend: streamdb.add_message(StreamDb.MessageType.VOTE, username, friend, guid = guid, up = up), self.__get_friends__(user))
+			map(lambda friend: streamdb.add_message(StreamDb.MessageType.VOTE, username, friend, guid = guid, up = up), self.__get_receivers__(user))
 
 	## Adds an object to the favorites list of a user. Friends receive a notification.
 	#  @param username user who wants to add the object to his/her favorites list
@@ -469,7 +469,7 @@ class Application:
 		# create messages:
 		if favor and len(user["following"]) > 0:
 			streamdb = self.__create_stream_db__()
-			map(lambda friend: streamdb.add_message(StreamDb.MessageType.FAVOR, username, friend, guid = guid), self.__get_friends__(user))
+			map(lambda friend: streamdb.add_message(StreamDb.MessageType.FAVOR, username, friend, guid = guid), self.__get_receivers__(user))
 
 	## Returns the favorites list of a user.
 	#  @param username a user account
@@ -501,7 +501,7 @@ class Application:
 		# send messages:
 		if len(user["following"]) > 0:
 			streamdb = self.__create_stream_db__()
-			map(lambda friend:  streamdb.add_message(StreamDb.MessageType.COMMENT, username, friend, guid = guid, comment = text), self.__get_friends__(user))
+			map(lambda friend:  streamdb.add_message(StreamDb.MessageType.COMMENT, username, friend, guid = guid, comment = text), self.__get_receivers__(user))
 
 	## Gets comments assigned to an object.
 	#  @param guid guid of an object
@@ -534,7 +534,7 @@ class Application:
 				try:
 					user = self.get_active_user(r)
 
-					if username in user["following"] and not objdb.recommendation_exists(guid, r):
+					if (not user["protected"] or username in user["following"]) and not objdb.recommendation_exists(guid, r):
 						receivers_append(r)
 
 				except exception.UserNotFoundException:
@@ -567,6 +567,9 @@ class Application:
 	#  @param user2 the user account user1 wants to follow
 	#  @param follow True to follow, False to unfollow
 	def follow(self, user1, user2, follow = True):
+		if user1 == user2:
+			raise InvalidParameterException("user2")
+
 		self.__test_active_user__(user1)
 		self.__test_active_user__(user2)
 
@@ -666,15 +669,14 @@ class Application:
 		if db.is_locked(guid):
 			raise exception.ObjectIsLockedException()
 
-	def __get_friends__(self, user):
+	def __get_receivers__(self, user):
 		friends = []
 		friends_append = friends.append
 
 		for u in user["following"]:
 			try:
 				details = self.get_active_user(u)
-				
-				if user["name"] in details["following"]:
+				if not user["protected"] or user["name"] in details["following"]:
 					friends_append(details["name"])
 
 			except exception.UserIsBlockedException:
