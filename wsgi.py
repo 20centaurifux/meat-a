@@ -76,7 +76,7 @@
 #
 #  <p>There's also an example client available: client.Client</p>
 #
-#  <p>The wsgi modules tries to map a received path to a controller function.
+#  <p>The wsgi module tries to map a received path to a controller function.
 #  Each controller returns a view.View object which will be used to generate
 #  the response. The controller functions use an app.AuthenticatedApplication
 #  instance to access the different data stores.</p>
