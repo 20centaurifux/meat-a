@@ -73,7 +73,7 @@ routing = { "/account/new": { "controller": controller.request_account, "method"
             "/object/recommend": { "controller": controller.recommend, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "receivers" ] } }
 
 ## The WSGI callback function.
-#  @param env environment
+#  @param env WSGI environment
 #  @param start_response function to start response
 #  @return response text
 def index(env, start_response):

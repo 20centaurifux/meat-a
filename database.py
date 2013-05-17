@@ -38,7 +38,7 @@ import abc, util
 class DbUtil():
 	__metaclass__ = abc.ABCMeta
 
-	## Clears all tables.
+	## Deletes data from all tables.
 	@abc.abstractmethod
 	def clear_tables(self): return
 
@@ -88,7 +88,7 @@ class UserDb(object):
 	#  @param lastname lastname of the new user
 	#  @param gender gender of the new user ("m" or "f")
 	#  @param language language of the new user (e.g. "en")
-	#  @param protected status (if True only friends will see activities of the user account)
+	#  @param protected protected status (if True only friends will see activities of the user account)
 	@abc.abstractmethod
 	def create_user(self, username, email, password, firstname = None, lastname = None, gender = None, language = None, protected = True): return
 
@@ -123,11 +123,11 @@ class UserDb(object):
 
 	## Tests if a user is blocked.
 	#  @param username username of the account to test
-	#  @return True if user is blocked
+	#  @return True if the user is blocked
 	@abc.abstractmethod
 	def user_is_blocked(self, username): return
 
-	## Updates avatar of a user account.
+	## Updates the avatar of a user account.
 	#  @param username username of a user account
 	#  @param avatar avatar to set
 	@abc.abstractmethod
@@ -153,7 +153,7 @@ class UserDb(object):
 
 	## Gets data assigned to a user request code.
 	#  @param code a user request code
-	#  @return username & email address assigned to the request code
+	#  @return username and email address assigned to the request code
 	@abc.abstractmethod
 	def get_user_request(self, code): return None
 
@@ -194,7 +194,7 @@ class UserDb(object):
 	def remove_password_request(self, code): return
 
 	## Stores a password request in the data store.
-	#  @param username name of the user who wants reset his/her password
+	#  @param username name of the user who wants to reset his/her password
 	#  @param code the request code
 	#  @param lifetime lifetime (in seconds) of the request
 	@abc.abstractmethod
@@ -269,7 +269,7 @@ class ObjectDb(object):
 	def get_objects(self, page = 0, page_size = 10): return None
 
 	## Gets objects assigned to a tag.
-	#  @param tag to to search
+	#  @param tag tag to search
 	#  @param page page number
 	#  @param page_size size of each page
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
@@ -351,7 +351,7 @@ class ObjectDb(object):
 	## Tests if an object is assigned to the favorites list of a user.
 	#  @param guid guid of an object
 	#  @param username username of a user account
-	#  @return True if object has been favored
+	#  @return True if the object has been favored
 	@abc.abstractmethod
 	def is_favorite(self, guid, username): return False
 
@@ -391,10 +391,10 @@ class ObjectDb(object):
 
 ## This class provides access to the stream store.
 class StreamDb(object):
-	## Enumeration indicating the type of the message.
+	## Enumeration indicating the type of a message.
 	MessageType = util.enum(RECOMMENDATION = 0, COMMENT = 1, FAVOR = 2, VOTE = 3, FOLLOW = 4, UNFOLLOW = 5)
 
-	## Adds a message the stream data store.
+	## Adds a message the stream store.
 	#  @param code type of the nessage
 	#  @param sender username of the sender
 	#  @param receivers array containing receiver names
@@ -414,11 +414,11 @@ class StreamDb(object):
 
 ## This class provides access to the mail store.
 class MailDb(object):
-	## Appends a message to the mail data store.
+	## Appends a message to the mail store.
 	#  @param subject subject of the mail
 	#  @param body body of the mail
 	#  @param receiver username of the receiver
-	#  @param lifetime of the mail
+	#  @param lifetime lifetime of the mail
 	@abc.abstractmethod
 	def append_message(self, subject, body, receiver, lifetime): return
 
@@ -434,7 +434,7 @@ class MailDb(object):
 	@abc.abstractmethod
 	def mark_sent(self, id): return
 
-## This class can be used to count requests to the application.
+## This class is used to count HTTP requests.
 class RequestDb(object):
 	## Enumeration indicating the request type.
 	RequestType = util.enum(ACCOUNT_REQUEST = 0, PASSWORD_RESET = 1, DEFAULT_REQUEST = 2)
@@ -446,7 +446,7 @@ class RequestDb(object):
 	@abc.abstractmethod
 	def append_request(self, code, ip, lifetime = 3600): return
 
-	## Counts requests filtered by IP address & request type.
+	## Counts requests filtered by IP address and request type.
 	#  @param code type of the request
 	#  @param ip an IP address
 	#  @return an integer
@@ -457,7 +457,7 @@ class RequestDb(object):
 	@abc.abstractmethod
 	def remove_old_requests(self): return
 
-	## Gets the number of requests stored in the database.
+	## Gets the total number of requests stored in the database.
 	#  @return an integer
 	@abc.abstractmethod
 	def total_requests(self): return

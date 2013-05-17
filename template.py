@@ -27,10 +27,10 @@
 
 ##
 #  @file template.py
-#  Classes used for building strings.
+#  Classes used to build strings.
 
 ## @package template
-#  Classes used for building strings.
+#  Classes used to build strings.
 
 import abc, os, config, Cheetah.Template
 
@@ -85,7 +85,7 @@ class CheetahTemplate(Template):
 
 		return str(t)
 
-## A Template implementation using the Cheeta framework. It renders body and subject of a mail.
+## A Template implementation using the Cheetah framework. It renders body and subject of a mail.
 class CheetahMailTemplate(Template):
 	## The constructor.
 	#  @param subject_tpl template file used to generate the subject

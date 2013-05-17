@@ -50,7 +50,7 @@ tag_regex = re.compile("^\w[\w\-\.]{2,15}$", re.IGNORECASE | re.UNICODE)
 ## Validates a string using a given regex.
 #  @param regex a regular expression
 #  @param value string to validate
-#  @return True if the regex.match() succeeds, the specified string is stripped automatically
+#  @return True if regex.match() succeeds, the specified string is stripped automatically
 def validate_string(regex, value):
 	value = util.strip(value)
 
@@ -72,7 +72,7 @@ def validate_email(email):
 	return validate_string(email_regex, email)
 
 ## Validates a password.
-#  @param password password validate
+#  @param password password to validate
 #  @return True if the password is valid
 def validate_password(password):
 	return validate_string(password_regex, password)

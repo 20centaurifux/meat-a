@@ -89,13 +89,15 @@ class Client:
 	#  @param url url of the webservice
 	#  @param port port of the webservice
 	def __init__(self, url, port):
+		## URL of the webservice.
 		self.url = url
+		## Port of the webservice.
 		self.port = port
 
 	## Requests a user account.
 	#  @param username requested username
 	#  @param email email address of the account
-	#  @return webservice response
+	#  @return server response (as string)
 	def request_account(self, username, email):
 		params = { "username": username, "email": email }
 		data = urllib.urlencode(params)
@@ -108,14 +110,14 @@ class Client:
 	#  @param username user to disable
 	#  @param password user password (plaintext)
 	#  @param email email address of the user
-	#  @return webservice response
+	#  @return server response (as string)
 	def disable_user(self, username, password, email):
 		return self.__post__("/account/disable", password, username = username, email = email)
 
 	## Requests a new password.
 	#  @param username a username
 	#  @param email email address of the user
-	#  @return webservice response
+	#  @return server response (as string)
 	def request_password(self, username, email):
 		params = { "username": username, "email": email }
 		url = "%s%s" % (self.__build_url__("/account/password/request?"), urllib.urlencode(params))
@@ -126,7 +128,7 @@ class Client:
 	#  @param username a username
 	#  @param old_password password of the account (plaintext)
 	#  @param new_password new password to set (plaintext)
-	#  @return webservice response
+	#  @return server response (as string)
 	def update_password(self, username, old_password, new_password):
 		return self.__post__("/account/password/update", old_password, username = username, old_password = old_password, new_password = new_password)
 
@@ -139,7 +141,7 @@ class Client:
 	#  @param gender gender to set
 	#  @param language language to set
 	#  @param protected protected status to set
-	#  @return webservice response
+	#  @return server response (as string)
 	def update_user_details(self, username, password, email, firstname, lastname, gender, language, protected):
 		return self.__post__("/account/update", password, username = username, email = email, firstname = firstname, lastname = lastname,
 		                     gender = gender, language = language, protected = protected)
@@ -148,7 +150,7 @@ class Client:
 	#  @param username a username
 	#  @param password user password (plaintext)
 	#  @param name name of an existing user account
-	#  @return webservice response
+	#  @return server response (as string)
 	def get_user_details(self, username, password, name):
 		return self.__post__("/account/details", password, username = username, name = name)
 
@@ -156,7 +158,7 @@ class Client:
 	#  @param username a username
 	#  @param password user password (plaintext)
 	#  @param filename name of a file to upload
-	#  @return webservice response
+	#  @return server response (as string)
 	def update_avatar(self, username, password, filename):
 		form = MultiPartForm()
 		t = util.unix_timestamp()
@@ -184,7 +186,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return webservice response
+	#  @return server response (as string)
 	def get_favorites(self, username, password, page, page_size):
 		return self.__post__("/account/favorites", password, username = username, page = page, page_size = page_size)
 
@@ -192,7 +194,7 @@ class Client:
 	#  @param username a username
 	#  @param password user password (plaintext)
 	#  @param query a search query
-	#  @return webservice response
+	#  @return server response (as string)
 	def find_user(self, username, password, query):
 		return self.__post__("/account/search", password, username = username, query = query)
 
@@ -200,7 +202,7 @@ class Client:
 	#  @param username a username
 	#  @param password user password (plaintext)
 	#  @param guid guid of an object.
-	#  @return webservice response
+	#  @return server response (as string)
 	def get_object(self, username, password, guid):
 		return self.__post__("/object/details", password, username = username, guid = guid)
 
@@ -209,7 +211,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return webservice response
+	#  @return server response (as string)
 	def get_objects(self, username, password, page, page_size):
 		return self.__post__("/objects", password, username = username, page = page, page_size = page_size)
 
@@ -219,7 +221,7 @@ class Client:
 	#  @param tag a tag
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return webservice response
+	#  @return server response (as string)
 	def get_tagged_objects(self, username, password, tag, page, page_size):
 		return self.__post__("/objects/tag", password, username = username, tag = tag, page = page, page_size = page_size)
 
@@ -227,7 +229,7 @@ class Client:
 	#  @param username a username
 	#  @param password user password (plaintext)
 	#  @param page_size the page size
-	#  @return webservice response
+	#  @return server response (as string)
 	def get_random_objects(self, username, password, page_size):
 		return self.__post__("/objects/random", password, username = username, page_size = page_size)
 
@@ -236,7 +238,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return webservice response
+	#  @return server response (as string)
 	def get_popular_objects(self, username, password, page, page_size):
 		return self.__post__("/objects/popular", password, username = username, page = page, page_size = page_size)
 
@@ -245,7 +247,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param guid guid of an object
 	#  @param tags array containing tags
-	#  @return webservice response
+	#  @return server response (as string)
 	def add_tags(self, username, password, guid, tags):
 		t = util.unix_timestamp()
 		sign = util.sign_message(util.hash(password), username = username, timestamp = t, guid = guid, tags = tags)
@@ -261,7 +263,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param guid guid of an object
 	#  @param up True to upvote
-	#  @return webservice response
+	#  @return server response (as string)
 	def rate(self, username, password, guid, up = True):
 		return self.__post__("/object/rate", password, username = username, guid = guid, up = str(up).lower())
 
@@ -270,7 +272,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param guid guid of an object
 	#  @param favor True to add the object to the favorites list
-	#  @return webservice response
+	#  @return server response (as string)
 	def favor(self, username, password, guid, favor = True):
 		return self.__post__("/object/favor", password, username = username, guid = guid, favor = str(favor).lower())
 
@@ -279,7 +281,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param guid guid of an object
 	#  @param text text to append
-	#  @return webservice response
+	#  @return server response (as string)
 	def add_comment(self, username, password, guid, text):
 		return self.__post__("/object/comments/add", password, username = username, guid = guid, text = text)
 
@@ -289,7 +291,7 @@ class Client:
 	#  @param guid guid of an object
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return webservice response
+	#  @return server response (as string)
 	def get_comments(self, username, password, guid, page, page_size):
 		return self.__post__("/object/comments", password, username = username, guid = guid, page = page, page_size = page_size)
 
@@ -298,7 +300,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param user name of a user account
 	#  @param follow True to follow a user
-	#  @return webservice response
+	#  @return server response (as string)
 	def follow(self, username, password, user, follow = True):
 		return self.__post__("/account/follow", password, username = username, user = user, follow = str(follow).lower())
 
@@ -307,7 +309,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param guid guid of an object
 	#  @param receivers array holding receivers
-	#  @return webservice response
+	#  @return server response (as string)
 	def recommend(self, username, password, guid, receivers):
 		t = util.unix_timestamp()
 		sign = util.sign_message(util.hash(password), username = username, timestamp = t, guid = guid, receivers = receivers)
@@ -323,7 +325,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return webservice response
+	#  @return server response (as string)
 	def get_recommendations(self, username, password, page, page_size):
 		return self.__post__("/account/recommendations", password, username = username, page = page, page_size = page_size)
 
@@ -332,7 +334,7 @@ class Client:
 	#  @param password user password (plaintext)
 	#  @param limit maximum number of messages to receive
 	#  @param older_than filter to get only messages older than the specified timestamp
-	#  @return webservice response
+	#  @return server response (as string)
 	def get_messages(self, username, password, limit, older_than):
 		if older_than is None:
 			older_than = "null"
@@ -341,7 +343,7 @@ class Client:
 
 	## Sends a GET request to a server.
 	#  @param url an URL
-	#  @return response of the server
+	#  @return server response (as string)
 	def get(self, url):
 		req = urllib2.Request(url)
 

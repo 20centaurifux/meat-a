@@ -44,7 +44,7 @@ SUCCESS = exception.ErrorCode.SUCCESS
 """
 	store request & mail database instances globally, both instances share the same connection:
 """
-## A shared database client instance. request_db and mail_db use this connection.
+## A shared database client instance. controller::request_db and controller::mail_db use this connection.
 shared_client = None
 ## A database.RequestDb instance.
 request_db = None
@@ -71,7 +71,7 @@ atexit.register(close_shared_client)
 """
 	helper functions to create mails, HTML pages & count requests:
 """
-## Generates a mail using the given template & stores it in the queue.
+## Generates a mail using the given template and stores it in the queue.
 #  @param m a mail template
 #  @param email email address of the receiver
 #  @param lifetime lifetime in the queue
@@ -100,7 +100,7 @@ def generate_html(t, **kwargs):
 
 ## Tests if the HTTP request limit for an IP address has been reached.
 #  @param env WSGI environment
-#  @param code type of the request (see data.RequestDb.RequestType)
+#  @param code type of the request
 #  @param max_count maximum number of allowed requests
 def count_requests(env, code, max_count):
 	global request_db
@@ -126,7 +126,7 @@ def count_requests(env, code, max_count):
 """
 	controller:
 """
-## Tries to create a user request & sends an email on success.
+## Tries to create a user request and sends an email on success.
 #  @param app app.AuthenticatedApplication instance
 #  @param env WSGI environment
 #  @param username requested username
@@ -151,7 +151,7 @@ def request_account(app, env, username, email):
 
 	return v
 
-## Activates a user account using an existing request code. An email will be sent to the related
+## Activates a user account using a request code. An email will be sent to the related
 #  account on success.
 #  @param app app.AuthenticatedApplication instance
 #  @param env WSGI environment
@@ -227,7 +227,7 @@ def request_password(app, env, username, email):
 		
 	return v
 
-## Generate user password using a request code. The user receives the new password by email.
+## Generates a new user password using a request code. The user receives the new password by email.
 #  @param app app.AuthenticatedApplication instance
 #  @param env WSGI environment
 #  @param code password reset code
@@ -261,7 +261,7 @@ def password_reset(app, env, code):
 def update_user_details(app, env, username, timestamp, signature, email, firstname, lastname, gender, language, protected):
 	return default_controller(app.update_user_details, env, (username, timestamp, signature, email, firstname, lastname, gender, language, to_bool(protected)))
 
-## Updates avatar of a user.
+## Updates the avatar of a user.
 #  @param app app.AuthenticatedApplication instance
 #  @param env WSGI environment
 #  @param username name of the authenticated user
@@ -376,7 +376,7 @@ def get_random_objects(app, env, username, timestamp, signature, page_size):
 #  @param timestamp UNIX timestamp of the request (UTC)
 #  @param signature checksum of the request parameters
 #  @param guid guid of an object
-#  @param tags tags stored in a JSON view (e.g. '[ "foo", "bar" ]')
+#  @param tags tags stored in a JSON array (e.g. '[ "foo", "bar" ]')
 #  @return a JSON view ('{ "status": int, "message": str }')
 def add_tags(app, env, username, timestamp, signature, guid, tags):
 	return default_controller(app.add_tags, env, (username, timestamp, signature, guid, json.loads("[%s]" % tags)))
@@ -452,7 +452,7 @@ def get_comments(app, env, username, timestamp, signature, guid, page, page_size
 #  @param timestamp UNIX timestamp of the request (UTC)
 #  @param signature checksum of the request parameters
 #  @param guid guid of an object
-#  @param receivers receivers stored in a JSON view (e.g. '[ "foo", "bar" ]')
+#  @param receivers receivers stored in a JSON array (e.g. '[ "foo", "bar" ]')
 #  @return a JSON view ('{ "status": int, "message": str }')
 def recommend(app, env, username, timestamp, signature, guid, receivers):
 	return default_controller(app.recommend, env, (username, timestamp, signature, guid, json.loads("[%s]" % receivers)))
@@ -506,7 +506,7 @@ def get_messages(app, env, username, timestamp, signature, limit, older_than):
 #  @param f callback function
 #  @param env the WSGI environment
 #  @param args arguments passed to the callback function
-#  @param return_result if True the view.JSONView will hold the result of the given callback function
+#  @param return_result if True the returned view.JSONView will hold the result of the given callback function
 #  @return a view.JSONView instance
 def default_controller(f, env, args, return_result = False):
 	v = view.JSONView(200)

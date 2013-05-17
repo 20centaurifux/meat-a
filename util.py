@@ -80,7 +80,7 @@ def hash_file(filename, hasher, block_size = 81920):
 #  sorted alphabetically. Then the HMAC-SHA1 checksum will be calculated using the
 #  given secret.
 #  @param secret secret used to calculate checksum
-#  @param **kwargs arguments
+#  @param kwargs arguments
 #  @return checksum as hex-string
 def sign_message(secret, **kwargs):
 	def serialize(value):

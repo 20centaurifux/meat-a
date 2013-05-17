@@ -34,7 +34,7 @@
 
 import util
 
-## Error codes.
+## Enumeration indicating error types.
 ErrorCode = util.enum(SUCCESS = 0,
                       INTERNAL_FAILURE = 1,
                       STREAM_EXCEEDS_MAXIMUM = 2,
@@ -172,7 +172,7 @@ class ObjectNotFoundException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.OBJECT_NOT_FOUND, "Object not found.")
 
-## Exception raised when a user has rated already for an object.
+## Exception raised when a user has already rated for an object.
 class UserAlreadyRatedException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.USER_ALREADY_RATED, "The user has already rated for the given object.")

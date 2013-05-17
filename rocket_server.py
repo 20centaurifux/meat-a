@@ -27,10 +27,10 @@
 
 ##
 #  @file rocket_server.py
-#  HTTP example server.
+#  HTTP example server using Rocket (http://pythonhosted.org/rocket).
 
 ## @package rocket_server
-#  HTTP example server.
+#  HTTP example server using Rocket (http://pythonhosted.org/rocket).
 
 from rocket import Rocket
 from wsgi import index

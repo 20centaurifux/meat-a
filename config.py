@@ -59,19 +59,19 @@ PASSWORD_REQUEST_TIMEOUT  = 600
 PASSWORD_RESET_TIMEOUT    = 600
 ## Specifies the default lifetime of emails in the mail queue (in seconds).
 DEFAULT_EMAIL_LIFETIME    = 7200
-## Defines the length of generated request codes.
+## Length of generated request codes.
 REQUEST_CODE_LENGTH       = 64
-## Defines the length of generated passwords.
+## Length of generated passwords.
 DEFAULT_PASSWORD_LENGTH   = 8
 
 ## Location for storing temporary files.
 TMP_DIR                   = "tmp"
 
 ## Maximum file size of avatar images (in bytes).
-AVATAR_MAX_FILESIZE       = 1024 * 1024
-## Maximum width of avatar images.
+AVATAR_MAX_FILESIZE       = 1048576
+## Maximum width allowed for avatar images.
 AVATAR_MAX_WIDTH          = 180
-## Maximum height of avatar images.
+## Maximum height allowed for avatar images.
 AVATAR_MAX_HEIGHT         = 180
 ## Allowed avatar image formats.
 AVATAR_FORMATS            = [ "JPEG", "PNG", "GIF" ]
@@ -81,22 +81,22 @@ AVATAR_EXTENSIONS         = [ ".jpg", ".jpeg", ".png", ".gif" ]
 AVATAR_DIR                = "images/users"
 
 ## Maximum HTTP request length.
-WSGI_MAX_REQUEST_LENGTH   = 1024 * 1024 + 128
+WSGI_MAX_REQUEST_LENGTH   = 1048704
 
-## Enable to limit HTTP requests.
+## Enable to limit HTTP requests from the same IP address.
 LIMIT_REQUESTS            = True
-## Number of allowed user account requests in one hour from the same IP address.
+## Number of allowed user account requests per hour from the same IP address.
 ACCOUNT_REQUESTS_PER_HOUR = 15
-## Number of allowed reset password requests in one hour from the same IP address.
+## Number of allowed reset password requests per hour from the same IP address.
 PASSWORD_RESETS_PER_HOUR  = 5
-## Number of allowed HTTP requests in one hour from the same IP address.
+## Number of allowed HTTP requests per hour from the same IP address.
 REQUESTS_PER_HOUR         = 1800
 
 ## IP address where the mailer should listen.
 MAILER_HOST               = "127.0.0.1"
 ## Port of the mailer.
 MAILER_PORT               = 9797
-## Array storing IP addresses of clients who are allowed to send PING requests to the mailer.
+## Array storing IP addresses of clients which are allowed to send PING requests to the mailer.
 MAILER_ALLOWED_CLIENTS    = [ "127.0.0.1" ]
 ## The UDP timeout.
 MAILER_UDP_TIMEOUT        = 5

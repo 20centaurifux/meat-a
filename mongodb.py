@@ -169,7 +169,7 @@ class MongoDb(database.DbUtil):
 		return self.find(collection, filter).count()
 
 	## Wrapper of the pymongo::map_reduce() function.
-	#  @param source collection
+	#  @param source the source collection
 	#  @param map_function the map function
 	#  @param reduce_function the reduce function
 	#  @param destination collection to store the result

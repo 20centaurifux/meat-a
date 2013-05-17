@@ -60,7 +60,7 @@ def create_shared_object_db(client):
 def create_stream_db():
 	return mongodb.MongoStreamDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
-## Creates a database.StreamDb instance using a shared client.
+## Creates a database.StreamDb instance using a shared connection.
 #  @param client a shared connection
 def create_shared_stream_db(client):
 	return mongodb.MongoStreamDb(config.MONGODB_DATABASE, client = client)
@@ -69,7 +69,7 @@ def create_shared_stream_db(client):
 def create_mail_db():
 	return mongodb.MongoMailDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
-## Creates a database.MailDb instance using a shared client.
+## Creates a database.MailDb instance using a shared connection.
 #  @param client a shared connection
 def create_shared_mail_db(client):
 	return mongodb.MongoMailDb(config.MONGODB_DATABASE, client = client)
@@ -78,7 +78,7 @@ def create_shared_mail_db(client):
 def create_request_db():
 	return mongodb.MongoRequestDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
-## Creates a database.RequestDb instance using a shared client.
+## Creates a database.RequestDb instance using a shared connection.
 #  @param client a shared connection
 def create_shared_request_db(client):
 	return mongodb.MongoRequestDb(config.MONGODB_DATABASE, client = client)

@@ -53,11 +53,11 @@ class MTA():
 	@abc.abstractmethod
 	def send(self, subject, body, receiver): return False
 
-	## Called when a Mailer sessions ends.
+	## Called when a Mailer session ends.
 	@abc.abstractmethod
 	def end_session(self): return
 
-## A service sending mail from the mail queue using an assigned MTA. It sends mails after an
+## A service sending mails from the mail queue using an assigned MTA. It sends mails after an
 #  interval or when triggered over UDP.
 class Mailer:
 	## The constructor.
@@ -107,7 +107,7 @@ class Mailer:
 		self.socket.close()
 		self.socket= None
 
-	## Test if service is running.
+	## Tests if the service is running.
 	#  @return True if the service is running
 	def is_running(self):
 		self.__running_lock.acquire()
