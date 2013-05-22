@@ -1010,6 +1010,20 @@ class AuthenticatedApplication:
 		except Exception:
 			raise exception.InvalidRequestException()
 
+	## Gets the language of a user account.
+	#  @param username name of a user account
+	#  @return language of the user as string
+	def get_user_language(self, username):
+		user = self.__create_app__().get_full_user_details(username)
+
+		if not user is None:
+			if user["language"] is None:
+				return config.DEFAULT_LANGUAGE
+
+			return user["language"]
+
+		raise exception.UserNotFoundException()
+
 	def __get_user_password__(self, username):
 		return self.__create_app__().get_password(username)
 		
