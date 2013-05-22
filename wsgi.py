@@ -36,13 +36,13 @@
 #  <p>meat-a is a WSGI based webservice for the organization of objects and
 #  related meta data.</p>
 #
-#  <p>Each object is stored in a data store (database.ObjectDb). Objects are
-#  referenced by their guid and have a source. You can e.g. store links to
-#  images in the data store.</p>
+#  <p>Objects are stored in the object database (database.ObjectDb). They are
+#  referenced by their guid and have a source. You can e.g. store a link
+#  or a filename.
 #
-#  <p>The web interface provides the functionality to let multiple users share
-#  meta data. Objects can be tagged and rated. Users can also add objects to
-#  their personal favorite list and recommend them to other users.</p>
+#  <p>Users can tag and rate objects. They can also add objects to their
+#  personal favorite list and recommend them to other users. It's also
+#  possible to write comments.</p>
 #
 #  <p>Users can follow each other. If user A follows user B and user B also
 #  follows user A they are friends. Friends can recommend objects to each
@@ -52,9 +52,9 @@
 #  <p>Users are organized in a separate user store (database.UserDb).</p>
 #
 #  <p>Several activities generate notifications. If a user adds an object to
-#  his/her favorites friends will receive a notification. If the user profile
+#  his/her favorite  list friends will receive a notification. If the user profile
 #  is not protected every user following the account will get a notification.
-#  Like other objects notifications are stored in separate data store
+#  Like other items notifications are stored in separate data store
 #  (database.StreamDb).</p>
 #
 #  <p>Sometimes a user will receive an email. If you're going to create a new user
@@ -74,9 +74,10 @@
 #  has to be calculated. The required secret is the SHA-256 checksum of the
 #  user password. You can find an example here: util.sign_message()</p>
 #
-#  <p>There's also an example client available: client.Client</p>
+#  <p>There's also a full example client available in the client module:
+#  client.Client</p>
 #
-#  <p>The wsgi module tries to map a received path to a controller function.
+#  <p>The WSGI module tries to map a received path to a controller function.
 #  Each controller returns a view.View object which will be used to generate
 #  the response. The controller functions use an app.AuthenticatedApplication
 #  instance to access the different data stores.</p>
@@ -87,6 +88,15 @@
 #  <p>To test the available modules just execute the test.py file.</p>
 #
 #  <p>To configure the service please have a look at the config module.</p>
+#
+#  <p>You need the following additional packages to run the web interface:
+#    <ul>
+#      <li>PIL</li>
+#      <li>Cheetah</li>
+#      <li>pymongo</li>
+#      <li>Rocket (optional)</li>
+#    </ul>
+#  </p>
 #
 #  <p>Have fun!</p>
 
