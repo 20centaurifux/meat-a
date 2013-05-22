@@ -47,6 +47,8 @@ MONGODB_DATABASE          = "meata"
 
 ## Languages supported by the application.
 LANGUAGES                 = [ "en", "de" ]
+## Default language.
+DEFAULT_LANGUAGE          = "en"
 
 ## Specifies how long a timestamp sent within a request is valid (in seconds).
 REQUEST_EXPIRY_TIME       = 60
