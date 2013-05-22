@@ -519,7 +519,7 @@ RESPONSE  : application/json
 The objects are sorted by the "score.total" field in descending order.
 
 Example response: [ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE", "locked": false,
-                      "score": { "down": 1, "fav": 0, "total": 200, "up": 201 }, "source": "foo.png", "tags": [],
+                      "score": { "down": 1, "fav": 2, "total": 200, "up": 201 }, "source": "foo.png", "tags": [],
 		      "timestamp": 1369145184233.0 },
 		    { "comments_n": 0, "guid": "BA30Ne3Zl2B723E3NICYFTv7EnR4ghFE", "locked": false,
 		      "score": { "down": 0, "fav": 0, "total": 100, "up": 100 }, source: "bar.png", "tags": [],
