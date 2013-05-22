@@ -9,16 +9,17 @@ Table of contents
 3. Setup
 4. The Web Interface
 
+
 ################################################################
 # 1. Description
 ################################################################
 
-meat-a is a WSGI based webservice for the organization of objects and
-related meta information.
+meat-a is a WSGI based webservice for the organization of objects and related
+meta information.
 
-Objects have a guid and a source (e.g. a filename or an URL). meat-a
-lets users share meta information like tags or comments. The data is
-stored in a MongoDB database.
+Objects have a guid and a source (e.g. a filename or an URL). meat-a lets
+users share meta information like tags or comments. The data is stored in a
+MongoDB database.
 
 
 ################################################################
@@ -29,11 +30,11 @@ Objects are stored in the object database (database.ObjectDb). They are
 referenced by their guid and have a source. You can e.g. store a link
 or a filename.
 
-At the moment data is stored in a MongoDB database.
+At the moment data is saved in a MongoDB database.
 
-User can tag and rate objects. They can also add objects to their
-personal favorite list and recommend them to other users. It's also
-possible to write comments.
+Users can tag and rate objects. They can also add objects to their
+personal favorite list and recommend them to other users. It's possible to
+write comments too.
 
 Users can follow each other. If user A follows user B and user B also
 follows user A they are friends. Friends can recommend objects to each
@@ -43,35 +44,35 @@ to the user.
 Users are organized in a separate user store (database.UserDb).
 
 Several activities generate notifications. If a user adds an object to his/her
-favorite list friends will receive a notification. If the user profile is not
-protected every user following the account will get a notification. Like other
-items notifications are stored in separate data store (database.StreamDb).
+favorite list friends will receive a notification for example. If the user profile
+is not protected every user following the account will get a notification. Like
+other items notifications are stored in separate data store (database.StreamDb).
 
 Sometimes a user will receive an email. If you're going to create a new user
 profile a request code will be sent by email for example. Emails are stored
 in the database.MailDb data store.
 
 A service (mailer.Mailer) sends emails in a user-defined interval. This process
-can also be triggered via a simple UDP request.
+can also be triggered via an UDP request.
 
 The different data stores can be accessed through the app.Application class. The
-app.AuthenticatedApplication wraps the methods of the app.Application class and
-tests additionally if a request is authenticated.
+app.AuthenticatedApplication wraps the methods of this class and tests additionally
+if a request is authenticated.
 
 The authentication mechanism is quite simple. A request must contain at least
 the username of a valid account and the current UNIX timestamp (UTC). All
 parameters need to be sorted alphabetically. Then the HMAC-SHA1 checksum has to be
 calculated. The required secret is the SHA-256 checksum of the user password. You
-can find an example here: util.sign_message()
+can find an example in the util module (util.sign_message()).
 
 There's also a full example client available in the client module: client.Client
 
-The WSGI module tries to map a received path to a controller function. Each
+The wsgi module tries to map a received path to a controller function. Each
 controller returns a view.View object which will be used to generate the response.
 The controller functions use an app.AuthenticatedApplication instance to access
 the different data stores.
 
-To test the available modules just execute the test.py file.
+To test the available modules execute the test.py file.
 
 To configure the service please have a look at the config module.
 
@@ -91,13 +92,11 @@ start the rocket server:
 
 # python rocket_server.py
 
-
-Opening the Python file you'll see that the example application is binded to
-localhost on port 8000.
+This will start a small HTTP test server on port 8000.
 
 Of course you're welcome to use any HTTP server with WSGI support you like. Just
 configure your preferred server and setup the index() method located in the
-rsgi.py file as handler.
+wsgi.py file as handler.
 
 Without starting the mailer meat-a will not be able to send emails:
 
@@ -111,7 +110,7 @@ change a few settings:
 
 * WEBSITE_URL
   meat-a will generate various URLs (e.g. for changing passwords). Define the
-  base URL to the web application here.
+  base URL of the web application here.
 
 * MONGODB_HOST, MONGODB_PORT, MONGODB_DATABASE
   Please specify the connection details and database name of your MongoDB server.
@@ -126,12 +125,12 @@ change a few settings:
   SMTP user credentials and details.
 
 * MAILER_HOST, MAILER_PORT, MAILER_ALLOWED_CLIENTS
-  Hostname abd port of the mailer. You have also to specify IP addresses of allowed
-  clients.
+  Hostname and port of the mailer. You have also to specify the IP addresses of all
+  allowed clients.
 
 
 Emails and websites are generated using the Cheetah template framework and can
-be found in the tpl directory.
+be found in the "tpl" directory.
 
 
 ################################################################
@@ -141,8 +140,8 @@ be found in the tpl directory.
 Most functions of the meat-a web interface require an authenticated request.
 As mentioned before you have to sort the POST parameters alphabetically.
 Then calculate the HMAC-SHA1 checksum of the parameters using the SHA-256
-checksum of the user password. The hex-string of the checksum has to be send
-as "signature" parameter.
+checksum of the user password as secret. The hex-string of the checksum has to be
+sent as "signature" parameter.
 
 The util.sign_message() method is a good example how the checksum can be
 built:
@@ -196,9 +195,9 @@ float (e.g. 12.3)       => "12.30"
 
 
 If you want to build the checksum of an array you have to iterate all its children
-and add them one by one.
+and process them one by one.
 
-An authenticated request must contain at least the following parameters:
+An authenticated request has to contain at least the following parameters:
 
 * username : name of the authenticated user
 * timestamp: current UNIX timestamp (UTC)
@@ -209,8 +208,8 @@ Normally the response will have HTTP status 200 and a body like this:
 
 { "code": 0, "message": "ok" }
 
-The message field holds a short description of the status of your request. A
-list containing all status codes can be found in the exception.py file.
+The "message" field holds a short description of the status. A list containing all
+codes can be found in the exception.py file.
 
 Please find below a list with different HTTP status codes and their reason:
 
@@ -239,7 +238,7 @@ RESPONSE  : application/json
 If the parameters are valid an email to the given address will be sent. This
 email contains an URL which can be used to activate the account.
 
-If not used the provided activation code will expire.
+If not used the generated activation code will expire.
 
 Example response: { "code": 200, "message": "Invalid parameter: 'username'" }
 
@@ -268,7 +267,7 @@ METHOD    : POST
 PARAMETERS: username, email, timestamp, signature
 RESPONSE  : application/json
 
-To disable a user account the user has to send also his/her correct email
+To disable a user account the user has to send his/her correct email
 address.
 
 Kindly note that user accounts will not be deleted from the data store.
@@ -318,7 +317,7 @@ METHOD    : GET
 PARAMETERS: code
 RESPONSE  : text/html
 
-When the given reset code is valid an email containing a generated password
+When the given reset code is valid an email containing a new generated password
 will be sent to the related user account.
 
 Example response: a website
@@ -409,6 +408,8 @@ METHOD    : POST
 PARAMETERS: username, page, page_size, timestamp, signature
 RESPONSE  : application/json
 
+"comments_n" holds the number of related comments.
+
 Example response: [ { "guid": "abcde", "source": "foo.png", "locked": False, "tags": [ "foo", "bar" ],
                       "score": { "up": 5, "down": 2, "fav": 8, "total": 11 }, "timestamp": 1369143414627.0,
 		      "comments_n": 2 } ]
@@ -437,7 +438,7 @@ METHOD    : POST
 PARAMETERS: username, older_than, page_size, timestamp, signature
 RESPONSE  : application/json
 
-At the moment there are 6 message types. The received fields for each message depend on this type.
+At the moment there are 6 message types. The fields of each message depend on this type.
 
 0 => the sender recommended an object to the receiver, additional fields: guid, comment
 1 => the sender added a comment to an object, additional fields: guid, comment
@@ -477,7 +478,7 @@ METHOD    : POST
 PARAMETERS: username, page, page_size, timestamp, signature
 RESPONSE  : application/json
 
-The objects are sorted by timestamp in descending order.
+The objects are sorted by "timestamp" in descending order.
 
 Example response: [ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE", "locked": false,
                       "score": { "down": 0, "fav": 0, "total": 0, "up": 0 }, "source": "foo.png", "tags": [],
@@ -496,7 +497,7 @@ METHOD    : POST
 PARAMETERS: username, page, page_size, tag, timestamp, signature
 RESPONSE  : application/json
 
-The objects are sorted by timestamp in descending order.
+The objects are sorted by "timestamp" in descending order.
 
 Example response: [ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE", "locked": false,
                       "score": { "down": 0, "fav": 0, "total": 0, "up": 0 }, "source": "foo.png", "tags": [ "1", "2" ],
@@ -515,7 +516,7 @@ METHOD    : POST
 PARAMETERS: username, page, page_size, tag, timestamp, signature
 RESPONSE  : application/json
 
-The objects are sorted by the score.total field in descending order.
+The objects are sorted by the "score.total" field in descending order.
 
 Example response: [ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE", "locked": false,
                       "score": { "down": 1, "fav": 0, "total": 200, "up": 201 }, "source": "foo.png", "tags": [],
@@ -566,7 +567,7 @@ METHOD    : POST
 PARAMETERS: username, guid, up, timestamp, signature
 RESPONSE  : application/json
 
-Use the "up" parameter to upvote/downvote an object (e.g. up = "true" to upvote
+Use the "up" parameter to upvote/downvote an object (e.g. "true" to upvote
 an object).
 
 Example response: { "code": 0, "message": "ok" }
@@ -607,6 +608,8 @@ URL:        /object/comments
 METHOD    : POST
 PARAMETERS: username, page, page_size, timestamp, signature
 RESPONSE  : application/json
+
+Comments are sorted by "timestamp" in ascending order.
 
 Example response: [ { "text": "foo", "timestamp": 1369145893148.0,
                       "user": { "avatar": null, "blocked": false, "firstname": null, "gender": null,

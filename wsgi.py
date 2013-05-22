@@ -41,8 +41,8 @@
 #  or a filename.
 #
 #  <p>Users can tag and rate objects. They can also add objects to their
-#  personal favorite list and recommend them to other users. It's also
-#  possible to write comments.</p>
+#  personal favorite list and recommend them to other users. It's possible
+#  to write comments too.</p>
 #
 #  <p>Users can follow each other. If user A follows user B and user B also
 #  follows user A they are friends. Friends can recommend objects to each
@@ -52,9 +52,9 @@
 #  <p>Users are organized in a separate user store (database.UserDb).</p>
 #
 #  <p>Several activities generate notifications. If a user adds an object to
-#  his/her favorite  list friends will receive a notification. If the user profile
-#  is not protected every user following the account will get a notification.
-#  Like other items notifications are stored in separate data store
+#  his/her favorite  list friends will receive a notification for example. If the
+#  user profile is not protected every user following the account will get a
+#  notification. Like other items notifications are stored in separate data store
 #  (database.StreamDb).</p>
 #
 #  <p>Sometimes a user will receive an email. If you're going to create a new user
@@ -62,11 +62,11 @@
 #  in the database.MailDb data store.</p>
 #
 #  <p>A service (mailer.Mailer) sends emails in a user-defined interval. This
-#  process can also be triggered via a simple UDP request.</p>
+#  process can also be triggered via an UDP request.</p>
 #
 #  <p>The different data stores can be accessed through the app.Application class.
-#  The app.AuthenticatedApplication wraps the methods of the app.Application
-#  class and tests additionally if a request is authenticated.</p>
+#  The app.AuthenticatedApplication wraps the methods of this class and tests
+#  additionally if a request is authenticated.</p>
 #
 #  <p>The authentication mechanism is quite simple. A request must contain at
 #  least the username of a valid account and the current UNIX timestamp (UTC).
@@ -77,7 +77,7 @@
 #  <p>There's also a full example client available in the client module:
 #  client.Client</p>
 #
-#  <p>The WSGI module tries to map a received path to a controller function.
+#  <p>The wsgi module tries to map a received path to a controller function.
 #  Each controller returns a view.View object which will be used to generate
 #  the response. The controller functions use an app.AuthenticatedApplication
 #  instance to access the different data stores.</p>
@@ -85,7 +85,7 @@
 #  <p>Data is stored with a MongoDB server but it's simple to use a different
 #  backend.</p>
 #
-#  <p>To test the available modules just execute the test.py file.</p>
+#  <p>To test the available modules execute the test.py file.</p>
 #
 #  <p>To configure the service please have a look at the config module.</p>
 #
