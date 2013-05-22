@@ -139,7 +139,7 @@ def request_account(app, env, username, email):
 		count_requests(env, RequestDb.RequestType.ACCOUNT_REQUEST, config.ACCOUNT_REQUESTS_PER_HOUR)
 
 		code = app.request_account(username, email)
-		generate_mail(template.AccountRequestMail(), email, config.USER_REQUEST_TIMEOUT, username = username, url = "%s/account/activate?code=%s" % (config.WEBSITE_URL, code))
+		generate_mail(template.AccountRequestMail(config.DEFAULT_LANGUAGE), email, config.USER_REQUEST_TIMEOUT, username = username, url = "%s/account/activate?code=%s" % (config.WEBSITE_URL, code))
 		ping(config.MAILER_HOST, config.MAILER_PORT)
 		v.bind({ "status": SUCCESS, "message": "ok" })
 
@@ -162,13 +162,13 @@ def activate_account(app, env, code):
 		count_requests(env, RequestDb.RequestType.ACCOUNT_REQUEST, config.ACCOUNT_REQUESTS_PER_HOUR)
 
 		username, email, password = app.activate_user(code)
-		generate_mail(template.AccountActivationMail(), email, config.USER_REQUEST_TIMEOUT, username = username, password = password)
+		generate_mail(template.AccountActivationMail(config.DEFAULT_LANGUAGE), email, config.USER_REQUEST_TIMEOUT, username = username, password = password)
 		ping(config.MAILER_HOST, config.MAILER_PORT)
 
-		return generate_html(template.AccountActivatedPage(), username = username)
+		return generate_html(template.AccountActivatedPage(config.DEFAULT_LANGUAGE), username = username)
 
 	except exception.Exception, ex:
-		return generate_html(template.FailureMessagePage(), message = ex.message)
+		return generate_html(template.FailureMessagePage(config.DEFAULT_LANGUAGE), message = ex.message)
 
 ## Disable a user account.
 #  @param app app.AuthenticatedApplication instance
@@ -183,7 +183,7 @@ def disable_account(app, env, username, timestamp, signature, email):
 
 	try:
 		app.disable_user(RequestData(username, int(timestamp), signature), email)
-		generate_mail(template.AccountDisabledMail(), email, config.DEFAULT_EMAIL_LIFETIME, username = username)
+		generate_mail(template.AccountDisabledMail(app.get_user_language(username)), email, config.DEFAULT_EMAIL_LIFETIME, username = username)
 		ping(config.MAILER_HOST, config.MAILER_PORT)
 		v.bind({ "status": SUCCESS, "message": "ok" })
 
@@ -217,7 +217,7 @@ def request_password(app, env, username, email):
 		count_requests(env, RequestDb.RequestType.PASSWORD_RESET, config.PASSWORD_RESETS_PER_HOUR)
 
 		code = app.request_password(username, email)
-		generate_mail(template.RequestNewPasswordMail(), email, config.PASSWORD_RESET_TIMEOUT,
+		generate_mail(template.RequestNewPasswordMail(app.get_user_language(username)), email, config.PASSWORD_RESET_TIMEOUT,
 		              username = username, url = "%s/account/password/reset?code=%s" % (config.WEBSITE_URL, code))
 		ping(config.MAILER_HOST, config.MAILER_PORT)
 		v.bind({ "status": SUCCESS, "message": "ok" })
@@ -237,13 +237,14 @@ def password_reset(app, env, code):
 		count_requests(env, RequestDb.RequestType.PASSWORD_RESET, config.PASSWORD_RESETS_PER_HOUR)
 
 		username, email, password = app.generate_password(code)
-		generate_mail(template.PasswordResetMail(), email, config.DEFAULT_EMAIL_LIFETIME, username = username, password = password)
+		language = app.get_user_language(username)
+		generate_mail(template.PasswordResetMail(language), email, config.DEFAULT_EMAIL_LIFETIME, username = username, password = password)
 		ping(config.MAILER_HOST, config.MAILER_PORT)
 
-		return generate_html(template.PasswordResetPage(), username = username)
+		return generate_html(template.PasswordResetPage(language), username = username)
 
 	except exception.Exception, ex:
-		return generate_html(template.FailureMessagePage(), message = ex.message)
+		return generate_html(template.FailureMessagePage(language), message = ex.message)
 
 ## Tests user authentication.
 #  @param app app.AuthenticatedApplication instance
