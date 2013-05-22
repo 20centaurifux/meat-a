@@ -114,6 +114,7 @@ routing = { "/account/new": { "controller": controller.request_account, "method"
             "/account/password/update": { "controller": controller.update_password, "method": "POST", "params": [ "username", "timestamp", "signature", "old_password", "new_password" ] },
             "/account/password/request": { "controller": controller.request_password, "method": "GET", "params": [ "username", "email" ] },
             "/account/password/reset": { "controller": controller.password_reset, "method": "GET", "params": [ "code" ] },
+            "/account/authentication/test": { "controller": controller.authentication_test, "method": "POST", "params": [ "username", "timestamp", "signature" ] },
             "/account/update": { "controller": controller.update_user_details,
 	                         "method": "POST",
 	                         "params": [ "username", "timestamp", "signature", "email", "firstname", "lastname", "gender", "language", "protected" ] },

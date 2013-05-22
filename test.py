@@ -2216,9 +2216,18 @@ class TestAuthenticatedApplication(unittest.TestCase, TestCase):
 
 class TestHttpServer(unittest.TestCase, TestCase):
 	def test_00_create_user_accounts(self):
-		password = self.__create_user__("user_a", "user_a@testmail.com")
-		password = self.__create_user__("user_b", "user_b@testmail.com")
+		# create accounts:
+		password_a = self.__create_user__("user_a", "user_a@testmail.com")
+		password_b = self.__create_user__("user_b", "user_b@testmail.com")
 
+		# test authentication:
+		obj = json.loads(self.client.test_authentication("user_a", password_a))
+		self.assertEqual(obj["status"], 0)
+
+		obj = json.loads(self.client.test_authentication("user_b", password_b))
+		self.assertEqual(obj["status"], 0)
+
+		# search users:
 		with factory.create_user_db() as db:
 			result = db.search_user("testmail.com")
 			self.assertEqual(len(result), 2)
@@ -2487,7 +2496,7 @@ class TestHttpServer(unittest.TestCase, TestCase):
 			mail = db.get_unsent_messages()[0]
 			db.mark_sent(mail["id"])
 
-			m = re.search("login:\n\n(.*)\n\n", mail["body"])
+			m = re.search("login:\n\n\n\n(.*)\n\n\n\n", mail["body"])
 			password = m.group(1)
 
 			return password
@@ -2569,6 +2578,5 @@ def run_test_case(case):
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestMailDb, TestRequestDb,
-	              TestApplication, TestAuthenticatedApplication, TestHttpServer, TestMailer ]:
+	for case in [ TestHttpServer ]:
 		run_test_case(case)

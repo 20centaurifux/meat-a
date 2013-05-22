@@ -763,7 +763,7 @@ class AuthenticatedApplication:
 	#  @param req request data
 	#  @param email email address of the authenticated user
 	def disable_user(self, req, email):
-		self.__verify_message__(req, email = email)
+		self.verify_message(req, email = email)
 
 		app = self.__create_app__()
 		user = app.get_active_user(req.username)
@@ -779,7 +779,7 @@ class AuthenticatedApplication:
 	#  @param old_password old password (plaintext) of the authenticated account
 	#  @param new_password a new password (plaintext) to set
 	def change_password(self, req, old_password, new_password):
-		self.__verify_message__(req, old_password = old_password, new_password = new_password)
+		self.verify_message(req, old_password = old_password, new_password = new_password)
 		self.__create_app__().change_password(req.username, old_password, new_password)
 
 	## Updates the details of a user account.
@@ -792,7 +792,7 @@ class AuthenticatedApplication:
 	#  @param language language to set
 	#  @param protected protected status to set
 	def update_user_details(self, req, email, firstname, lastname, gender, language, protected):
-		self.__verify_message__(req, email = email, firstname = firstname, lastname = lastname, gender = gender, language = language, protected = protected)
+		self.verify_message(req, email = email, firstname = firstname, lastname = lastname, gender = gender, language = language, protected = protected)
 		self.__create_app__().update_user_details(req.username, email, firstname, lastname, gender, language, protected)
 
 	## Updates the avatar of a user account.
@@ -801,7 +801,7 @@ class AuthenticatedApplication:
 	#  @param filename filename of the image
 	#  @param stream input stream for reading image data
 	def update_avatar(self, req, filename, stream):
-		self.__verify_message__(req, filename = filename)
+		self.verify_message(req, filename = filename)
 		self.__create_app__().update_avatar(req.username, filename, stream)
 
 	## Finds users by search query.
@@ -810,7 +810,7 @@ class AuthenticatedApplication:
 	#  @param query a search query
 	#  @return an array
 	def find_user(self, req, query):
-		self.__verify_message__(req, query = query)
+		self.verify_message(req, query = query)
 
 		return self.__create_app__().find_user(req.username, query)
 
@@ -820,7 +820,7 @@ class AuthenticatedApplication:
 	#  @param name user to get details from
 	#  @return a dictionary
 	def get_user_details(self, req, name):
-		self.__verify_message__(req, name = name)
+		self.verify_message(req, name = name)
 
 		return self.__create_app__().get_user_details(req.username, name)
 
@@ -830,7 +830,7 @@ class AuthenticatedApplication:
 	#  @param guid guid of an object
 	#  @return a dictionary
 	def get_object(self, req, guid):
-		self.__verify_message__(req, guid = guid)
+		self.verify_message(req, guid = guid)
 
 		return self.__create_app__().get_object(guid)
 
@@ -841,7 +841,7 @@ class AuthenticatedApplication:
 	#  @param page_size size of each page
 	#  @return an array
 	def get_objects(self, req, page, page_size):
-		self.__verify_message__(req, page = page, page_size = page_size)
+		self.verify_message(req, page = page, page_size = page_size)
 
 		return self.__create_app__().get_objects(page, page_size)
 
@@ -853,7 +853,7 @@ class AuthenticatedApplication:
 	#  @param page_size size of each page
 	#  @return an array
 	def get_tagged_objects(self, req, tag, page, page_size):
-		self.__verify_message__(req, tag = tag, page = page, page_size = page_size)
+		self.verify_message(req, tag = tag, page = page, page_size = page_size)
 
 		return self.__create_app__().get_tagged_objects(tag, page, page_size)
 
@@ -864,7 +864,7 @@ class AuthenticatedApplication:
 	#  @param page_size size of each page
 	#  @return an array
 	def get_popular_objects(self, req, page, page_size):
-		self.__verify_message__(req, page = page, page_size = page_size)
+		self.verify_message(req, page = page, page_size = page_size)
 
 		return self.__create_app__().get_popular_objects(page, page_size)
 
@@ -874,7 +874,7 @@ class AuthenticatedApplication:
 	#  @param page_size number of objects the method should(!) return
 	#  @return an array
 	def get_random_objects(self, req, page_size):
-		self.__verify_message__(req, page_size = page_size)
+		self.verify_message(req, page_size = page_size)
 
 		return self.__create_app__().get_random_objects(page_size)
 
@@ -884,7 +884,7 @@ class AuthenticatedApplication:
 	#  @param guid guid of an object
 	#  @param tags array containing tags to add
 	def add_tags(self, req, guid, tags):
-		self.__verify_message__(req, guid = guid, tags = tags)
+		self.verify_message(req, guid = guid, tags = tags)
 		self.__create_app__().add_tags(req.username, guid, tags)
 
 	## Upvotes/Downvotes an object.
@@ -893,7 +893,7 @@ class AuthenticatedApplication:
 	#  @param guid guid of an object
 	#  @param up True to upvote
 	def rate(self, req, guid, up = True):
-		self.__verify_message__(req, guid = guid, up = up)
+		self.verify_message(req, guid = guid, up = up)
 		self.__create_app__().rate(req.username, guid, up)
 
 	## Adds an object to the favorites list of a user.
@@ -902,7 +902,7 @@ class AuthenticatedApplication:
 	#  @param guid guid of an object
 	#  @param favor True to add the object to the list
 	def favor(self, req, guid, favor = True):
-		self.__verify_message__(req, guid = guid, favor = favor)
+		self.verify_message(req, guid = guid, favor = favor)
 		self.__create_app__().favor(req.username, guid, favor = favor)
 
 	## Returns the favorites list of a user.
@@ -912,7 +912,7 @@ class AuthenticatedApplication:
 	#  @param page_size size of each page
 	#  @return an array
 	def get_favorites(self, req, page, page_size):
-		self.__verify_message__(req, page = page, page_size = page_size)
+		self.verify_message(req, page = page, page_size = page_size)
 
 		return self.__create_app__().get_favorites(req.username, page, page_size)
 
@@ -922,7 +922,7 @@ class AuthenticatedApplication:
 	#  @param guid guid of an object
 	#  @param text text to append
 	def add_comment(self, req, guid, text):
-		self.__verify_message__(req, guid = guid, text = text)
+		self.verify_message(req, guid = guid, text = text)
 		self.__create_app__().add_comment(guid, req.username, text)
 
 	## Gets comments assigned to an object.
@@ -933,7 +933,7 @@ class AuthenticatedApplication:
 	#  @param page_size size of each page
 	#  @return an array
 	def get_comments(self, req, guid, page, page_size):
-		self.__verify_message__(req, guid = guid, page = page, page_size = page_size)
+		self.verify_message(req, guid = guid, page = page, page_size = page_size)
 
 		return self.__create_app__().get_comments(guid, page, page_size)
 
@@ -943,7 +943,7 @@ class AuthenticatedApplication:
 	#  @param guid guid of an object
 	#  @param receivers array containing receiver names
 	def recommend(self, req, guid, receivers):
-		self.__verify_message__(req, guid = guid, receivers = receivers)
+		self.verify_message(req, guid = guid, receivers = receivers)
 		self.__create_app__().recommend(req.username, guid, receivers)
 
 	## Gets objects recommended to a user
@@ -953,7 +953,7 @@ class AuthenticatedApplication:
 	#  @param page_size size of each page
 	#  @return an array
 	def get_recommendations(self, req, page, page_size):
-		self.__verify_message__(req, page = page, page_size = page_size)
+		self.verify_message(req, page = page, page_size = page_size)
 
 		return self.__create_app__().get_recommendations(req.username, page, page_size)
 
@@ -963,7 +963,7 @@ class AuthenticatedApplication:
 	#  @param user a user account the authenticated user wants to follow
 	#  @param follow True to follow, False to unfollow
 	def follow(self, req, user, follow):
-		self.__verify_message__(req, user = user, follow = follow)
+		self.verify_message(req, user = user, follow = follow)
 		self.__create_app__().follow(req.username, user, follow)
 
 	## Gets messages sent to a user account.
@@ -973,11 +973,14 @@ class AuthenticatedApplication:
 	#  @param older_than filter to get only messages older than the specified timestamp
 	#  @return an array
 	def get_messages(self, req, limit, older_than):
-		self.__verify_message__(req, limit = limit, older_than = older_than)
+		self.verify_message(req, limit = limit, older_than = older_than)
 
 		return self.__create_app__().get_messages(req.username, limit, older_than)
 
-	def __verify_message__(self, req, **kwargs):
+	## Validates a signature.
+	#  @param req request data
+	#  @param kwargs additional arguments
+	def verify_message(self, req, **kwargs):
 		try:
 			# validate timestamp:
 			if util.unix_timestamp() - req.timestamp > config.REQUEST_EXPIRY_TIME:

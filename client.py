@@ -124,6 +124,13 @@ class Client:
 
 		return self.get(url)
 
+	## Tests user authentication.
+	#  @param username a username
+	#  @param password password of the user (plaintext)
+	#  @return server response (as string)
+	def test_authentication(self, username, password):
+		return self.__post__("/account/authentication/test", password, username = username)
+
 	## Updates a user password.
 	#  @param username a username
 	#  @param old_password password of the account (plaintext)

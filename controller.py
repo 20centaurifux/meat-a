@@ -245,6 +245,26 @@ def password_reset(app, env, code):
 	except exception.Exception, ex:
 		return generate_html(template.FailureMessagePage(), message = ex.message)
 
+## Tests user authentication.
+#  @param app app.AuthenticatedApplication instance
+#  @param env WSGI environment
+#  @param username name of the authenticated user
+#  @param timestamp UNIX timestamp of the request (UTC)
+#  @param signature checksum of the request parameters
+#  @return a JSON view ('{ "status": int, "message": str }')
+def authentication_test(app, env, username, timestamp, signature):
+	v = view.JSONView(200)
+
+	try:
+		req = RequestData(username, int(timestamp), signature)
+		app.verify_message(req)
+		v.bind({ "status": SUCCESS, "message": "ok" })
+
+	except exception.Exception, ex:
+		v.bind({ "status": ex.code, "message": ex.message })
+
+	return v
+
 ## Updates user details.
 #  @param app app.AuthenticatedApplication instance
 #  @param env WSGI environment
