@@ -324,7 +324,21 @@ Example response: a website
 
 
 ---------------------------------------
-- 7. Update user details
+- 7. Test authentication
+---------------------------------------
+
+URL:        /account/authentication/test
+METHOD    : POST
+PARAMETERS: username, timestamp, signature
+RESPONSE  : application/json
+
+This function can be used to test if a user can be authenticated.
+
+Example response: { "code": 0, "message": "ok" }
+
+
+---------------------------------------
+- 8. Update user details
 ---------------------------------------
 
 URL:        /account/update
@@ -338,7 +352,7 @@ Example response: { "code": 0, "message": "ok" }
 
 
 ---------------------------------------
-- 8. Update avatar
+- 9. Update avatar
 ---------------------------------------
 
 URL:        /account/avatar/update
@@ -352,7 +366,7 @@ Example response: { "code": 0, "message": "ok" }
 
 
 ---------------------------------------
-- 9. Get user details
+- 10. Get user details
 ---------------------------------------
 
 URL:        /account/details
@@ -370,7 +384,7 @@ Example response: { "avatar": null, "email": "user_a@testmail.org", "firstname":
 
 
 ---------------------------------------
-- 10. Search users
+- 11. Search users
 ---------------------------------------
 
 URL:        /account/search
@@ -388,7 +402,7 @@ Example response:  [ { "avatar": null, "firstname": null, "gender": null, "lastn
 
 
 ---------------------------------------
-- 11. Follow users
+- 12. Follow users
 ---------------------------------------
 
 URL:        /account/follow
@@ -400,7 +414,7 @@ Example response: { "code": 0, "message": "ok" }
 
 
 ---------------------------------------
-- 12. Get favorites
+- 13. Get favorites
 ---------------------------------------
 
 URL:        /account/favorites
@@ -416,7 +430,7 @@ Example response: [ { "guid": "abcde", "source": "foo.png", "locked": False, "ta
 
 
 ---------------------------------------
-- 13. Get recommendations
+- 14. Get recommendations
 ---------------------------------------
 
 URL:        /account/favorites
@@ -430,7 +444,7 @@ Example response: [ { "guid": "abcde", "source": "foo.png", "locked": False, "ta
 
 
 ---------------------------------------
-- 14. Get messages
+- 15. Get messages
 ---------------------------------------
 
 URL:        /account/messages
@@ -456,7 +470,7 @@ Example response: [ { "receiver": "user_a", "sender": { "avatar": null, "blocked
 #################################################
 
 ---------------------------------------
-- 15. Get a single object
+- 16. Get a single object
 ---------------------------------------
 
 URL:        /object/details
@@ -470,7 +484,7 @@ Example response: { "comments_n": 0, "guid": "vdMtoMdJZg1Wf0p7sLV3R1YAFAsFDYjw",
 
 
 ---------------------------------------
-- 16. Get multiple objects
+- 17. Get multiple objects
 ---------------------------------------
 
 URL:        /objects
@@ -489,7 +503,7 @@ Example response: [ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE
 
 
 ---------------------------------------
-- 17. Get objects (filtered by tag)
+- 18. Get objects (filtered by tag)
 ---------------------------------------
 
 URL:        /objects/tag
@@ -508,7 +522,7 @@ Example response: [ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE
 
 
 ---------------------------------------
-- 18. Get popular objects
+- 19. Get popular objects
 ---------------------------------------
 
 URL:        /objects/popular
@@ -527,7 +541,7 @@ Example response: [ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE
 
 
 ---------------------------------------
-- 19. Get random objects
+- 20. Get random objects
 ---------------------------------------
 
 URL:        /objects/random
@@ -544,7 +558,7 @@ Example response: [ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE
 
 
 ---------------------------------------
-- 20. Tag an object
+- 21. Tag an object
 ---------------------------------------
 
 URL:        /object/tag
@@ -559,7 +573,7 @@ Example response: { "code": 0, "message": "ok" }
 
 
 ---------------------------------------
-- 21. Rate an object
+- 22. Rate an object
 ---------------------------------------
 
 URL:        /object/rate
@@ -574,7 +588,7 @@ Example response: { "code": 0, "message": "ok" }
 
 
 ---------------------------------------
-- 22. Add favorite
+- 23. Add favorite
 ---------------------------------------
 
 URL:        /object/favor
@@ -589,7 +603,7 @@ Example response: { "code": 0, "message": "ok" }
 
 
 ---------------------------------------
-- 23. Create a comment
+- 24. Create a comment
 ---------------------------------------
 
 URL:        /object/comments/add
@@ -601,7 +615,7 @@ Example response: { "code": 0, "message": "ok" }
 
 
 ---------------------------------------
-- 24. Get comments
+- 25. Get comments
 ---------------------------------------
 
 URL:        /object/comments
@@ -620,7 +634,7 @@ Example response: [ { "text": "foo", "timestamp": 1369145893148.0,
 
 
 ---------------------------------------
-- 25. Recommend an object
+- 26. Recommend an object
 ---------------------------------------
 
 URL:        /object/comments/add
