@@ -2496,7 +2496,7 @@ class TestHttpServer(unittest.TestCase, TestCase):
 			mail = db.get_unsent_messages()[0]
 			db.mark_sent(mail["id"])
 
-			m = re.search("login:\n\n\n\n(.*)\n\n\n\n", mail["body"])
+			m = re.search("login:\n\n(.*)\n\n", mail["body"])
 			password = m.group(1)
 
 			return password
@@ -2578,5 +2578,6 @@ def run_test_case(case):
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestHttpServer ]:
+	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestMailDb, TestRequestDb,
+	              TestApplication, TestAuthenticatedApplication, TestHttpServer, TestMailer ]:
 		run_test_case(case)
