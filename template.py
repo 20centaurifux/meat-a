@@ -41,20 +41,28 @@ tpl_cache = {}
 #  cached content whenever possible.
 #  @param filename filename of the template to load
 #  @return content of the template file
-def load_template_def(filename):
+def load_template_def(language, filename):
 	global tpl_cache
+
+	filename = os.path.join(config.TEMPLATE_DIR, language, filename)
 
 	try:
 		tpl = tpl_cache[filename]
 
 	except KeyError:
-		with open(os.path.join(config.TEMPLATE_DIR, filename), "rb") as f:
+		with open(filename) as f:
 			tpl = f.read()
 
 	return tpl
 
 ## Base class for templates. A template can be exported to a string which contains binded data.
 class Template:
+	## The constructor.
+	#  @param language language of the template
+	def __init__(self, language):
+		## Language of the template.
+		self.language = language
+
 	## Binds data.
 	#  @param kwargs data to bind
 	@abc.abstractmethod
@@ -68,8 +76,10 @@ class Template:
 ## A Template implementation using the Cheetah framework.
 class CheetahTemplate(Template):
 	## The constructor.
+	#  @param language language of the template
 	#  @param tpl name of a Cheetah template file
-	def __init__(self, tpl):
+	def __init__(self, language, tpl):
+		Template.__init__(self, language)
 		self.__namespace = {}
 		self.__def = None
 		self.__tpl = tpl
@@ -79,7 +89,7 @@ class CheetahTemplate(Template):
 
 	def render(self):
 		if self.__def is None:
-			self.__def = load_template_def(self.__tpl)
+			self.__def = load_template_def(self.language, self.__tpl)
 
 		t = Cheetah.Template.Template(self.__def, searchList = [ self.__namespace ])
 
@@ -88,9 +98,11 @@ class CheetahTemplate(Template):
 ## A Template implementation using the Cheetah framework. It renders body and subject of a mail.
 class CheetahMailTemplate(Template):
 	## The constructor.
+	#  @param language language of the template
 	#  @param subject_tpl template file used to generate the subject
 	#  @param body_tpl template file used to generate the body
-	def __init__(self, subject_tpl, body_tpl):
+	def __init__(self, language, subject_tpl, body_tpl):
+		Template.__init__(self, language)
 		self.__namespace = {}
 		self.__defs = None
 		self.__subject_tpl = subject_tpl
@@ -104,8 +116,8 @@ class CheetahMailTemplate(Template):
 	def render(self):
 		if self.__defs is None:
 			self.__defs = []
-			self.__defs.append(load_template_def(self.__subject_tpl))
-			self.__defs.append(load_template_def(self.__body_tpl))
+			self.__defs.append(load_template_def(self.language, self.__subject_tpl))
+			self.__defs.append(load_template_def(self.language, self.__body_tpl))
 
 		subject = Cheetah.Template.Template(self.__defs[0], searchList = [ self.__namespace ])
 		body = Cheetah.Template.Template(self.__defs[1], searchList = [ self.__namespace ])
@@ -114,40 +126,40 @@ class CheetahMailTemplate(Template):
 
 ## A Template implementation used for sending account request codes.
 class AccountRequestMail(CheetahMailTemplate):
-	def __init__(self):
-		CheetahMailTemplate.__init__(self, "account_request_subject.tpl", "account_request_body.tpl")
+	def __init__(self, language):
+		CheetahMailTemplate.__init__(self, language, "account_request_subject.tpl", "account_request_body.tpl")
 
 ## A Template implementation used to welcome new users.
 class AccountActivationMail(CheetahMailTemplate):
-	def __init__(self):
-		CheetahMailTemplate.__init__(self, "account_activation_subject.tpl", "account_activation_body.tpl")
+	def __init__(self, language):
+		CheetahMailTemplate.__init__(self, language, "account_activation_subject.tpl", "account_activation_body.tpl")
 
 ## A Template implementation used to inform users that their account has been disabled.
 class AccountDisabledMail(CheetahMailTemplate):
-	def __init__(self):
-		CheetahMailTemplate.__init__(self, "account_disabled_subject.tpl", "account_disabled_body.tpl")
+	def __init__(self, language):
+		CheetahMailTemplate.__init__(self, language, "account_disabled_subject.tpl", "account_disabled_body.tpl")
 
 ## A Template implementation used for sending password request codes.
 class RequestNewPasswordMail(CheetahMailTemplate):
-	def __init__(self):
-		CheetahMailTemplate.__init__(self, "password_request_subject.tpl", "password_request_body.tpl")
+	def __init__(self, language):
+		CheetahMailTemplate.__init__(self, language, "password_request_subject.tpl", "password_request_body.tpl")
 
 ## A Template implementation used to send a new generated password to users.
 class PasswordResetMail(CheetahMailTemplate):
-	def __init__(self):
-		CheetahMailTemplate.__init__(self, "password_reset_subject.tpl", "password_reset_body.tpl")
+	def __init__(self, language):
+		CheetahMailTemplate.__init__(self, language, "password_reset_subject.tpl", "password_reset_body.tpl")
 
 ## Website to inform users that their account has been activated.
 class AccountActivatedPage(CheetahTemplate):
-	def __init__(self):
-		CheetahTemplate.__init__(self, "account_activated_html.tpl")
+	def __init__(self, language):
+		CheetahTemplate.__init__(self, language, "account_activated_html.tpl")
 
 ## Website to display faliure messages.
 class FailureMessagePage(CheetahTemplate):
-	def __init__(self):
-		CheetahTemplate.__init__(self, "failure_message_html.tpl")
+	def __init__(self, language):
+		CheetahTemplate.__init__(self, language, "failure_message_html.tpl")
 
 ## Website to inform users that their password has been reseted.
 class PasswordResetPage(CheetahTemplate):
-	def __init__(self):
-		CheetahTemplate.__init__(self, "password_reset_html.tpl")
+	def __init__(self, language):
+		CheetahTemplate.__init__(self, language, "password_reset_html.tpl")
