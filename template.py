@@ -39,6 +39,7 @@ tpl_cache = {}
 
 ## Loads the content from a template file and stores it in the template cache. Returns the
 #  cached content whenever possible.
+#  @param language language of the template
 #  @param filename filename of the template to load
 #  @return content of the template file
 def load_template_def(language, filename):
