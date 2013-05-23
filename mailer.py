@@ -144,28 +144,27 @@ class Mailer:
 					break
 
 				# get & send mails:
-				mails = db.get_unsent_messages(1000)
+				mails = db.get_unsent_messages(100)
 
-				while len(mails) > 0 and self.is_running():
+				if len(mails) > 0:
 					try:
 						self.__mta.start_session()
 
-						i = 0
-
-						while i < len(mails) and self.is_running():
-							m = mails[i]
-							i += 1
-
-							if self.__mta.send(["subject"], m["body"], m["receiver"]):
+						for m in mails:
+							if self.__mta.send(m["subject"], m["body"], m["receiver"]):
 								db.mark_sent(m["id"])
+
+							if not self.is_running():
+								break
 
 						self.__mta.end_session()
 
 					except Exception, ex:
+						print "ne"
 						logging.error(ex.message)
 						logging.error(traceback.print_exc())
 
-					mails = db.get_unsent_messages(1000)
+
 
 	def __notify__(self):
 		self.__consumer_cond.acquire()
@@ -179,3 +178,13 @@ def ping(host, port):
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.sendto("ping\n", (host, port))
 	s.close()
+
+if __name__ == "__main__":
+	m = Mailer(config.MAILER_HOST, config.MAILER_PORT, factory.create_mta())
+	m.start()
+
+	print "[press enter to quit]"
+	raw_input()
+
+	print "Shutting down... please wait!"
+	m.quit()
