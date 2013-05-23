@@ -32,7 +32,7 @@
 ## @package factory
 #  Various factory functions.
 
-import config, mongodb, pymongo
+import config, mongodb, pymongo, smtp
 
 ## Creates a database.DbUtil instance.
 def create_db_util():
@@ -86,3 +86,7 @@ def create_shared_request_db(client):
 ## Creates a connection instance which can be shared by multiple data stores.
 def create_shared_client():
 	return pymongo.MongoClient(config.MONGODB_HOST, config.MONGODB_PORT)
+
+## Creates a mail transfer agent.
+def create_mta():
+	return smtp.SMTP_MTA(config.SMTP_HOST, config.SMTP_PORT, config.SMTP_SSL, config.SMTP_ADDRESS, config.SMTP_USERNAME, config.SMTP_PASSWORD)
