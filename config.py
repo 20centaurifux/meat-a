@@ -104,3 +104,16 @@ MAILER_ALLOWED_CLIENTS    = [ "127.0.0.1" ]
 MAILER_UDP_TIMEOUT        = 5
 ## Defines when the mailer checks for new mails automatically (in seconds).
 MAIL_CHECK_INTERVAL       = 60
+
+## A SMTP server.
+SMTP_HOST                 = ""
+## Port of the configured SMTP server.
+SMTP_PORT                 = 25
+## True to enable SSL.
+SMTP_SSL                  = False
+## Address of a SMTP user.
+SMTP_ADDRESS              = ""
+## Username of a SMTP user.
+SMTP_USERNAME             = ""
+## Password of the configured SMTP user.
+SMTP_PASSWORD             = ""
