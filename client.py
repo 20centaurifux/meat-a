@@ -336,6 +336,14 @@ class Client:
 	def get_recommendations(self, username, password, page, page_size):
 		return self.__post__("/account/recommendations", password, username = username, page = page, page_size = page_size)
 
+	## Reports abuse.
+	#  @param username a username
+	#  @param password user password (plaintext)
+	#  @param guid guid of an object to report
+	#  @return server response (as string)
+	def report_abuse(self, username, password, guid):
+		return self.__post__("/object/abuse", password, username = username, guid = guid)
+
 	## Gets messages sent to a user.
 	#  @param username a username
 	#  @param password user password (plaintext)
