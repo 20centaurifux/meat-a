@@ -31,6 +31,20 @@ from time import sleep
 from exception import ErrorCode
 from database import StreamDb, RequestDb
 
+class TestMTA(mailer.MTA):
+	def __init__(self):
+		mailer.MTA.__init__(self)
+		self.count = 0
+
+	def start_session(self): return
+
+	def send(self, subject, body, receiver):
+		self.count += 1
+
+		return True
+
+	def end_session(self): return
+
 class TestCase:
 	def __clear_tables__(self):
 		util = factory.create_db_util()
@@ -2456,6 +2470,34 @@ class TestHttpServer(unittest.TestCase, TestCase):
 		response = json.loads(self.client.request_account(username, email))
 		self.assertEqual(response["status"], ErrorCode.TOO_MANY_REQUESTS)
 
+	def test_07_report_abuse(self):
+		# create test data:
+		password = self.__create_user__("user_a", "user_a@testmail.com")
+		objs = self.__generate_objects__(10)
+
+		# start test mailer:
+		mta = TestMTA()
+		m = mailer.Mailer(config.MAILER_HOST, config.MAILER_PORT, mta)
+
+		m.start()
+
+		# report objects:
+		for i in range(2):
+			for obj in objs:
+				self.client.report_abuse("user_a", password, obj["guid"])
+
+		for i in range(10):
+			self.client.report_abuse("user_a", password, util.generate_junk(32))
+
+		# trigger mailer & quit:
+		mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
+
+		sleep(2)
+		m.quit()
+
+		# test mail count:
+		self.assertEqual(mta.count, 10)
+
 	def setUp(self):
 		# get test url & port:
 		self.port = 80
@@ -2513,22 +2555,8 @@ class TestHttpServer(unittest.TestCase, TestCase):
 		return objs
 
 class TestMailer(unittest.TestCase, TestCase):
-	class TestMTA(mailer.MTA):
-		def __init__(self):
-			mailer.MTA.__init__(self)
-			self.count = 0
-
-		def start_session(self): return
-
-		def send(self, subject, body, receiver):
-			self.count += 1
-
-			return True
-
-		def end_session(self): return
-
 	def test_00_mailer(self):
-		mta = TestMailer.TestMTA()
+		mta = TestMTA()
 		m = mailer.Mailer(config.MAILER_HOST, config.MAILER_PORT, mta)
 
 		m.start()
@@ -2540,7 +2568,9 @@ class TestMailer(unittest.TestCase, TestCase):
 				if i % 10 == 0:
 					mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
 
-		sleep(2)
+		sleep(3)
+		mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
+		sleep(3)
 		m.quit()
 
 		self.assertEqual(mta.count, 1000)
