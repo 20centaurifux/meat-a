@@ -380,7 +380,13 @@ class Application:
 	#          "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
 	#          "timestamp": float, "comments_n": int })
 	def get_object(self, guid):
-		return self.__create_object_db__().get_object(guid)
+		self.__test_object_exists__(guid)
+
+		obj = self.__create_object_db__().get_object(guid)
+
+		del obj["reported"]
+
+		return obj
 
 	## Gets objects from the data store.
 	#  @param page page number
@@ -512,6 +518,19 @@ class Application:
 		self.__test_object_exists__(guid)
 
 		return self.__create_object_db__().get_comments(guid, page, page_size)
+
+	## Reports an object for abuse.
+	#  @param guid guid of an object
+	#  @return True if the object has been reported 
+	def report_abuse(self, guid):
+		obj = self.__get_writeable_object__(guid)
+
+		if not obj["reported"]:
+			self.__create_object_db__().report(guid)
+
+			return True
+
+		return False
 
 	## Lets a user recommend an object to his/her friends or followed unprotected users.
 	#  Each receiver gets a notification.
@@ -668,6 +687,17 @@ class Application:
 
 		if db.is_locked(guid):
 			raise exception.ObjectIsLockedException()
+
+	def __get_writeable_object__(self, guid):
+		obj = self.__create_object_db__().get_object(guid)
+
+		if obj is None:
+			raise exception.ObjectNotFoundException()
+
+		if obj["locked"]:
+			raise exception.ObjectIsLockedException()
+
+		return obj
 
 	def __get_receivers__(self, user):
 		friends = []
@@ -936,6 +966,16 @@ class AuthenticatedApplication:
 		self.verify_message(req, guid = guid, page = page, page_size = page_size)
 
 		return self.__create_app__().get_comments(guid, page, page_size)
+
+	## Reports an object for abuse.
+	#  This method wraps Application::report_abuse().
+	#  @param req request data
+	#  @param guid guid of an object
+	#  @return True if the object has been reported 
+	def report_abuse(self, req, guid):
+		self.verify_message(req, guid = guid)
+
+		return self.__create_app__().report_abuse(guid)
 
 	## Lets a user recommend an object to his/her friends.
 	#  This method wraps Application::recommend().

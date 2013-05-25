@@ -150,6 +150,11 @@ class PasswordResetMail(CheetahMailTemplate):
 	def __init__(self, language):
 		CheetahMailTemplate.__init__(self, language, "password_reset_subject.tpl", "password_reset_body.tpl")
 
+## A Template implementation used for reporting abuse.
+class ReportAbuseMail(CheetahMailTemplate):
+	def __init__(self, language):
+		CheetahMailTemplate.__init__(self, language, "report_abuse_subject.tpl", "report_abuse_body.tpl")
+
 ## Website to inform users that their account has been activated.
 class AccountActivatedPage(CheetahTemplate):
 	def __init__(self, language):

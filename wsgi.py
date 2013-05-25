@@ -139,7 +139,8 @@ routing = { "/account/new": { "controller": controller.request_account, "method"
             "/object/favor": { "controller": controller.favor, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "favor" ] },
             "/object/comments/add": { "controller": controller.add_comment, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "text" ] },
             "/object/comments": { "controller": controller.get_comments, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "page", "page_size" ] },
-            "/object/recommend": { "controller": controller.recommend, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "receivers" ] } }
+            "/object/recommend": { "controller": controller.recommend, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "receivers" ] },
+            "/object/abuse": { "controller": controller.report_abuse, "method": "POST", "params": [ "username", "timestamp", "signature", "guid" ] } }
 
 ## The WSGI callback function.
 #  @param env WSGI environment

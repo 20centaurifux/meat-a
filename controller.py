@@ -257,6 +257,8 @@ def authentication_test(app, env, username, timestamp, signature):
 	v = view.JSONView(200)
 
 	try:
+		count_requests(env, RequestDb.RequestType.DEFAULT_REQUEST, config.REQUESTS_PER_HOUR)
+
 		req = RequestData(username, int(timestamp), signature)
 		app.verify_message(req)
 		v.bind({ "status": SUCCESS, "message": "ok" })
@@ -522,6 +524,36 @@ def get_messages(app, env, username, timestamp, signature, limit, older_than):
 		older_than = float(older_than)
 
 	return default_controller(app.get_messages, env, (username, timestamp, signature, int(limit), older_than), return_result = True)
+
+## Reports abuse. The guid of the object will be sent to all administrators.
+#  @param app app.AuthenticatedApplication instance
+#  @param env WSGI environment
+#  @param username name of the authenticated user
+#  @param timestamp UNIX timestamp of the request (UTC)
+#  @param signature checksum of the request parameters
+#  @param guid guid of the object to report
+#  @return a view.JSONView instance
+def report_abuse(app, env, username, timestamp, signature, guid):
+	v = view.JSONView(200)
+
+	try:
+		count_requests(env, RequestDb.RequestType.DEFAULT_REQUEST, config.REQUESTS_PER_HOUR)
+
+		req = RequestData(username, int(timestamp), signature)
+
+		if app.report_abuse(req, guid):
+			for address in config.ADMIN_MAIL_ADDRESSES:
+				generate_mail(template.ReportAbuseMail(config.ADMIN_LANGUAGE), address, config.DEFAULT_EMAIL_LIFETIME,
+					      username = username, guid = guid)
+
+			ping(config.MAILER_HOST, config.MAILER_PORT)
+
+		v.bind({ "status": SUCCESS, "message": "ok" })
+
+	except exception.Exception, ex:
+		v.bind({ "status": ex.code, "message": ex.message })
+		
+	return v
 
 ## Default controller function. The function executes a specified callback function and returns the result.
 #  @param f callback function
