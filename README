@@ -646,3 +646,17 @@ The "receivers" parameter has to be a JSON array containing usernames
 (e.g. [ "foo", "bar" ]).
 
 Example response: { "code": 0, "message": "ok" }
+
+
+---------------------------------------
+- 27. Report abuse
+---------------------------------------
+
+URL:        /object/abuse
+METHOD    : POST
+PARAMETERS: username, guid, timestamp, signature
+RESPONSE  : application/json
+
+Reports abuse. Administrators will receive an email.
+
+Example response: { "code": 0, "message": "ok" }
