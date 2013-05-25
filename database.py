@@ -255,7 +255,7 @@ class ObjectDb(object):
 	#  @param guid guid of an object
 	#  @return a dictionary holding object details ({ "guid": str, "source": str, "locked": bool,
 	#          "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": float, "comments_n": int })
+	#          "timestamp": float, "comments_n": int, "reported": bool })
 	@abc.abstractmethod
 	def get_object(self, guid): return None
 
@@ -388,6 +388,11 @@ class ObjectDb(object):
 	#  @return True if the object has already been recommended to the specified user
 	@abc.abstractmethod
 	def recommendation_exists(self, guid, username): return False
+
+	## Reports an object for abuse.
+	#  @param guid guid of an object
+	@abc.abstractmethod
+	def report(self, guid): return
 
 ## This class provides access to the stream store.
 class StreamDb(object):

@@ -408,6 +408,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 		                       "timestamp": util.now(),
 		                       "comments_n": 0,
 		                       "comments": [],
+		                       "reported": False,
 		                       "random": random() })
 
 	def lock_object(self, guid, locked = True):
@@ -429,7 +430,8 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def get_object(self, guid):
 		obj = self.find_one("objects", { "guid": guid }, { "_id": False, "guid": True, "source": True, "locked": True,
-		                                                   "tags": True, "score": True, "score_total": True, "timestamp": True, "comments_n": True } )
+		                                                   "tags": True, "score": True, "score_total": True, "timestamp": True,
+		                                                   "comments_n": True, "reported": True } )
 
 		return self.__prepare_object__(obj)
 
@@ -598,6 +600,9 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 	def recommendation_exists(self, guid, username):
 		return bool(self.count("objects", { "guid": guid, "recommendations.user": username }))
+
+	def report(self, guid):
+		self.update("objects", { "guid": guid }, { "$set": { "reported": True } })
 
 	def __prepare_object__(self, obj):
 		if obj is None:
