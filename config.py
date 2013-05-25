@@ -35,6 +35,11 @@
 ## URL of the website.
 WEBSITE_URL               = "http://localhost:8000"
 
+## Array containing email addresses of the administrators.
+ADMIN_MAIL_ADDRESSES      = []
+## Language of administrator accounts.
+ADMIN_LANGUAGE            = "en"
+
 ## Directory where to find template files.
 TEMPLATE_DIR              = "tpl"
 
