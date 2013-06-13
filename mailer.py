@@ -160,7 +160,6 @@ class Mailer:
 						self.__mta.end_session()
 
 					except Exception, ex:
-						print "ne"
 						logging.error(ex.message)
 						logging.error(traceback.print_exc())
 
