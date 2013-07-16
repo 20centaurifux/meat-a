@@ -100,7 +100,7 @@
 #
 #  <p>Have fun!</p>
 
-import urlparse, config, exception, controller, logging, traceback
+import urlparse, config, exception, controller, httpcode, logging, traceback
 from app import AuthenticatedApplication
 from cgi import FieldStorage
 
@@ -170,7 +170,7 @@ def index(env, start_response):
 		handler = routing.get(env["PATH_INFO"], None)
 
 		if handler is None:
-			raise exception.HttpException(404, "Not Found")
+			raise exception.HttpException(404, "Document Not Found")
 
 		# validate method:
 		if env["REQUEST_METHOD"] != handler["method"]:
@@ -252,6 +252,6 @@ def index(env, start_response):
 			logging.error(str(ex))
 			logging.error(traceback.print_exc())
 
-		start_response(str(status), [ ("Content-type", content_type), ("Content-length", len(response)) ])
+		start_response("%d %s" % (status, httpcode.codes[status][0]), [ ("Content-type", content_type), ("Content-length", len(response)) ])
 
 		return [ response ]
