@@ -252,6 +252,6 @@ def index(env, start_response):
 			logging.error(str(ex))
 			logging.error(traceback.print_exc())
 
-		start_response("%d %s" % (status, httpcode.codes[status][0]), [ ("Content-type", content_type), ("Content-length", len(response)) ])
+		start_response("%d %s" % (status, httpcode.codes[status][0]), [ ("Content-type", content_type), ("Content-length", str(len(response))) ])
 
 		return [ response ]
