@@ -160,7 +160,7 @@ def index(env, start_response):
 	data = None
 	form = None
 
-	status = "200"
+	status = 200
 	response = ""
 	content_type = "text/plain"
 	view = None
