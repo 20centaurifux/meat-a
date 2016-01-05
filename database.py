@@ -145,30 +145,31 @@ class UserDb(object):
 	@abc.abstractmethod
 	def email_assigned(self, email): return False
 
-	## Tests if a user request account does exist
-	#  @param code request code to test
+	## Tests if a user request id does exist
+	#  @param id request id to test
 	#  @return True if the request code does exist
 	@abc.abstractmethod
-	def user_request_code_exists(self, code): return False
+	def user_request_id_exists(self, code): return False
 
 	## Gets data assigned to a user request code.
-	#  @param code a user request code
+	#  @param id a user request id
 	#  @return username and email address assigned to the request code
 	@abc.abstractmethod
-	def get_user_request(self, code): return None
+	def get_user_request(self, id): return None
 
 	## Removes a user request.
-	#  @param code code of the user request to remove
+	#  @param id id of the user request to remove
 	@abc.abstractmethod
-	def remove_user_request(self, code): return
+	def remove_user_request(self, id): return
 
 	## Stores a user request in the data store.
 	#  @param username requested username
 	#  @param email email address of the requested account
+	#  @param id the request id
 	#  @param code the request code
 	#  @param lifetime lifetime (in seconds) of the request
 	@abc.abstractmethod
-	def create_user_request(self, username, email, code, lifetime = 60): return
+	def create_user_request(self, username, email, id, code, lifetime = 60): return
 
 	## Tests if a username has already been requested.
 	#  @param username username to test
@@ -177,28 +178,29 @@ class UserDb(object):
 	def username_requested(self, username): return False
 
 	## Tests if a password request code does already exist.
-	#  @param code request code to test
+	#  @param id request id to test
 	#  @return True if the request code does exist
 	@abc.abstractmethod
-	def password_request_code_exists(self, code): return False
+	def password_request_id_exists(self, id): return False
 
 	## Gets data assigned to a password request.
-	#  @param code a password request code
+	#  @param id a password request id
 	#  @return username related to the password request code
 	@abc.abstractmethod
-	def get_password_request(self, code): return None
+	def get_password_request(self, id): return None
 
 	## Removes a password request.
-	#  @param code code of the password request to remove.
+	#  @param id id of the password request to remove.
 	@abc.abstractmethod
-	def remove_password_request(self, code): return
+	def remove_password_request(self, id): return
 
 	## Stores a password request in the data store.
 	#  @param username name of the user who wants to reset his/her password
-	#  @param code the request code
+	#  @param id id of the request
+	#  @param code code of the request
 	#  @param lifetime lifetime (in seconds) of the request
 	@abc.abstractmethod
-	def create_password_request(self, username, code, lifetime = 60): return
+	def create_password_request(self, username, id, code, lifetime = 60): return
 
 	## Lets one user follow another user.
 	#  @param user1 username of a user account

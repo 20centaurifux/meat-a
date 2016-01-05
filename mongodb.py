@@ -273,7 +273,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 		                              "blocked": False,
 		                              "protected": protected },
 		                              True)
- 
+
 		if not user is None:
 			raise ConstraintViolationException("Username or email address already assigned.")
 
@@ -319,20 +319,20 @@ class MongoUserDb(MongoDb, database.UserDb):
 	def email_assigned(self, email):
 		return bool(self.count("users", { "$and": [ { "email": email }, { "blocked": False } ] }))
 
-	def user_request_code_exists(self, code):
-		return bool(self.count("user_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] }))
+	def user_request_id_exists(self, id):
+		return bool(self.count("user_requests", { "$and": [ { "id": id }, { "lifetime": { "$gte": util.now() } } ] }))
 
-	def get_user_request(self, code):
-		return self.find_one("user_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] },
-		                     { "_id": False, "name": True, "email": True })
+	def get_user_request(self, id):
+		return self.find_one("user_requests", { "$and": [ { "id": id }, { "lifetime": { "$gte": util.now() } } ] },
+		                     { "_id": False, "name": True, "email": True, "code": True })
 
-	def remove_user_request(self, code):
-		self.remove("user_requests", { "code": code })
+	def remove_user_request(self, id):
+		self.remove("user_requests", { "id": id })
 
-	def create_user_request(self, username, email, code, lifetime = 20):
+	def create_user_request(self, username, email, id, code, lifetime = 20):
 		request = self.find_and_modify("user_requests",
 	                                       { "$and": [ { "$or": [ { "name": username }, { "code": code } ] }, { "lifetime": { "$gte": util.now() } } ] },
-                                               { "name": username, "email": email, "code": code, "lifetime": lifetime * 1000 + util.now() },
+                                               { "name": username, "email": email, "id": id, "code": code, "lifetime": lifetime * 1000 + util.now() },
                                                True)
 
 		if not request is None:
@@ -341,25 +341,22 @@ class MongoUserDb(MongoDb, database.UserDb):
 	def username_requested(self, username):
 		return bool(self.count("user_requests", { "$and": [ { "name": username }, { "lifetime": { "$gte": util.now() } } ] }))
 
-	def password_request_code_exists(self, code):
-		return bool(self.count("password_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] }))
+	def password_request_id_exists(self, id):
+		return bool(self.count("password_requests", { "$and": [ { "id": id }, { "lifetime": { "$gte": util.now() } } ] }))
 
-	def get_password_request(self, code):
-		result = self.find_one("password_requests", { "$and": [ { "code": code }, { "lifetime": { "$gte": util.now() } } ] },
-		                       { "_id": False, "name": True })
+	def get_password_request(self, id):
+		result = self.find_one("password_requests", { "$and": [ { "id": id }, { "lifetime": { "$gte": util.now() } } ] },
+		                       { "_id": False, "name": True, "code": True })
 
-		if not result is None:
-			return result["name"]
+		return result
 
-		return None
+	def remove_password_request(self, id):
+		self.remove("password_requests", { "id": id })
 
-	def remove_password_request(self, code):
-		self.remove("password_requests", { "code": code })
-
-	def create_password_request(self, username, code, lifetime = 60):
+	def create_password_request(self, username, id, code, lifetime = 60):
 		request = self.find_and_modify("password_requests",
 	                                       { "code": code },
-                                               { "name": username, "code": code, "lifetime": lifetime * 1000 + util.now() },
+                                               { "name": username, "id", id, "code": code, "lifetime": lifetime * 1000 + util.now() },
                                                True)
 
 		if not request is None:
@@ -552,9 +549,9 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 				if not user is None:
 					comment["user"] = user
-	
+
 			return comments
-	
+
 		return []
 
 	def favor_object(self, guid, username, favor = True):
@@ -610,7 +607,7 @@ class MongoObjectDb(MongoDb, database.ObjectDb):
 
 		obj["score"]["total"] = obj["score_total"]
 		del obj["score_total"]
-		
+
 		return obj
 
 ## Implementation of database.StreamDb base class using MongoDB as backend.
