@@ -130,157 +130,141 @@ class Connection():
 class UserDb(object):
 	__metaclass__ = abc.ABCMeta
 
-	## @param scope a transaction scope
+	## Tests if a request id does exist.
+	#  @param scope a transaction scope
 	#  @param id request id to test
 	#  @return True if the request id does exist
-	#
-	#  Tests if a request id does exist.
 	@abc.abstractmethod
 	def user_request_id_exists(self, scope, id): return
 
-	## @param scope a transaction scope
+	## Tests if a request id does exist.
+	#  @param scope a transaction scope
 	#  @param id request id to test
 	#  @return a dictionary holding user request details: { "request_id": str, "request_code": str,
 	#          "username": str, "email": str, "created_on": datetime }
-	#
-	#  Tests if a request id does exist.
 	@abc.abstractmethod
 	def get_user_request(self, scope, id): return
 
-	## @param scope a transaction scope
+	## Tests if a username or email address is already assigned.
+	#  @param scope a transaction scope
 	#  @param username username to test
 	#  @param email email to test
 	#  @return True if the username or email address is already assigned
-	#
-	#  Tests if a username or email address is already assigned.
 	@abc.abstractmethod
 	def username_or_email_assigned(self, scope, username, email): return
 
-	## @param scope a transaction scope
+	## Stores a user request in the database.
+	#  @param scope a transaction scope
 	#  @param id the request id
 	#  @param code a related request code
 	#  @param username name of the user account
 	#  @param email email address of the user account
-	#
-	#  Stores a user request in the database.
 	@abc.abstractmethod
 	def create_user_request(self, scope, id, code, username, email): return
 
-	## @param scope a transaction scope
+	## Activates a user account by the related request id and code.
+	#  @param scope a transaction scope
 	#  @param id a request id
 	#  @param code a related request code
 	#  @param password (hash) of the account
 	#  @param salt password salt
 	#  @return id id of the created user
-	#
-	#  Activates a user account by the related request id and code.
 	@abc.abstractmethod
 	def activate_user(self, scope, id, code, password, salt): return
 
-	## @param scope a transaction scope
+	## Tests if a user account does exist.
+	#  @param scope a transaction scope
 	#  @param username username to test
 	#  @return True if the account does exist
-	#
-	#  Tests if a user account does exist.
 	@abc.abstractmethod
 	def user_exists(self, scope, username): return
 
-	## @param scope a transaction scope
+	## Tests if a user account is blocked.
+	#  @param scope a transaction scope
 	#  @param username username to test
 	#  @return True if the account is blocked
-	#
-	#  Tests if a user account is blocked.
 	@abc.abstractmethod
 	def user_is_blocked(self, scope, username): return
 
-	## @param scope a transaction scope
+	## Blocks or unblocks a user account.
+	#  @param scope a transaction scope
 	#  @param username name of the user to block
 	#  @param True to block the account
-	#
-	#  Blocks or unblocks a user account.
 	@abc.abstractmethod
 	def block_user(self, scope, username, blocked): return
 
-	## @param scope a transaction scope
+	## Deletes or restores a user account.
+	#  @param scope a transaction scope
 	#  @param username name of the user to delete
 	#  @param True to delete the account
-	#
-	#  Deletes/restores a user account.
 	@abc.abstractmethod
 	def delete_user(self, scope, username, deleted): return
 
-	## @param scope a transaction scope
+	## Gets password and salt of a user account.
+	#  @param scope a transaction scope
 	#  @param username a user account
 	#  @return user password and salt
-	#
-	#  Gets password and salt of a user account.
 	@abc.abstractmethod
 	def get_user_password(self, scope, username): return
 
-	## @param scope a transaction scope
+	## Updates a user password.
+	#  @param scope a transaction scope
 	#  @param username a user account
 	#  @param password password to set
 	#  @param salt salt to set
-	#
-	#  Updates a user password.
 	@abc.abstractmethod
 	def update_user_password(self, scope, username, password, salt): return
 
-	## @param scope a transaction scope
+	## Gets user details.
+	#  @param scope a transaction scope
 	#  @param username a user account
 	#  @return a dictionary holding user details: { "id": int, "username": str, "firstname": str,
 	#          "lastname": str, "language": str, "gender": str, "password": str, "salt": str,
 	#          "blocked": bool, "deleted": bool, "created_on": datetime, "blocked_on": datetime,
 	#          "deleted_on": datetime, "protected": bool, "avatar": str }
-	#
-	#  Gets user details.
 	@abc.abstractmethod
 	def get_user(self, scope, username): return
 
-	## @param scope a transaction scope
+	## Removes all password requests of the given user account.
+	#  @param scope a transaction scope
 	#  @param username a user account
-	#
-	#  Removes all password requests of the given user account.
 	@abc.abstractmethod
 	def remove_password_requests_by_user_id(self, scope, user_id): return
 
-	## @param scope a transaction scope
+	## Tests if a password request id exists.
+	#  @param scope a transaction scope
 	#  @param id a password request id
 	#  @return True if the password request id does exist
-	#
-	#  Tests if a password request id exists.
 	@abc.abstractmethod
 	def password_request_id_exists(self, scope, id): return
 
-	## @param scope a transaction scope
+	## Stores a password request in the database.
+	#  @param scope a transaction scope
 	#  @param id a password request id
 	#  @param id a related password request code
 	#  @param user_id id of the related user account
-	#
-	#  Stores a password request in the database.
 	@abc.abstractmethod
 	def create_password_request(self, scope, id, code, user_id): return
 
-	## @param scope a transaction scope
+	## Gets a password request from the database.
+	#  @param scope a transaction scope
 	#  @param id a password request id
 	#  @return a dictionary holiding request details: { "request_id": str, "request_code": str,
 	#          "user": { "username": str, "blocked": bool, "deleted": bool } }
-	#
-	#  Gets a password request from the database.
 	@abc.abstractmethod
 	def get_password_request(self, scope, id): return
 
-	## @param scope a transaction scope
+	## Resets the password of the user who requested the given password reset id.
+	#  @param scope a transaction scope
 	#  @param id a password request id
 	#  @param code a related password request code
 	#  @param password new password (hash) to set
 	#  @param salt new salt to set
-	#
-	#  Resets the password of the user who requested the given password reset id.
 	@abc.abstractmethod
 	def reset_password(self, scope, id, code, password, salt): return
 
-	## @param scope a transaction scope
+	## Updates user details.
+	#  @param scope a transaction scope
 	#  @param username name of the account to update
 	#  @param email email address to set
 	#  @param firstname firstname to set
@@ -288,42 +272,36 @@ class UserDb(object):
 	#  @param gender gender to set
 	#  @param language language to set
 	#  @param protected protected status to set
-	#
-	#  Updates user details.
 	@abc.abstractmethod
 	def update_user_details(self, scope, username, email, firstname, lastname, gender, language, protected): return
 
-	## @param scope a transaction scope
+	## Tests if an email address is available for the specified user account.
+	#  @param scope a transaction scope
 	#  @param username a username
 	#  @param email email address to test
 	#  @return True if the specified email address is available.
-	#
-	#  Tests if an email address is available for the specified user account.
 	@abc.abstractmethod
 	def user_can_change_email(self, scope, username, email): return
 
-	## @param scope a transaction scope
+	## Updates the avatar of the given user account.
+	#  @param scope a transaction scope
 	#  @param username a username
 	#  @param filename filename to set
-	#
-	#  Updates the avatar of the given user account.
 	@abc.abstractmethod
 	def update_avatar(self, scope, username, filename): return
 
-	## @param scope a transaction scope
+	## Gets the usernames of the accounts the specified user is following.
+	#  @param scope a transaction scope
 	#  @param username a username
 	#  @return an array containing usernames
-	#
-	#  Gets the usernames of the accounts the specified user is following.
 	@abc.abstractmethod
 	def get_followed_usernames(self, scope, username): return
 
-	## @param scope a transaction scope
+	## Searches the database.
+	#  @param scope a transaction scope
 	#  @param username a username
 	#  @param query a search quey
 	#  @return an array containing usernames
-	#
-	#  Searches the database.
 	@abc.abstractmethod
 	def search(self, scope, query): return
 
