@@ -50,6 +50,12 @@ MONGODB_PORT              = 27017
 ## Name of the MongoDB database.
 MONGODB_DATABASE          = "meata"
 
+PQ_HOST = "127.0.0.1"
+PQ_PORT = 5432
+PQ_DB   = "meat-a"
+PQ_USER = "meat-a"
+PQ_PWD  = "123456"
+
 ## Languages supported by the application.
 LANGUAGES                 = [ "en", "de" ]
 ## Default language.
@@ -66,10 +72,14 @@ PASSWORD_REQUEST_TIMEOUT  = 600
 PASSWORD_RESET_TIMEOUT    = 600
 ## Specifies the default lifetime of emails in the mail queue (in seconds).
 DEFAULT_EMAIL_LIFETIME    = 7200
+## Length of generated request ids.
+REQUEST_ID_LENGTH         = 4
 ## Length of generated request codes.
-REQUEST_CODE_LENGTH       = 64
+REQUEST_CODE_LENGTH       = 4
 ## Length of generated passwords.
 DEFAULT_PASSWORD_LENGTH   = 8
+## Length of generated passwords.
+PASSWORD_SALT_LENGTH      = 32
 
 ## Location for storing temporary files.
 TMP_DIR                   = "tmp"

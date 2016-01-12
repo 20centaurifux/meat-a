@@ -32,6 +32,7 @@
 ## @package mongodb
 #  MongoDB database classes.
 
+"""
 import database, pymongo, util, re
 from bson.code import Code
 from bson import ObjectId
@@ -356,7 +357,7 @@ class MongoUserDb(MongoDb, database.UserDb):
 	def create_password_request(self, username, id, code, lifetime = 60):
 		request = self.find_and_modify("password_requests",
 	                                       { "code": code },
-                                               { "name": username, "id", id, "code": code, "lifetime": lifetime * 1000 + util.now() },
+                                               { "name": username, "id": id, "code": code, "lifetime": lifetime * 1000 + util.now() },
                                                True)
 
 		if not request is None:
@@ -796,3 +797,4 @@ class MongoRequestDb(MongoDb, database.RequestDb):
 
 	def total_requests(self):
 		return self.count("requests")
+"""

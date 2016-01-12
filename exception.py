@@ -44,14 +44,20 @@ ErrorCode = util.enum(SUCCESS = 0,
                       TOO_MANY_REQUESTS = 6,
                       CONSTRAINT_VIOLOATION = 100,
                       INVALID_PARAMETER = 200,
-                      USER_ALREADY_EXISTS = 300,
+
+                      USERNAME_OR_EMAIL_ALREADY_EXIST = 300,
+                      USER_ACTIVATION_FAILED = 308,
+                      PASSWORD_RESET_FAILED = 309,
+
                       COULD_NOT_FIND_USER = 301,
                       USER_IS_BLOCKED = 302,
                       USERNAME_ALREADY_REQUESTED = 303,
                       EMAIL_ALREADY_ASSIGNED = 304,
+                      INVALID_REQUEST_ID = 308,
                       INVALID_REQUEST_CODE = 305,
                       INVALID_PASSWORD = 306,
                       INVALID_EMAIL_ADDRESS = 307,
+                      PASSWORDS_NOT_EQUAL = 308,
                       INVALID_IMAGE_FORMAT = 400,
                       OBJECT_IS_LOCKED = 500,
                       OBJECT_NOT_FOUND = 501,
@@ -117,6 +123,31 @@ class InvalidParameterException(Exception):
 		## name of the invalid parameter
 		self.parameter = parameter
 
+## Exception raised when user activation fails.
+class UserActivationFailed(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.USER_ACTIVATION_FAILED, "User activation failed.")
+
+## Exception raised when a password reset fails.
+class PasswordResetFailed(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.PASSWORD_RESET_FAILED, "Password reset failed.")
+
+## Exception raised when user activation fails.
+class UserActivationFailed(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.USER_ACTIVATION_FAILED, "User activation failed.")
+
+## Exception raised when a username or email address is already assigned.
+class UsernameOrEmailAlreadyExistException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.USERNAME_OR_EMAIL_ALREADY_EXIST, "The given username or email address do already exist.")
+
+## Exception raised when username iof
+class UsernameOrEmailAlreadyExistException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.USERNAME_OR_EMAIL_ALREADY_EXIST, "User account activation failed.")
+
 ## Exception raised when a user cannot be created because the username already exists.
 class UserAlreadyExistsException(Exception):
 	def __init__(self):
@@ -142,6 +173,11 @@ class EmailAlreadyAssignedException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.EMAIL_ALREADY_ASSIGNED, "The given email address is already in use.")
 
+## Exception raised when a specified request id is invalid.
+class InvalidRequestCodeException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.INVALID_REQUEST_ID, "Invalid request id.")
+
 ## Exception raised when a specified request code is invalid.
 class InvalidRequestCodeException(Exception):
 	def __init__(self):
@@ -151,6 +187,11 @@ class InvalidRequestCodeException(Exception):
 class InvalidPasswordException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.INVALID_PASSWORD, "Invalid password.")
+
+## Exception raised when two entered passwords aren't equal.
+class PasswordsNotEqualException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.PASSWORDS_NOT_EQUAL, "The entered passwords are not equal.")
 
 ## Exception raised when a specified email address is invalid.
 class InvalidEmailAddressException(Exception):

@@ -32,16 +32,22 @@
 ## @package factory
 #  Various factory functions.
 
-import config, mongodb, pymongo, smtp
+import config, mongodb, pqdb, pymongo, smtp
 
+"""
 ## Creates a database.DbUtil instance.
 def create_db_util():
 	return mongodb.MongoDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
+"""
+
+def create_db_connection():
+	return pqdb.PQConnection(config.PQ_DB, host = config.PQ_HOST, port = config.PQ_PORT, username = config.PQ_USER, password = config.PQ_PWD)
 
 ## Creates a database.UserDb instance.
 def create_user_db():
-	return mongodb.MongoUserDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
+	return pqdb.PQUserDb()
 
+"""
 ## Creates a database.UserDb instance using a shared connecion.
 #  @param client a shared connection
 def create_shared_user_db(client):
@@ -90,3 +96,4 @@ def create_shared_client():
 ## Creates a mail transfer agent.
 def create_mta():
 	return smtp.SMTP_MTA(config.SMTP_HOST, config.SMTP_PORT, config.SMTP_SSL, config.SMTP_ADDRESS, config.SMTP_USERNAME, config.SMTP_PASSWORD)
+"""

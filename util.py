@@ -61,6 +61,16 @@ def hash(plain):
 
 	return m.hexdigest()
 
+## Calculates the password hash.
+#  @param plain plain password
+#  @param salt password salt
+#  @return checksum as hex-string
+def password_hash(plain, salt):
+	m = sha256()
+	m.update("%s%s" % (salt, plain))
+
+	return m.hexdigest()
+
 ## Calculates the checksum of a file.
 #  @param filename name of a file
 #  @param hasher hash algorithm (e.g. hashlib.md5) to calculate checksum
@@ -189,7 +199,7 @@ def remove_all_files(directory):
 ## Generator to read blocks from an input stream.
 #  @param stream input stream
 #  @param block_size size of blocks read from stream
-#  @param max_size if the stream exceeds max_size an exception.StreamExceedsMaximumException 
+#  @param max_size if the stream exceeds max_size an exception.StreamExceedsMaximumException
 #                  will be thrown
 #  @return read bytes
 def read_from_stream(stream, block_size = 81920, max_size = None):
@@ -204,5 +214,4 @@ def read_from_stream(stream, block_size = 81920, max_size = None):
 
 		if not max_size is None and total > max_size:
 			from exception import StreamExceedsMaximumException
-
 			raise StreamExceedsMaximumException()
