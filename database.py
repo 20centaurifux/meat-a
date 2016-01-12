@@ -331,57 +331,61 @@ class UserDb(object):
 class ObjectDb(object):
 	__metaclass__ = abc.ABCMeta
 
-	## Closes the database connection.
-	@abc.abstractmethod
-	def close(self): return
-
 	## Creates a new object.
+	#  @param scope a transaction scope
 	#  @param guid guid of the object
 	#  @param source source of the object
 	@abc.abstractmethod
-	def create_object(self, guid, source): return
+	def create_object(self, scope, guid, source): return
 
 	## Locks an object.
+	#  @param scope a transaction scope
 	#  @param guid guid of the object to lock
 	#  @param locked True to lock object
 	@abc.abstractmethod
-	def lock_object(self, guid, locked = True): return
+	def lock_object(self, scope, guid, locked = True): return
 
 	## Tests if an object is locked.
+	#  @param scope a transaction scope
 	#  @param guid guid of the object to test
 	#  @return True if the object is locked
 	@abc.abstractmethod
-	def is_locked(self, guid): return False
+	def is_locked(self, scope, guid): return False
 
 	## Removes an object from the data store.
+	#  @param scope a transaction scope
 	#  @param guid guid of the object to remove
 	@abc.abstractmethod
-	def remove_object(self, guid): return
+	def remove_object(self, scope, guid): return
 
 	## Tests if an object does exist.
+	#  @param scope a transaction scope
 	#  @param guid guid of the object to test
 	#  @return True if the object does exist
 	@abc.abstractmethod
-	def object_exists(self, guid): return False
+	def object_exists(self, scope, guid): return False
 
 	## Gets details of an object.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	#  @return a dictionary holding object details ({ "guid": str, "source": str, "locked": bool,
 	#          "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
 	#          "timestamp": float, "comments_n": int, "reported": bool })
 	@abc.abstractmethod
-	def get_object(self, guid): return None
+	def get_object(self, scope, guid): return None
 
 	## Gets objects from the data store.
+	#  @param scope a transaction scope
 	#  @param page page number
 	#  @param page_size size of each page
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
 	#          "timestamp": float, "comments_n": int })
 	@abc.abstractmethod
-	def get_objects(self, page = 0, page_size = 10): return None
+	def get_objects(self, scope, page = 0, page_size = 10): return None
 
 	## Gets objects assigned to a tag.
+	#  @param scope a transaction scope
 	#  @param tag tag to search
 	#  @param page page number
 	#  @param page_size size of each page
@@ -389,86 +393,93 @@ class ObjectDb(object):
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
 	#          "timestamp": float, "comments_n": int })
 	@abc.abstractmethod
-	def get_tagged_objects(self, tag, page = 0, page_size = 10): return None
+	def get_tagged_objects(self, scope, tag, page = 0, page_size = 10): return None
 
 	## Gets the most popular objects.
+	#  @param scope a transaction scope
 	#  @param page page number
 	#  @param page_size size of each page
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
 	#          "timestamp": float, "comments_n": int })
 	@abc.abstractmethod
-	def get_popular_objects(self, page = 0, page_size = 10): return None
+	def get_popular_objects(self, scope, page = 0, page_size = 10): return None
 
 	## Gets random objects.
+	#  @param scope a transaction scope
 	#  @param page_size number of objects the method should(!) return
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
 	#          "timestamp": float, "comments_n": int })
 	@abc.abstractmethod
-	def get_random_objects(self, page_size = 10): return None
+	def get_random_objects(self, scope, page_size = 10): return None
 
 	## Adds tags to an object.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	#  @param tags array containing tags to add
 	@abc.abstractmethod
-	def add_tags(self, guid, tags): return
-
-	## Builds the tag statistic.
-	@abc.abstractmethod
-	def build_tag_statistic(self): return
+	def add_tags(self, scope, guid, tags): return
 
 	## Gets tag statistic.
+	#  @param scope a transaction scope
 	#  @param limit maximum number of tags to get
 	#  @return an array, each element is a dictionary holding tag details ({ "name": str, "count": int })
 	@abc.abstractmethod
-	def get_tags(self, limit = None): return None
+	def get_tags(self, scope, limit = None): return None
 
 	## Upvotes/Downvotes an object.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	#  @param username user who wants to vote
 	#  @param up True to upvote
 	@abc.abstractmethod
-	def rate(self, guid, username, up = True): return
+	def rate(self, scope, guid, username, up = True): return
 
 	## Tests if a user has already voted.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	#  @param username username to test
 	#  @return True if user has already voted
 	@abc.abstractmethod
-	def user_can_rate(self, guid, username): return False
+	def user_can_rate(self, scope, guid, username): return False
 
 	## Appends a comment to an object.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	#  @param username author of the comment
 	#  @param text text to append
 	@abc.abstractmethod
-	def add_comment(self, guid, username, text): return
+	def add_comment(self, scope, guid, username, text): return
 
 	## Gets comments assigned to an object.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	#  @param page page number
 	#  @param page_size size of each page
 	#  @return an array, each element is a dictionary holding a comment ({ "text": str, "timestamp": float,
 	#          "user": { "name": str, "firstname": str, "lastname": str, "gender": str, "avatar": str, "blocked": bool })
 	@abc.abstractmethod
-	def get_comments(self, guid, page = 0, page_size = 10): return None
+	def get_comments(self, scope, guid, page = 0, page_size = 10): return None
 
 	## Adds an object to the favorites list of a user.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	#  @param username user who wants to add the object to his/her favorites list
 	#  @param favor True to add the object to the list
 	@abc.abstractmethod
-	def favor_object(self, guid, username, favor = True): return
+	def favor_object(self, scope, guid, username, favor = True): return
 
 	## Tests if an object is assigned to the favorites list of a user.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	#  @param username username of a user account
 	#  @return True if the object has been favored
 	@abc.abstractmethod
-	def is_favorite(self, guid, username): return False
+	def is_favorite(self, scope, guid, username): return False
 
 	## Returns the favorites list of a user.
+	#  @param scope a transaction scope
 	#  @param username a user account
 	#  @param page page number
 	#  @param page_size size of each page
@@ -476,16 +487,18 @@ class ObjectDb(object):
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
 	#          "timestamp": float, "comments_n": int })
 	@abc.abstractmethod
-	def get_favorites(self, username, page = 0, page_size = 10): return None
+	def get_favorites(self, scope, username, page = 0, page_size = 10): return None
 
 	## Lets a user recommend an object to his/her friends.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	#  @param username user who wants to recommend the object
 	#  @param receivers array containing receiver names
 	@abc.abstractmethod
-	def recommend(self, guid, username, receivers): return
+	def recommend(self, scope, guid, username, receivers): return
 
 	## Gets objects recommended to a user
+	#  @param scope a transaction scope
 	#  @param username a user account
 	#  @param page page number
 	#  @param page_size size of each page
@@ -493,19 +506,21 @@ class ObjectDb(object):
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
 	#          "timestamp": float, "comments_n": int })
 	@abc.abstractmethod
-	def get_recommendations(self, username, page = 0, page_size = 10): return None
+	def get_recommendations(self, scope, username, page = 0, page_size = 10): return None
 
 	## Tests if an object has been recommended to a user.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	#  @param username username of a user account
 	#  @return True if the object has already been recommended to the specified user
 	@abc.abstractmethod
-	def recommendation_exists(self, guid, username): return False
+	def recommendation_exists(self, scope, guid, username): return False
 
 	## Reports an object for abuse.
+	#  @param scope a transaction scope
 	#  @param guid guid of an object
 	@abc.abstractmethod
-	def report(self, guid): return
+	def report(self, scope, guid): return
 
 ## This class provides access to the stream store.
 class StreamDb(object):
