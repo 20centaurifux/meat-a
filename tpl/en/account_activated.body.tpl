@@ -1,8 +1,8 @@
 Dear $username,
 
-You have requested a new password.
+Thanks for activating your user account!
 
-Please use the following auto-generated password to login:
+You can use the following auto-generated password to login:
 
 $password
 
@@ -12,4 +12,4 @@ Kindly note that you should change this password as soon as possible.
 
 Kind regards,
 
-Your MEAT-A staff
+Your staff

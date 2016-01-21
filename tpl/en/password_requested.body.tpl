@@ -10,4 +10,5 @@ $url
 If you should have any further questions, please don't hesitate to contact
 us,
 
-Your MEAT-A staff
+
+Your staff
