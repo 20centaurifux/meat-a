@@ -32,7 +32,7 @@
 ## @package validators
 #  Various functions used to validate values.
 
-import re, util, os
+import re, util, os, uuid
 from PIL import Image
 from config import LANGUAGES
 
@@ -105,6 +105,22 @@ def validate_comment(text):
 		return False
 
 	return True
+
+## Validates a guid.
+#  @param guid guid to test
+#  @return True if the guid is valid
+def validate_guid(guid):
+	if type(guid) is uuid.UUID:
+		return True
+
+	try:
+		parsed = uuid.UUID(str(guid))
+		success = True
+
+	except:
+		success = False
+
+	return success
 
 ## Validates a tag.
 #  @param tag tag to validate

@@ -44,15 +44,18 @@ ErrorCode = util.enum(SUCCESS = 0,
                       TOO_MANY_REQUESTS = 6,
                       CONSTRAINT_VIOLOATION = 100,
                       INVALID_PARAMETER = 200,
-
                       USERNAME_OR_EMAIL_ALREADY_EXIST = 300,
                       USER_ACTIVATION_FAILED = 308,
                       PASSWORD_RESET_FAILED = 309,
-
                       COULD_NOT_FIND_USER = 301,
                       USER_IS_BLOCKED = 302,
+                      USER_NOT_BLOCKED = 337,
                       USERNAME_ALREADY_REQUESTED = 303,
                       EMAIL_ALREADY_ASSIGNED = 304,
+                      USER_ALREADY_FOLLOWING = 309,
+                      USER_NOT_FOLLOWING = 310,
+                      FAVORITE_NOT_FOUND = 313,
+		      COMMENT_NOT_FOUND = 314,
                       INVALID_REQUEST_ID = 308,
                       INVALID_REQUEST_CODE = 305,
                       INVALID_PASSWORD = 306,
@@ -61,6 +64,7 @@ ErrorCode = util.enum(SUCCESS = 0,
                       INVALID_IMAGE_FORMAT = 400,
                       OBJECT_IS_LOCKED = 500,
                       OBJECT_NOT_FOUND = 501,
+                      OBJECT_ALREADY_EXIST = 503,
                       USER_ALREADY_RATED = 502,
                       HTTP_FAILURE = 600)
 
@@ -151,12 +155,17 @@ class UsernameOrEmailAlreadyExistException(Exception):
 ## Exception raised when a user cannot be created because the username already exists.
 class UserAlreadyExistsException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_ALREADY_EXISTS, "The given username does already exist.")
+		Exception.__init__(self, ErrorCode.USER_ALREADY_EXIST, "The given username does already exist.")
 
 ## Exception raised when a user is blocked and is not allowed to perform an activity.
 class UserIsBlockedException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.USER_IS_BLOCKED, "User is blocked.")
+
+## Exception raised when a user is not blocked. TODO
+class UserNotBlockedException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.USER_NOT_FOLLOWING, "User is not blocked.")
 
 ## Exception raised when a specified user cannot be found.
 class UserNotFoundException(Exception):
@@ -172,6 +181,36 @@ class UsernameAlreadyRequestedException(Exception):
 class EmailAlreadyAssignedException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.EMAIL_ALREADY_ASSIGNED, "The given email address is already in use.")
+
+## Exception raised when a user is already following another account.
+class UserAlreadyFollowingException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.USER_ALREADY_FOLLOWING, "User is already following the specified account.")
+
+## Exception raised when a favorite does already exist.
+class FavoriteAlreadyExistException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.FAVORITE_ALREADY_EXIST, "Favorite already exists.")
+
+## Exception raised when a favorite cannot be found.
+class FavoriteNotFoundException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.FAVORITE_NOT_FOUND, "Favorite not found.")
+
+## Exception raised when a comment cannot be found.
+class CommentNotFoundException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.COMMENT_NOT_FOUND, "Comment not found.")
+
+## Exception raised when TODO
+class UserNotFollowingException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.USER_NOT_FOLLOWING, "User not following.")
+
+## Exception raised when a user is not following another account.
+class UserAlreadyFollowingException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.USER_NOT_FOLLOWING, "User is not following the specified account.")
 
 ## Exception raised when a specified request id is invalid.
 class InvalidRequestCodeException(Exception):
@@ -212,6 +251,11 @@ class ObjectIsLockedException(Exception):
 class ObjectNotFoundException(Exception):
 	def __init__(self):
 		Exception.__init__(self, ErrorCode.OBJECT_NOT_FOUND, "Object not found.")
+
+## Exception raised when an object has already been created.
+class ObjectAlreadyExists(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.OBJECT_ALREADY_EXIST, "Object already exists.")
 
 ## Exception raised when a user has already rated for an object.
 class UserAlreadyRatedException(Exception):

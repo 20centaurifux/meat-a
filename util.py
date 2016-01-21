@@ -36,7 +36,7 @@ from time import mktime
 from datetime import datetime
 from hashlib import sha1, sha256
 from bson import json_util
-import random, string, json, os, hmac
+import random, string, json, os, hmac, uuid
 
 ## Gets the current timestamp (UTC) in milliseconds.
 #  @return a float
@@ -85,6 +85,10 @@ def hash_file(filename, hasher, block_size = 81920):
 	stream.close()
 
 	return hasher.hexdigest()
+
+## Generates a guid.
+def new_guid():
+	return str(uuid.uuid4())
 
 ## Calculates the checksum of multiple arguments. At first the parameters will be
 #  sorted alphabetically. Then the HMAC-SHA1 checksum will be calculated using the

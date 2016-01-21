@@ -41,11 +41,23 @@ def create_db_util():
 """
 
 def create_db_connection():
-	return pqdb.PQConnection(config.PQ_DB, host = config.PQ_HOST, port = config.PQ_PORT, username = config.PQ_USER, password = config.PQ_PWD)
+	return pqdb.PQConnection(config.PQ_DB, host=config.PQ_HOST, port=config.PQ_PORT, username=config.PQ_USER, password=config.PQ_PWD)
 
 ## Creates a database.UserDb instance.
 def create_user_db():
 	return pqdb.PQUserDb()
+
+## Creates a database.ObjectDb instance.
+def create_object_db():
+	return pqdb.PQObjectDb()
+
+## Creates a database.StreamDb instance.
+def create_stream_db():
+	return pqdb.PQStreamDb()
+
+## Creates a database.MailDb instance.
+def create_mail_db():
+	return pqdb.PQMailDb()
 
 """
 ## Creates a database.UserDb instance using a shared connecion.
@@ -53,18 +65,11 @@ def create_user_db():
 def create_shared_user_db(client):
 	return mongodb.MongoUserDb(config.MONGODB_DATABASE, client = client)
 
-## Creates a database.ObjectDb instance.
-def create_object_db():
-	return mongodb.MongoObjectDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
-
 ## Creates a database.ObjectDb instance using a shared connection.
 #  @param client a shared connection
 def create_shared_object_db(client):
 	return mongodb.MongoObjectDb(config.MONGODB_DATABASE, client = client)
 
-## Creates a database.StreamDb instance.
-def create_stream_db():
-	return mongodb.MongoStreamDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
 
 ## Creates a database.StreamDb instance using a shared connection.
 #  @param client a shared connection

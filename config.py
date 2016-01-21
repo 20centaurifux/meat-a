@@ -35,6 +35,12 @@
 ## URL of the website.
 WEBSITE_URL               = "http://localhost:8000"
 
+## URL for activating user account.
+USER_ACTIVATION_URL       = "http://localhost:8000/activation/%s?code=%s"
+
+## URL for resetting password.
+PASSWORD_RESET_URL        = "http://localhost:8000/password/reset/%s?code=%s"
+
 ## Array containing email addresses of the administrators.
 ADMIN_MAIL_ADDRESSES      = []
 ## Language of administrator accounts.

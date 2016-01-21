@@ -32,18 +32,174 @@
 ## @package app
 #  Domain layer.
 
-import factory, exception, util, config, tempfile, os
+import factory, exception, util, config, tempfile, os, template, mailer
 from validators import *
 from base64 import b64encode
-from database import StreamDb
+
+## Shared user account management methods.
+class UserTools:
+	def __init__(self, db):
+		self.__db = db
+
+	## Tests if a user does exist.
+	#  @param scope a transaction scope
+	#  @param username user to test
+	#  @return True if the account does exist
+	def __test_user_exists__(self, scope, username):
+		if not self.__db.user_exists(scope, username):
+			raise exception.UserNotFoundException()
+
+	## Tests if a user does exist and is active (not blocked).
+	#  @param scope a transaction scope
+	#  @param username user to test
+	#  @return True if the account does exist and isn't blocked
+	def __test_active_user__(self, scope, username):
+		self.__test_user_exists__(scope, username)
+
+		if self.__db.user_is_blocked(scope, username):
+			raise exception.UserIsBlockedException()
+
+	## Gets user details depending on friendship.
+	#  @param scope a transaction scope
+	#  @param requester name of the account requesting the user profile
+	#  @param username name of the account the user profile is requested from
+	#  @return a dictionary holding user details: { "id": int, "username": str,
+	#          "firstname": str, "lastname": str, "email": str, "gender": str,
+	#          "created_on": datetime, "avatar": str, "protected": bool,
+	#          "blocked": bool, "following": [str] }; if the account is
+	#          protected and the user is not following the requester the
+	#          fields "email", "avatar" and "following" aren't available
+	def __get_user_details__(self, scope, requester, username):
+		self.__test_user_exists__(scope, username)
+
+		lusername = username.lower()
+		user = self.__db.get_user(scope, username)
+
+		full_profile = False
+
+		if not user["protected"] or (requester.lower() == lusername) or self.__db.is_following(scope, username, requester):
+			keys = ["id", "username", "firstname", "lastname", "email", "gender", "created_on", "avatar", "protected", "blocked"]
+			full_profile = True
+		else:
+			keys = ["id", "username", "firstname", "lastname", "gender", "created_on", "protected", "blocked"]
+
+		details = {}
+
+		for k in keys:
+			details[k] = user[k]
+
+		if full_profile:
+			details["following"] = self.__db.get_followed_usernames(scope, user["username"])
+
+		return details
+
+	## Gets the user of of a user.
+	#  @param scope a transaction scope
+	#  @param username user to get the id from
+	#  @return an id
+	def __map_user_id__(self, scope, user_id):
+		return self.__db.map_user_id(scope, user_id)
+
+	## Tests if a password is correct.
+	#  @param scope a transaction scope
+	#  @param username a user account
+	#  @param password (plaintext) to test
+	#  @return True if the password is correct
+	def __validate_password__(self, scope, username, password):
+		current_password, salt = self.__db.get_user_password(scope, username)
+
+		return util.password_hash(password, salt) == current_password
+
+	## Returns the language selected by the user.
+	#  @param scope a transaction scope
+	#  @param user user details (dictionary)
+	#  @return the language selected by the user or config.DEFAULT_LANGUAGE if undefined
+	def __get_language__(self, user):
+		lang = user["language"]
+
+		if lang is None or len(lang) == 0 or lang not in config.LANGUAGES:
+			lang = config.DEFAULT_LANGUAGE
+
+		return lang
+
+## Shared object management methods.
+class ObjectTools:
+	def __init__(self, db):
+		self.__db = db
+
+	## Tests if an object does exist
+	#  @param scope a transaction scope
+	#  @param guid guid of the object to test
+	#  @return True if the object does exist
+	def __test_object_exists__(self, scope, guid):
+		if not self.__db.object_exists(scope, guid):
+			raise exception.ObjectNotFoundException()
+
+	## Tests if an object does exist and isn't locked
+	#  @param scope a transaction scope
+	#  @param guid guid of the object to test
+	#  @return True if the object does exist and isn't locked
+	def __test_writeable_object__(self, scope, guid):
+		self.__test_object_exists__(scope, guid)
+
+		obj = self.__db.get_object(scope, guid)
+
+		if obj["locked"]:
+			raise exception.ObjectIsLockedException()
+
+## A cache for looking up friendship dependend user details.
+class UserCache(UserTools):
+	def __init__(self, db, requester):
+		UserTools.__init__(self, db)
+
+		self.__cache = {}
+		self.__requester = requester
+
+	## Gets user details.
+	#  @param scope a transaction scope
+	#  @param username name of the user profile to get
+	#  @return a dictionary holding user details
+	def lookup(self, scope, username):
+		lusername = username.lower()
+		details = None
+
+		try:
+			return self.__cache[lusername]
+
+		except KeyError:
+			try:
+				details = self.__get_user_details__(scope, self.__requester, username)
+
+			except exception.UserNotFoundException:
+				details = { "username": username }
+
+		self.__cache[lusername] = details
+
+		return details
+
+	## Gets user details.
+	#  @param scope a transaction scope
+	#  @param user_id id of the user profile to get
+	#  @return a dictionary holding user details
+	def lookup_by_id(self, scope, user_id):
+		return self.lookup(scope, self.__map_user_id__(scope, user_id))
 
 ## The meat-a application layer.
-class Application:
+class Application(UserTools, ObjectTools):
+	def __init__(self):
+		self.__user_db = factory.create_user_db()
+		self.__object_db = factory.create_object_db()
+		self.__stream_db = factory.create_stream_db()
+		self.__mail_db = factory.create_mail_db()
+
+		UserTools.__init__(self, self.__user_db)
+		ObjectTools.__init__(self, self.__object_db)
+
 	## Requests a new user account. Username and email have to be unique. On success a
 	#  mail is generated and stored in the mail queue.
 	#  @param username name of the user to create
 	#  @param email email address of the user
-	#  @return an auto-generated request id and code to activate the account
+	#  @return an auto-generated request id and code needed to activate the account
 	def request_account(self, username, email):
 		# validate parameters:
 		if not validate_username(username):
@@ -55,24 +211,31 @@ class Application:
 		# store request in database:
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
-
 				# test if user account or email already exist:
-				if db.username_or_email_assigned(scope, username, email):
+				if self.__user_db.username_or_email_assigned(scope, username, email):
 					raise exception.UsernameOrEmailAlreadyExistException()
 
 				# generate request id & code:
 				id = b64encode(util.generate_junk(config.REQUEST_ID_LENGTH))
 
-				while db.user_request_id_exists(scope, id):
+				while self.__user_db.user_request_id_exists(scope, id):
 					id = b64encode(util.generate_junk(config.REQUEST_ID_LENGTH))
 
 				code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
 
 				# save user request:
-				db.create_user_request(scope, id, code, username, email)
+				self.__user_db.create_user_request(scope, id, code, username, email)
 
-				# TODO generate mail
+				# generate mail:
+				url = config.USER_ACTIVATION_URL % (id, code)
+
+				tpl = template.AccountRequestMail(config.DEFAULT_LANGUAGE)
+				tpl.bind(username=username, url=url)
+				subject, body = tpl.render()
+
+				self.__mail_db.push_mail(scope, subject, body, email)
+
+				mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
 
 				scope.complete()
 
@@ -85,10 +248,8 @@ class Application:
 	def activate_user(self, id, code):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
-
 				# find request id & test code:
-				request = db.get_user_request(scope, id)
+				request = self.__user_db.get_user_request(scope, id)
 
 				if request is None:
 					raise exception.InvalidRequestIdException()
@@ -100,9 +261,16 @@ class Application:
 				password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH)
 				salt = util.generate_junk(config.PASSWORD_SALT_LENGTH)
 
-				db.activate_user(scope, id, code, util.password_hash(password, salt), salt)
+				user_id = self.__user_db.activate_user(scope, id, code, util.password_hash(password, salt), salt)
 
-				# TODO generate mail
+				# generate mail:
+				tpl = template.AccountActivatedMail(config.DEFAULT_LANGUAGE)
+				tpl.bind(username=request["username"], password=password)
+				subject, body = tpl.render()
+
+				self.__mail_db.push_user_mail(scope, subject, body, user_id)
+
+				mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
 
 				scope.complete()
 
@@ -114,29 +282,46 @@ class Application:
 	def disable_user(self, username, disabled=True):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
+				self.__test_user_exists__(scope, username)
 
-				self.__test_user_exists__(scope, db, username)
+				details = self.__user_db.get_user(scope, username)
 
-				db.block_user(scope, username, disabled)
+				if details["blocked"] and disabled:
+					raise exception.UserIsBlockedException()
+				elif not details["blocked"] and not disabled:
+					raise exception.UserNotBlockedException()
 
-				# TODO generate mail
+				self.__user_db.block_user(scope, username, disabled)
+
+				tpl = template.AccountDisabledMail(self.__get_language__(details, disabled))
+				tpl.bind(username=username)
+				subject, body = tpl.render()
+
+				self.__mail_db.push_user_mail(scope, subject, body, details["id"])
+
+				mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
 
 				scope.complete()
 
 	## Deletes a user account. Generates a mail on success.
 	#  @param username name of the account to delete
-	#  @param deleted True to delete the account
-	def delete_user(self, username, deleted=True):
+	def delete_user(self, username):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
+				self.__test_user_exists__(scope, username)
 
-				self.__test_user_exists__(scope, db, username)
+				details = self.__user_db.get_user(scope, username)
 
-				db.delete_user(scope, username, deleted)
+				self.__user_db.delete_user(scope, username, True)
 
-				# TODO generate mail
+				# generate mail:
+				tpl = template.AccountDeletedMail(self.__get_language__(details))
+				tpl.bind(username=username)
+				subject, body = tpl.render()
+
+				self.__mail_db.push_mail(scope, subject, body, details["email"])
+
+				mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
 
 				scope.complete()
 
@@ -156,15 +341,25 @@ class Application:
 		# change password:
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
+				self.__test_active_user__(scope, username)
 
-				self.__test_active_user__(scope, db, username)
-
-				if self.__validate_password__(scope, db, username, old_password):
+				if self.__validate_password__(scope, username, old_password):
+					# change password:
 					salt = util.generate_junk(config.PASSWORD_SALT_LENGTH)
 					hash = util.password_hash(new_password1, salt)
 
-					db.update_user_password(scope, username, hash, salt)
+					self.__user_db.update_user_password(scope, username, hash, salt)
+
+					# generate mail:
+					user = self.__user_db.get_user(scope, username)
+
+					tpl = template.PasswordChangedMail(self.__get_language__(user))
+					tpl.bind(username=username)
+					subject, body = tpl.render()
+
+					self.__mail_db.push_user_mail(scope, subject, body, user["id"])
+
+					mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
 
 					scope.complete()
 				else:
@@ -177,11 +372,9 @@ class Application:
 	def validate_password(self, username, password):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
+				self.__test_active_user__(scope, username)
 
-				self.__test_active_user__(scope, db, username)
-
-				return self.__validate_password__(scope, db, username, password)
+				return self.__validate_password__(scope, username, password)
 
 	## Generates a password request and email.
 	#  @param username a user account
@@ -190,40 +383,41 @@ class Application:
 	def request_new_password(self, username, email):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
+				self.__test_active_user__(scope, username)
 
-				# test if user is active:
-				user = db.get_user(scope, username)
-
-				if user["blocked"]:
-					raise exception.UserIsBlockedException()
-
-				if user["deleted"]:
-					raise exception.UserNotFoundException()
+				user = self.__user_db.get_user(scope, username)
 
 				# test if email address is correct:
-				if email.lower() <> user["iemail"]:
+				if email.lower() <> user["email"].lower():
 					raise exception.InvalidEmailAddressException()
 
 				# delete existing request ids:
-				db.remove_password_requests_by_user_id(scope, user["id"])
+				self.__user_db.remove_password_requests_by_user_id(scope, user["id"])
 
 				# create request id & code:
 				id = b64encode(util.generate_junk(config.REQUEST_ID_LENGTH))
 
-				while db.password_request_id_exists(scope, id):
+				while self.__user_db.password_request_id_exists(scope, id):
 					id = b64encode(util.generate_junk(config.REQUEST_ID_LENGTH))
 
 				code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
+				url = config.PASSWORD_RESET_URL % (id, code)
 
 				# save password request:
-				db.create_password_request(scope, id, code, user["id"])
+				self.__user_db.create_password_request(scope, id, code, user["id"])
 
-				# TODO generate mail
+				# generate mail:
+				tpl = template.PasswordRequestedMail(self.__get_language__(user))
+				tpl.bind(username=username, url=url)
+				subject, body = tpl.render()
+
+				self.__mail_db.push_user_mail(scope, subject, body, user["id"])
+
+				mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
 
 				scope.complete()
 
-				return id, code, user["username"], user["email"]
+				return id, code
 
 	## Resets a password using a generated password request id & code. Generates a mail on success.
 	#  @param id a password request id
@@ -238,13 +432,14 @@ class Application:
 		if new_password1 != new_password2:
 			raise exception.PasswordsNotEqualException()
 
-		# resets password:
+		# reset password:
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
-
 				# find request id & test code:
-				request = db.get_password_request(scope, id)
+				request = self.__user_db.get_password_request(scope, id)
+				username = request["user"]["username"]
+
+				self.__test_user_exists__(scope, username)
 
 				if request is None:
 					raise exception.InvalidRequestIdException()
@@ -252,19 +447,22 @@ class Application:
 				if request["request_code"] != code:
 					raise exception.InvalidRequestCodeException()
 
-				if request["user"]["blocked"]:
-					raise exception.UserIsBlockedException()
-
-				if request["user"]["deleted"]:
-					raise exception.UserNotFoundException()
-
 				# change password:
 				salt = util.generate_junk(config.PASSWORD_SALT_LENGTH)
 
 				hash = util.password_hash(new_password1, salt)
-				db.reset_password(scope, id, code, hash, salt)
+				self.__user_db.reset_password(scope, id, code, hash, salt)
 
-				# TODO generate mail
+				# generate mail:
+				user = self.__user_db.get_user(scope, username)
+
+				tpl = template.PasswordChangedMail(self.__get_language__(user))
+				tpl.bind(username=username)
+				subject, body = tpl.render()
+
+				self.__mail_db.push_user_mail(scope, subject, body, user["id"])
+
+				mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
 
 				scope.complete()
 
@@ -299,16 +497,14 @@ class Application:
 		# update user details:
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
-
-				self.__test_active_user__(scope, db, username)
+				self.__test_active_user__(scope, username)
 
 				# test email
-				if not db.user_can_change_email(scope, username, email):
+				if not self.__user_db.user_can_change_email(scope, username, email):
 					raise exception.EmailAlreadyAssignedException()
 
 				# update user details:
-				db.update_user_details(scope, username, email, firstname, lastname, gender, language, protected)
+				self.__user_db.update_user_details(scope, username, email, firstname, lastname, gender, language, protected)
 
 				scope.complete()
 
@@ -325,10 +521,8 @@ class Application:
 
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
-
 				# test if user is active:
-				self.__test_active_user__(scope, db, username)
+				self.__test_active_user__(scope, username)
 
 				# write temporary file:
 				with tempfile.NamedTemporaryFile(mode = "wb", dir = config.TMP_DIR, delete = False) as f:
@@ -355,7 +549,7 @@ class Application:
 					os.rename(f.name, path)
 
 					# update database:
-					db.update_avatar(scope, username, filename)
+					self.__user_db.update_avatar(scope, username, filename)
 
 					scope.complete()
 
@@ -365,18 +559,15 @@ class Application:
 
 	## Gets all details of a user account excepting blocked status and password.
 	#  @param username a user account
-	#  @return a dictionary holding user information ({ "username": str, "firstname": str, "lastname": str, "email": str,
-	#          "gender": str, "created_on": datetime, "avatar": str, "protected": bool, "following":  [ str, str, ... ],
-	#          "blocked": bool, "language": str })
+	#  @return a dictionary holding user information: { "username": str, "firstname": str, "lastname": str, "email": str,
+	#          "gender": str, "created_on": datetime, "avatar": str, "protected": bool, "following":  [str],
+	#          "blocked": bool, "language": str }
 	def get_full_user_details(self, username):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
+				self.__test_user_exists__(scope, username)
 
-				details = db.get_user(scope, username)
-
-				if details is None or details["deleted"]:
-					raise exception.UserNotFoundException()
+				details = self.__user_db.get_user(scope, username)
 
 				user = {}
 
@@ -390,215 +581,253 @@ class Application:
 	## Gets details of a user account depending on protected status and friendship.
 	#  @param account user account who wants to receive the user details
 	#  @param username user to get details from
-	#  @return a dictionary holding user information ({ "username": str, "firstname": str, "lastname": str, "email": str,
-	#          "gender": str, "created_on": datetime, "avatar": str, "protected": bool, "following":  [ str, str, ... ] };
-	#           only friends can see the "email", "following" and "avatar" fields when the account is protected)
+	#  @return a dictionary holding user details: { "id": int, "username": str,
+	#          "firstname": str, "lastname": str, "email": str, "gender": str,
+	#          "created_on": datetime, "avatar": str, "protected": bool,
+	#          "blocked": bool, "following": [str] }; if the account is
+	#          protected and the user is not following the requester the
+	#          fields "email", "avatar" and "following" aren't available
 	def get_user_details(self, account, username):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
+				self.__test_active_user__(scope, account)
 
-				# get details from requester:
-				user_a = db.get_user(scope, account)
-
-				if user_a is None or user_a["deleted"]:
-					raise exception.UserNotFoundException()
-
-				# get requested details:
-				return self.__get_user_details__(scope, db, user_a, username)
+				return self.__get_user_details__(scope, user_a, username)
 
 	## Finds users by a search query.
 	#  @param account user account who searches the data store
 	#  @param query a search query
-	#  @return an array, each element is a dictionary holding user information ({ "name": str, "firstname": str, "lastname": str,
-	#          "email": str, "gender": str, "created_on": datetime, "avatar": str, "protected": bool,
-	#          "following":  [ str, str, ... ] }; only friends can see the "email", "following" and "avatar" fields)
+	#  @return a dictionary holding user details: { "id": int, "username": str,
+	#          "firstname": str, "lastname": str, "email": str, "gender": str,
+	#          "created_on": datetime, "avatar": str, "protected": bool,
+	#          "blocked": bool, "following": [str] }; if the account is
+	#          protected and the user is not following the requester the
+	#          fields "email", "avatar" and "following" aren't available
 	def find_user(self, account, query):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				db = self.__create_user_db__()
+				self.__test_active_user__(scope, account)
 
 				# get details from requester:
-				requester = db.get_user(scope, account)
-
-				if requester is None or requester["deleted"]:
-					raise exception.UserNotFoundException()
+				requester = self.__user_db.get_user(scope, account)
 
 				# search users:
+				lusername = username.lower()
 				result = []
 
 				for username in db.search(scope, query):
-					if username <> requester["username"]:
+					if lusername <> requester["username"].lower():
 						result.append(self.__get_user_details__(scope, db, requester, username))
 
 				return result
 
-	# gets user information depending on friendship:
-	def __get_user_details__(self, scope, db, requester, username):
-		# get requested details:
-		user = db.get_user(scope, username)
+	## Lets one user follow another user. The followed user receives a notification.
+	#  @param user1 user who wants to follow another user
+	#  @param user2 the user account user1 wants to follow
+	#  @param follow True to follow, False to unfollow
+	def follow(self, user1, user2, follow=True):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				db = self.__user_db
 
-		if user is None or user["deleted"]:
-			raise exception.UserNotFoundException()
+				if user1 == user2:
+					raise InvalidParameterException("user2")
 
-		friend = False
+				self.__test_active_user__(scope, user1)
+				self.__test_active_user__(scope, user2)
 
-		if (requester["username"] == user["username"]) or (user["protected"] and requester["username"] in user["following"]):
-			friend = True
-			keys = ["username", "firstname", "lastname", "email", "gender", "created_on", "avatar", "protected", "blocked"]
-		else:
-			keys = ["username", "firstname", "lastname", "gender", "created_on", "protected", "blocked"]
+				is_following = db.is_following(scope, user1, user2)
 
-		details = {}
+				if follow and is_following:
+					raise exception.UserAlreadyFollowingException()
+				elif not follow and not is_following:
+					raise exception.UserAlreadyFollowingException()
 
-		for k in keys:
-			details[k] = user[k]
+				details1 = db.get_user(scope, user1)
+				details2 = db.get_user(scope, user2)
 
-		if friend:
-			details["following"] = db.get_followed_usernames(scope, user["username"])
+				db.follow(scope, details1["id"], details2["id"], follow)
 
-		return details
+				scope.complete()
 
-	# creates a database connection:
-	def __create_db_connection__(self):
-		return factory.create_db_connection()
+	## Creates a new object.
+	#  @param guid guid of the object
+	#  @param source object source
+	def create_object(self, guid, source):
+		# validate parameters:
+		if not validate_guid(guid):
+			raise exception.InvalidParameterException("guid")
 
-	# creates a database.UserDb instance:
-	def __create_user_db__(self):
-		return factory.create_user_db()
+		# create object:
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				db = self.__object_db
 
-	# throws an exception.UserNotFoundException if the given user account does not exist
-	def __test_user_exists__(self, scope, db, username):
-		if not db.user_exists(scope, username):
-			raise exception.UserNotFoundException()
+				if db.object_exists(scope, guid):
+					raise exception.ObjectAlreadyExists()
 
-	# throws an exception.UserIsBlockedException when the given user account is blocked:
-	def __test_active_user__(self, scope, db, username):
-		self.__test_user_exists__(scope, db, username)
+				db.create_object(scope, guid, source)
 
-		if db.user_is_blocked(scope, username):
-			raise exception.UserIsBlockedException()
+				scope.complete()
 
-	# validates a password:
-	def __validate_password__(self, scope, db, username, password):
-		current_password, salt = db.get_user_password(scope, username)
+	## Locks an object.
+	#  @param guid guid of the object
+	#  @param locked True to lock object
+	def lock_object(self, guid, locked):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_object_exists__(scope, guid)
+				self.__object_db.lock_object(scope, guid, locked)
 
-		return util.password_hash(password, salt) == current_password
+				scope.complete()
 
-"""
+	## Deleted an object.
+	#  @param guid guid of the object
+	#  @param deleted True to delete object
+	def delete_object(self, guid, deleted):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_object_exists__(scope, guid)
+				self.__object_db.delete_object(scope, guid, deleted)
+
+				scope.complete()
+
 	## Gets object details.
 	#  @param guid an object guid
-	#  @return a dictionary holding object details ({ "guid": str, "source": str, "locked": bool,
-	#          "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": float, "comments_n": int })
+	#  @return a dictionary holding object details: { "guid": str, "source": str, "locked": bool,
+	#          "reported": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int },
+	#          "created_on": datetime, "comments_n": int, "reported": bool }
 	def get_object(self, guid):
-		self.__test_object_exists__(guid)
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_object_exists__(scope, guid)
 
-		obj = self.__create_object_db__().get_object(guid)
-
-		del obj["reported"]
-
-		return obj
+				return self.__object_db.get_object(scope, guid)
 
 	## Gets objects from the data store.
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
-	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": float, "comments_n": int })
+	#  @return a dictionary holding object details: { "guid": str, "source": str, "locked": bool,
+	#          "reported": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int },
+	#          "created_on": datetime, "comments_n": int, "reported": bool }
 	def get_objects(self, page = 0, page_size = 10):
-		return self.__create_object_db__().get_objects(page, page_size)
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				return self.__object_db.get_objects(scope, page, page_size)
+
+	## Gets the most popular objects.
+	#  @param page page number
+	#  @param page_size size of each page
+	#  @return a dictionary holding object details: { "guid": str, "source": str, "locked": bool,
+	#          "reported": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int },
+	#          "created_on": datetime, "comments_n": int, "reported": bool }
+	def get_popular_objects(self, page = 0, page_size = 10):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				return self.__object_db.get_popular_objects(scope, page, page_size)
 
 	## Gets objects assigned to a tag.
 	#  @param tag tag to search
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
-	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": float, "comments_n": int })
+	#  @return a dictionary holding object details: { "guid": str, "source": str, "locked": bool,
+	#          "reported": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int },
+	#          "created_on": datetime, "comments_n": int, "reported": bool }
 	def get_tagged_objects(self, tag, page = 0, page_size = 10):
-		return self.__create_object_db__().get_tagged_objects(tag, page, page_size)
-
-	## Gets the most popular objects.
-	#  @param page page number
-	#  @param page_size size of each page
-	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
-	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": float, "comments_n": int })
-	def get_popular_objects(self, page = 0, page_size = 10):
-		return self.__create_object_db__().get_popular_objects(page, page_size)
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				return self.__object_db.get_tagged_objects(scope, tag, page, page_size)
 
 	## Gets random objects.
 	#  @param page_size number of objects the method should(!) return
-	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
-	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": float, "comments_n": int })
-	def get_random_objects(self, page_size = 10):
-		return self.__create_object_db__().get_random_objects(page_size)
+	#  @return a dictionary holding object details: { "guid": str, "source": str, "locked": bool,
+	#          "reported": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int },
+	#          "created_on": datetime, "comments_n": int, "reported": bool }
+	def get_random_objects(self, page_size=10):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				return self.__object_db.get_random_objects(scope, page_size)
 
 	## Adds tags to an object.
-	#  @param username user who wants to add tags
 	#  @param guid guid of an object
+	#  @param username user who wants to add tags
 	#  @param tags array containing tags to add
-	def add_tags(self, username, guid, tags):
-		for tag in tags:
-			if not validate_tag(tag):
-				raise exception.InvalidParameterException("tag")
+	def add_tags(self, guid, username, tags):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(scope, username)
+				self.__test_writeable_object__(scope, guid)
 
-		self.__test_active_user__(username)
-		self.__test_object_write_access__(guid)
+				user = self.__user_db.get_user(scope, username)
 
-		return self.__create_object_db__().add_tags(guid, tags)
+				for tag in tags:
+					self.__object_db.add_tag(scope, guid, user["id"], tag)
 
-	## Upvotes/Downvotes an object. Friends and unprotected followed receive a notification.
+				scope.complete()
+
+	## Gets a tag cloud.
+	#  @return an array holding tag details: [ { "tag": str, "count": int }, ... ]
+	def get_tag_cloud(self):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				return self.__object_db.get_tags(scope)
+
+	## Upvotes/Downvotes an object.
 	#  @param username user who wants to vote
 	#  @param guid guid of an object
 	#  @param up True to upvote
-	def rate(self, username, guid, up = True):
-		self.__test_object_write_access__(guid)
-		user = self.get_active_user(username)
+	def vote(self, username, guid, up=True):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(scope,  username)
+				self.__test_writeable_object__(scope, guid)
 
-		# rate:
-		db = self.__create_object_db__()
+				if not self.__object_db.user_can_vote(scope, guid, username):
+					raise exception.UserAlreadyRatedException()
 
-		if not db.user_can_rate(guid, username):
-			raise exception.UserAlreadyRatedException()
+				user = self.__user_db.get_user(scope, username)
 
-		db.rate(guid, username, up)
+				self.__object_db.vote(scope, guid, user["id"], up)
 
-		# send messages:
-		if len(user["following"]) > 0:
-			streamdb = self.__create_stream_db__()
-			map(lambda friend: streamdb.add_message(StreamDb.MessageType.VOTE, username, friend, guid = guid, up = up), self.__get_receivers__(user))
+				scope.complete()
 
 	## Adds an object to the favorites list of a user. Friends & unprotected followed users receive a notification.
 	#  @param username user who wants to add the object to his/her favorites list
 	#  @param guid guid of an object
 	#  @param favor True to add the object to the list
-	def favor(self, username, guid, favor = True):
-		self.__test_object_exists__(guid)
-		user = self.get_active_user(username)
+	def favor(self, username, guid, favor=True):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(scope, username)
+				self.__test_object_exists__(scope, guid)
 
-		# create favorite:
-		db = self.__create_object_db__()
-		db.favor_object(guid, username, favor)
+				user = self.__user_db.get_user(scope, username)
+				is_favorite = self.__user_db.is_favorite(scope, user["id"], guid)
 
-		# create messages:
-		if favor and len(user["following"]) > 0:
-			streamdb = self.__create_stream_db__()
-			map(lambda friend: streamdb.add_message(StreamDb.MessageType.FAVOR, username, friend, guid = guid), self.__get_receivers__(user))
+				if favor and is_favorite:
+					raise exception.FavoriteAlreadyExistException()
+				elif not favor and not is_favorite:
+					raise exception.FavoriteNotFoundException()
+
+				self.__user_db.favor(scope, user["id"], guid, favor)
+
+				scope.complete()
 
 	## Returns the favorites list of a user.
 	#  @param username a user account
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
-	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
-	#          "timestamp": float, "comments_n": int })
+	#  @return a dictionary holding object details: { "guid": str, "source": str, "locked": bool,
+	#          "reported": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int },
+	#          "created_on": datetime, "comments_n": int, "reported": bool }
 	def get_favorites(self, username, page = 0, page_size = 10):
-		self.__test_active_user__(username)
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(scope, username)
 
-		return self.__create_object_db__().get_favorites(username, page, page_size)
+				user = self.__user_db.get_user(scope, username)
+
+				return self.__user_db.get_favorites(scope, user["id"])
 
 	## Appends a comment to an object. Friends & unprotected followed users receive a notification.
 	#  @param guid guid of an object
@@ -608,78 +837,74 @@ class Application:
 		if not validate_comment(text):
 			raise exception.InvalidParameterException("comment")
 
-		self.__test_object_write_access__(guid)
-		user = self.get_active_user(username)
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(scope, username)
+				self.__test_writeable_object__(scope, guid)
 
-		# create comment:
-		db = self.__create_object_db__()
-		db.add_comment(guid, username, text)
+				user = self.__user_db.get_user(scope, username)
+				self.__object_db.add_comment(scope, guid, user["id"], text)
 
-		# send messages:
-		if len(user["following"]) > 0:
-			streamdb = self.__create_stream_db__()
-			map(lambda friend:  streamdb.add_message(StreamDb.MessageType.COMMENT, username, friend, guid = guid, comment = text), self.__get_receivers__(user))
+				scope.complete()
 
 	## Gets comments assigned to an object.
+	#  @param username user who wants to receive the comments
 	#  @param guid guid of an object
 	#  @param page page number
 	#  @param page_size size of each page
-	#  @return an array, each element is a dictionary holding a comment ({ "text": str, "timestamp": float,
-	#          "user": { "name": str, "firstname": str, "lastname": str, "gender": str, "avatar": str, "blocked": bool })
-	def get_comments(self, guid, page = 0, page_size = 10):
-		self.__test_object_exists__(guid)
+	#  @return an array, each element is a dictionary holding a comment, the received user details of the author
+	#          depend on the friendship status: [ { "text": str, "timestamp": datetime, "deleted": bool,
+	#          "user": { } } ]
+	def get_comments(self, username, guid, page=0, page_size=100):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(username)
+				self.__test_object_exists__(scope, guid)
 
-		return self.__create_object_db__().get_comments(guid, page, page_size)
+				user = self.__user_db.get_user(scope, username)
+				comments = self.__object_db.get_comments(scope, guid, page, page_size)
+				cache = UserCache(self.__user_db, username)
 
-	## Reports an object for abuse.
-	#  @param guid guid of an object
-	#  @return True if the object has been reported
-	def report_abuse(self, guid):
-		obj = self.__get_writeable_object__(guid)
+				for comment in comments:
+					self.__prepare_comment__(scope, comment, cache)
 
-		if not obj["reported"]:
-			self.__create_object_db__().report(guid)
-
-			return True
-
-		return False
+				return comments
 
 	## Lets a user recommend an object to his/her friends or followed unprotected users.
 	#  Each receiver gets a notification.
 	#  @param username user who wants to recommend an object
 	#  @param guid guid of an object
 	#  @param receivers array containing receiver names
-	def recommend(self, username, guid, receivers):
-		sender = self.get_active_user(username)
-		self.__test_object_exists__(guid)
+	def recommend(self, username, receivers, guid):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(scope, username)
+				self.__test_object_exists__(scope, guid)
 
-		# build valid receiver list:
-		valid_receivers = []
-		receivers_append = valid_receivers.append
+				sender = self.__user_db.get_user(scope, username)
 
-		userdb = self.__create_user_db__()
-		objdb = self.__create_object_db__()
+				receiver_set = set()
+				lsender = username.lower()
 
-		for r in receivers:
-			if r != username and r in sender["following"]:
-				try:
-					user = self.get_active_user(r)
+				for r in receivers:
+					lname = r.lower()
 
-					if (not user["protected"] or username in user["following"]) and not objdb.recommendation_exists(guid, r):
-						receivers_append(r)
+					if lname in receiver_set or lname == lsender:
+						continue
 
-				except exception.UserNotFoundException:
-					pass
+					self.__test_active_user__(scope, name)
+					details = self.__user_db.get_user(scope, name)
 
-				except exception.UserIsBlockedException:
-					pass
+					if details["protected"] and not self.__user_db.is_following(scope, name, username):
+						raise exception.UserNotFollowingException()
 
-		# create recommendations:
-		objdb.recommend(guid, username, valid_receivers)
+					if not self.__user_db.recommendation_exists(scope, username, r, guid):
+						self.__user_db.recommend(scope, sender["id"], details["id"], guid)
 
-		# send messages:
-		streamdb = self.__create_stream_db__()
-		map(lambda r: streamdb.add_message(StreamDb.MessageType.RECOMMENDATION, username, r, guid = guid), valid_receivers)
+					receiver_set.add(name)
+
+				scope.complete()
+
 
 	## Gets objects recommended to a user.
 	#  @param username a user account
@@ -688,39 +913,31 @@ class Application:
 	#  @return an array, each element is a dictionary holding object details ({ "guid": str, "source": str,
 	#          "locked": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int, "total": int },
 	#          "timestamp": float, "comments_n": int })
-	def get_recommendations(self, username, page = 0, page_size = 10):
-		self.__test_active_user__(username)
+	def get_recommendations(self, username, page=0, page_size=10):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(scope, username)
 
-		return self.__create_object_db__().get_recommendations(username, page, page_size)
+				cache = UserCache(self.__user_db, username)
+				recommendations = self.__user_db.get_recommendations(scope, username, page, page_size)
 
-	## Lets one user follow another user. The followed user receives a notification.
-	#  @param user1 user who wants to follow another user
-	#  @param user2 the user account user1 wants to follow
-	#  @param follow True to follow, False to unfollow
-	def follow(self, user1, user2, follow = True):
-		if user1 == user2:
-			raise InvalidParameterException("user2")
+				for r in recommendations:
+					r["from"] = cache.lookup(scope, username)
+					del r["username"]
 
-		self.__test_active_user__(user1)
-		self.__test_active_user__(user2)
+					r["object"] = self.get_object(r["guid"])
+					del r["guid"]
 
-		# create/destroy friendship:
-		self.__create_user_db__().follow(user1, user2, follow)
+				return recommendations
 
-		# send messages:
-		if follow:
-			type_id = StreamDb.MessageType.FOLLOW
-		else:
-			type_id = StreamDb.MessageType.UNFOLLOW
-
-		self.__create_stream_db__().add_message(type_id, user1, user2)
-
-	## Tests if a user follows another user.
-	#  @param user1 a user account
-	#  @param user2 a user account
-	#  @return True if user1 follows user2
-	def is_following(self, user1, user2):
-		return self.__create_user_db__().is_following(user1, user2)
+	## Reports an object for abuse.
+	#  @param guid guid of an object
+	#  @return True if the object has been reported
+	def report_abuse(self, guid):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_object_exists__(guid)
+				self.__object_db.report_abuse(scope, guid)
 
 	## Gets messages sent to a user account.
 	#  @param username a user account
@@ -729,118 +946,82 @@ class Application:
 	#  @return an array, each element is a dictionary holding a message ({ "type_id": int, "timestamp": float,
 	#          "sender": { "name": str, "firstname": str, "lastname": str, "gender": str, "avatar": str, "blocked": bool },
 	#          [ optional fields depending on message type] })
-	def get_messages(self, username, limit = 100, older_than = None):
-		self.__test_active_user__(username)
+	def get_messages(self, username, limit=100, older_than=None):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(username)
+				messages = []
+				cache = UserCache(self.__user_db, username)
 
-		return self.__create_stream_db__().get_messages(username, limit, older_than)
+				for msg in self.__stream_db.get_messages(scope, username, limit, older_than):
+					messages.append(self.__build_message__(scope, username, cache, msg))
 
-	## Gets details of a user account. This methods also checks if the user is blocked or not.
+				return messages
+
+	## Gets public messages.
 	#  @param username a user account
-	#  @return a dictionary holding user information ({ "name": str, "firstname": str, "lastname": str, "email": str,
-	#          "gender": str, "timestamp": float, "avatar": str, "protected": bool, "following":  [ str, str, ... ],
-	#          "language": str, "password": str, "blocked": bool })
-	def get_active_user(self, username):
-		db = self.__create_user_db__()
+	#  @param limit number of messages to receive
+	#  @param older_than filter to get only messages older than the specified timestamp
+	#  @return an array, each element is a dictionary holding a message ({ "type_id": int, "timestamp": float,
+	#          "sender": { "name": str, "firstname": str, "lastname": str, "gender": str, "avatar": str, "blocked": bool },
+	#          [ optional fields depending on message type] })
+	def get_public_messages(self, username, limit=100, older_than=None):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				messages = []
+				cache = UserCache(self.__user_db, username)
 
-		user = db.get_user(username)
+				for msg in self.__stream_db.get_public_messages(scope, limit, older_than):
+					messages.append(self.__build_message__(scope, username, cache, msg))
 
-		if user is None:
-			raise exception.UserNotFoundException()
+				return messages
 
-		if user["blocked"]:
-			raise exception.UserIsBlockedException()
+	def __build_message__(self, scope, username, cache, m):
+		msg = {}
 
-		return user
+		for k in ["id", "created_on", "type"]:
+			msg[k] = m[k]
 
-	def __create_shared_client__(self):
-		if self.__shared_client is None:
-			self.__shared_client = factory.create_shared_client()
+		source = cache.lookup_by_id(scope, m["source"])
+		msg["source"] = source
 
-		return self.__shared_client
+		if m["type"] == "recommendation":
+			guid = m["target"]
+			self.__test_object_exists__(scope, guid)
 
-	def __create_object_db__(self):
-		if self.__objectdb is None:
-			self.__objectdb = factory.create_shared_object_db(self.__create_shared_client__())
+			msg["target"] = self.__object_db.get_object(scope, guid)
 
-		return self.__objectdb
+		elif m["type"] == "wrote-comment":
+			id = m["target"]
 
-	def __create_stream_db__(self):
-		if self.__streamdb is None:
-			self.__streamdb = factory.create_shared_stream_db(self.__create_shared_client__())
+			if not self.__object_db.comment_exists(scope, id):
+				raise exception.CommentNotFoundException()
 
-		return self.__streamdb
+			comment = self.__object_db.get_comment(scope, id)
+			self.__prepare_comment__(scope, comment, cache)
 
-	def __test_active_user__(self, username):
-		db = self.__create_user_db__()
+			msg["target"] = comment
 
-		if not db.user_exists(username):
-			raise exception.UserNotFoundException()
+		elif m["type"] == "voted-object":
+			msg["vote"] = self.__object_db.get_vote(scope, m["target"], source["username"])
 
-		if db.user_is_blocked(username):
-			raise exception.UserIsBlockedException()
+		return msg
 
-	def __test_object_exists__(self, guid):
-		db = self.__create_object_db__()
+	def __prepare_comment__(self, scope, comment, cache):
+		# set author's user details:
+		comment["user"] = cache.lookup(scope, comment["username"])
+		del comment["username"]
 
-		if not db.object_exists(guid):
-			raise exception.ObjectNotFoundException()
+		# remove text if comment has been deleted:
+		if comment["deleted"]:
+			comment["text"] = ""
 
-	def __test_object_write_access__(self, guid):
-		db = self.__create_object_db__()
+	# creates a database connection:
+	def __create_db_connection__(self):
+		return factory.create_db_connection()
 
-		if not db.object_exists(guid):
-			raise exception.ObjectNotFoundException()
 
-		if db.is_locked(guid):
-			raise exception.ObjectIsLockedException()
-
-	def __get_writeable_object__(self, guid):
-		obj = self.__create_object_db__().get_object(guid)
-
-		if obj is None:
-			raise exception.ObjectNotFoundException()
-
-		if obj["locked"]:
-			raise exception.ObjectIsLockedException()
-
-		return obj
-
-	def __get_receivers__(self, user):
-		friends = []
-		friends_append = friends.append
-
-		for u in user["following"]:
-			try:
-				details = self.get_active_user(u)
-				if not user["protected"] or user["name"] in details["following"]:
-					friends_append(details["name"])
-
-			except exception.UserIsBlockedException:
-				pass
-
-		return friends
 """
-
-## This class holds the minimum data required for an authenticated request & the calculated checksum.
-#
-#  Each request has to provide the username of the authenticated user, an UNIX timestamp &
-#  the checksum of all parameters (HMAC).
-class RequestData:
-	## The constructor.
-	#  @param username name of the authenticated user
-	#  @param timestamp timestamp of the request
-	#  @param signature checksum of all parameters
-	def __init__(self, username, timestamp = None, signature = None):
-		## Username of the authenticated user.
-		self.username = username
-		## UNIX timstamp (UTC) of the request.
-		self.timestamp = timestamp
-
-		if timestamp is None:
-			self.timestamp = util.unix_timestamp()
-
-		## Checksum of all request parameters.
-		self.signature = signature
 
 ## This class provides access to the data store for authenticated users.
 #
@@ -1179,3 +1360,4 @@ class AuthenticatedApplication:
 			self.__app = Application()
 
 		return self.__app
+		"""
