@@ -40,12 +40,12 @@ class View(object):
 	#  @param content_type content type of the view (e.g. "text/html")
 	#  @param status an HTTP status code
 	def __init__(self, content_type, status):
-		## Content type of the view.
-		self.content_type = content_type
 		## An HTTP status.
 		self.status = status
 		## Data stored in the view.
 		self.model = None
+		## Optional headers.
+		self.headers = { "Content-Type": content_type }
 
 	## Binds data.
 	#  @param model data to bind
