@@ -36,7 +36,8 @@
 WEBSITE_URL               = "http://localhost:8000"
 
 ## URL for activating user account.
-USER_ACTIVATION_URL       = "http://localhost:8000/activation/%s?code=%s"
+USER_ACTIVATION_URL_WITH_CODE      = "http://localhost:8000/activation/%s?code=%s"
+USER_ACTIVATION_URL_WITHOUT_CODE   = "http://localhost:8000/activation/%s"
 
 ## URL for resetting password.
 PASSWORD_RESET_URL        = "http://localhost:8000/password/reset/%s?code=%s"
