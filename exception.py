@@ -38,44 +38,34 @@ import util
 ErrorCode = util.enum(SUCCESS = 0,
                       INTERNAL_FAILURE = 1,
                       STREAM_EXCEEDS_MAXIMUM = 2,
-                      INVALID_REQUEST = 3,
-                      AUTHENTICATION_FAILED = 4,
-                      REQUEST_EXPIRED = 5,
-                      TOO_MANY_REQUESTS = 6,
-                      CONSTRAINT_VIOLOATION = 100,
+                      INVALID_IMAGE_FORMAT = 3,
+		      METHOD_NOT_SUPPORTED = 4,
+                      AUTHENTICATION_FAILED = 100,
+                      NOT_AUTHORIZED = 101,
+                      MISSING_PARAMETER = 102,
                       INVALID_PARAMETER = 200,
-                      USERNAME_OR_EMAIL_ALREADY_EXIST = 300,
-                      USER_ACTIVATION_FAILED = 308,
-                      PASSWORD_RESET_FAILED = 309,
-                      COULD_NOT_FIND_USER = 301,
-                      USER_IS_BLOCKED = 302,
-                      USER_NOT_BLOCKED = 337,
-                      USERNAME_ALREADY_REQUESTED = 303,
-                      EMAIL_ALREADY_ASSIGNED = 304,
-                      USER_ALREADY_FOLLOWING = 309,
-                      USER_NOT_FOLLOWING = 310,
-                      FAVORITE_NOT_FOUND = 313,
-		      COMMENT_NOT_FOUND = 314,
-                      INVALID_REQUEST_ID = 308,
-                      INVALID_REQUEST_CODE = 305,
-                      INVALID_PASSWORD = 306,
-                      INVALID_EMAIL_ADDRESS = 307,
-                      PASSWORDS_NOT_EQUAL = 308,
-                      INVALID_IMAGE_FORMAT = 400,
-                      OBJECT_IS_LOCKED = 500,
-                      OBJECT_NOT_FOUND = 501,
-                      OBJECT_ALREADY_EXIST = 503,
-                      USER_ALREADY_RATED = 502,
-                      HTTP_FAILURE = 600)
+		      NOT_FOUND = 201,
+		      CONFLICT = 202,
+                      INVALID_REQUEST_CODE = 203,
+		      USER_NOT_FOUND = 300,
+                      USER_IS_BLOCKED = 301,
+                      WRONG_PASSWORD = 302,
+                      WRONG_EMAIL_ADDRESS = 303,
+		      NO_FRIENDSHIP = 304,
+                      OBJECT_NOT_FOUND = 400,
+                      OBJECT_IS_LOCKED = 401)
 
 ## Exception base class.
 class Exception:
 	## The constructor.
 	#  @param code error code
-	#  @param message a message
-	def __init__(self, code, message):
+	#  @param http_status a mapped HTTP status
+	#  @param message a descripton of the exception
+	def __init__(self, code, http_status, message):
 		## Error code of the exception.
 		self.code = code
+		## A HTTP status code.
+		self.http_status = http_status
 		## String describing the exception.
 		self.message = message
 
@@ -84,189 +74,93 @@ class InternalFailureException(Exception):
 	## The constructor.
 	#  @param message message describing the exception
 	def __init__(self, message):
-		Exception.__init__(self, ErrorCode.INTERNAL_FAILURE, message)
+		Exception.__init__(self, ErrorCode.INTERNAL_FAILURE, 500, message)
 
 ## Exception raised when a stream exceeds the allowed maximum length.
 class StreamExceedsMaximumException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.STREAM_EXCEEDS_MAXIMUM, "The stream exceeds the defined maximum length.")
+		Exception.__init__(self, ErrorCode.STREAM_EXCEEDS_MAXIMUM, 413, "The stream exceeds the allowed maximum length.")
 
-## Exception raised when a request is invalid (e.g. when the checksum is wrong).
-class InvalidRequestException(Exception):
+## Exception raised when the format of an image is invalid.
+class InvalidImageFormatException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.INVALID_REQUEST, "The received request is invalid.")
+		Exception.__init__(self, ErrorCode.INVALID_IMAGE_FORMAT, 415, "The image has an invalid format.")
 
-## Exception raised when a user is not authorized.
+## Exception used when a controller doesn't support a method.
+class MethodNotSupportedException(Exception):
+	def __init__(self):
+		Exception.__init__(self, ErrorCode.METHOD_NOT_SUPPORTED, 405, "Method not supported.")
+
+## Exception raised when authentication fails.
 class AuthenticationFailedException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.AUTHENTICATION_FAILED, "Authentication failed.")
+		Exception.__init__(self, ErrorCode.AUTHENTICATION_FAILED, 401, "Authentication failed.")
 
-## Exception raised when the sent timestamp is expired.
-class RequestExpiredException(Exception):
+## Exception raised when a user is not authorized.
+class NotAuthorizedException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.REQUEST_EXPIRED, "Request expired.")
+		Exception.__init__(self, ErrorCode.NOT_AUTHORIZED, 403, "User not authorized.")
 
-## Exception raised when the HTTP request limit has been reached.
-class TooManyRequestsException(Exception):
+## Exception raised when at least one parameter is missing.
+class MissingParameterException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.TOO_MANY_REQUESTS, "Too many requests.")
-
-## Exception raised when there's a constraint violation on database level.
-class ConstraintViolationException(Exception):
-	## The constructor.
-	#  @param message message describing the exception
-	def __init__(self, message):
-		Exception.__init__(self, ErrorCode.CONSTRAINT_VIOLOATION, message)
+		Exception.__init__(self, ErrorCode.MISSING_PARAMETER, 400, "Missing parameter(s).")
 
 ## Exception raised when a specified parameter is invalid.
 class InvalidParameterException(Exception):
 	## The constructor.
 	#  @param parameter name of the invalid parameter
 	def __init__(self, parameter):
-		Exception.__init__(self, ErrorCode.INVALID_PARAMETER, "Invalid parameter.")
+		Exception.__init__(self, ErrorCode.INVALID_PARAMETER, 422, "Invalid parameter.")
 		## name of the invalid parameter
 		self.parameter = parameter
 
-## Exception raised when user activation fails.
-class UserActivationFailed(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_ACTIVATION_FAILED, "User activation failed.")
+## Exception raised when a resource cannot be found.
+class NotFoundException(Exception):
+	def __init__(self, message):
+		Exception.__init__(self, ErrorCode.NOT_FOUND, 404, message)
 
-## Exception raised when a password reset fails.
-class PasswordResetFailed(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.PASSWORD_RESET_FAILED, "Password reset failed.")
+## Exception raised when there's a conflict (e.g. an already existing Guid).
+class ConflictException(Exception):
+	def __init__(self, message):
+		Exception.__init__(self, ErrorCode.CONFLICT, 409, message)
 
-## Exception raised when user activation fails.
-class UserActivationFailed(Exception):
+## Exception raised when a request code is invalid.
+class InvalidRequestCodeExceptionException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_ACTIVATION_FAILED, "User activation failed.")
-
-## Exception raised when a username or email address is already assigned.
-class UsernameOrEmailAlreadyExistException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.USERNAME_OR_EMAIL_ALREADY_EXIST, "The given username or email address do already exist.")
-
-## Exception raised when username iof
-class UsernameOrEmailAlreadyExistException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.USERNAME_OR_EMAIL_ALREADY_EXIST, "User account activation failed.")
-
-## Exception raised when a user cannot be created because the username already exists.
-class UserAlreadyExistsException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_ALREADY_EXIST, "The given username does already exist.")
-
-## Exception raised when a user is blocked and is not allowed to perform an activity.
-class UserIsBlockedException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_IS_BLOCKED, "User is blocked.")
-
-## Exception raised when a user is not blocked. TODO
-class UserNotBlockedException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_NOT_FOLLOWING, "User is not blocked.")
+		Exception.__init__(self, ErrorCode.INVALID_REQUEST_CODE, 422, "Invalid request code.")
 
 ## Exception raised when a specified user cannot be found.
 class UserNotFoundException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.COULD_NOT_FIND_USER, "Username not found.")
+		Exception.__init__(self, ErrorCode.USER_NOT_FOUND, 404, "Username not found.")
 
-## Exception raised when a user account cannot be requested because a request for the given username already exists.
-class UsernameAlreadyRequestedException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.USERNAME_ALREADY_REQUESTED, "The given username has already been requested.")
+## Exception raised when a user is blocked.
+class UserIsBlockedException(Exception):
+	def __init__(self, message="User is blocked."):
+		Exception.__init__(self, ErrorCode.USER_IS_BLOCKED, 423, message)
 
-## Exception raised when an email address is already assigned.
-class EmailAlreadyAssignedException(Exception):
+## Exception raised when a password is wrong.
+class WrongPasswordException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.EMAIL_ALREADY_ASSIGNED, "The given email address is already in use.")
+		Exception.__init__(self, ErrorCode.WRONG_PASSWORD, 422, "Wrong password.")
 
-## Exception raised when a user is already following another account.
-class UserAlreadyFollowingException(Exception):
+## Exception raised when a mail address is wrong (does not belong to a user account).
+class WrongEmailAddressException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_ALREADY_FOLLOWING, "User is already following the specified account.")
+		Exception.__init__(self, ErrorCode.WRONG_EMAIL_ADDRESS, 422, "Wrong email address.")
 
-## Exception raised when a favorite does already exist.
-class FavoriteAlreadyExistException(Exception):
+## Exception raised when a friendship is required but does not exist.
+class NoFriendshipExpception(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.FAVORITE_ALREADY_EXIST, "Favorite already exists.")
-
-## Exception raised when a favorite cannot be found.
-class FavoriteNotFoundException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.FAVORITE_NOT_FOUND, "Favorite not found.")
-
-## Exception raised when a comment cannot be found.
-class CommentNotFoundException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.COMMENT_NOT_FOUND, "Comment not found.")
-
-## Exception raised when TODO
-class UserNotFollowingException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_NOT_FOLLOWING, "User not following.")
-
-## Exception raised when a user is not following another account.
-class UserAlreadyFollowingException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_NOT_FOLLOWING, "User is not following the specified account.")
-
-## Exception raised when a specified request id is invalid.
-class InvalidRequestCodeException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.INVALID_REQUEST_ID, "Invalid request id.")
-
-## Exception raised when a specified request code is invalid.
-class InvalidRequestCodeException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.INVALID_REQUEST_CODE, "Invalid request code.")
-
-## Exception raised when a specified password is invalid.
-class InvalidPasswordException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.INVALID_PASSWORD, "Invalid password.")
-
-## Exception raised when two entered passwords aren't equal.
-class PasswordsNotEqualException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.PASSWORDS_NOT_EQUAL, "The entered passwords are not equal.")
-
-## Exception raised when a specified email address is invalid.
-class InvalidEmailAddressException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.INVALID_EMAIL_ADDRESS, "Invalid email address.")
-
-## Exception raised when the format of an image is invalid.
-class InvalidImageFormatException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.INVALID_IMAGE_FORMAT, "The given image has an invalid format.")
-
-## Exception raised when an object cannot be modified because it's locked.
-class ObjectIsLockedException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.OBJECT_IS_LOCKED, "The given object is locked.")
+		Exception.__init__(self, ErrorCode.NO_FRIENDSHIP, 403, "No friendship.")
 
 ## Exception raised when an object cannot be found.
 class ObjectNotFoundException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.OBJECT_NOT_FOUND, "Object not found.")
+		Exception.__init__(self, ErrorCode.OBJECT_NOT_FOUND, 404, "Object not found.")
 
-## Exception raised when an object has already been created.
-class ObjectAlreadyExists(Exception):
+## Exception raised when an object cannot be modified because it's locked.
+class ObjectIsLockedException(Exception):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.OBJECT_ALREADY_EXIST, "Object already exists.")
-
-## Exception raised when a user has already rated for an object.
-class UserAlreadyRatedException(Exception):
-	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_ALREADY_RATED, "The user has already rated for the given object.")
-
-## Exception used for HTTP failures.
-class HttpException(Exception):
-	## The constructor.
-	#  @param http_status the HTTP status code
-	#  @param message a failure message
-	def __init__(self, http_status, message):
-		Exception.__init__(self, ErrorCode.HTTP_FAILURE, message)
-		self.http_status = http_status
+		Exception.__init__(self, ErrorCode.OBJECT_IS_LOCKED, 423, "The given object is locked.")

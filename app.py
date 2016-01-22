@@ -213,7 +213,7 @@ class Application(UserTools, ObjectTools):
 			with conn.enter_scope() as scope:
 				# test if user account or email already exist:
 				if self.__user_db.username_or_email_assigned(scope, username, email):
-					raise exception.UsernameOrEmailAlreadyExistException()
+					raise exception.ConflictException("Username or email already assigned.")
 
 				# generate request id & code:
 				id = b64encode(util.generate_junk(config.REQUEST_ID_LENGTH))
@@ -227,7 +227,7 @@ class Application(UserTools, ObjectTools):
 				self.__user_db.create_user_request(scope, id, code, username, email)
 
 				# generate mail:
-				url = config.USER_ACTIVATION_URL % (id, code)
+				url = config.USER_ACTIVATION_URL_WITH_CODE % (id, code)
 
 				tpl = template.AccountRequestMail(config.DEFAULT_LANGUAGE)
 				tpl.bind(username=username, url=url)
@@ -249,10 +249,10 @@ class Application(UserTools, ObjectTools):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				# find request id & test code:
-				request = self.__user_db.get_user_request(scope, id)
+				if not self.__user_db.user_request_id_exists(scope, id):
+					raise exception.NotFoundException("Request not found.")
 
-				if request is None:
-					raise exception.InvalidRequestIdException()
+				request = self.__user_db.get_user_request(scope, id)
 
 				if request["request_code"] != code:
 					raise exception.InvalidRequestCodeException()
@@ -287,9 +287,9 @@ class Application(UserTools, ObjectTools):
 				details = self.__user_db.get_user(scope, username)
 
 				if details["blocked"] and disabled:
-					raise exception.UserIsBlockedException()
+					raise exception.ConflictException("User is already blocked.")
 				elif not details["blocked"] and not disabled:
-					raise exception.UserNotBlockedException()
+					raise exception.ConflictException("User is not blocked.")
 
 				self.__user_db.block_user(scope, username, disabled)
 
@@ -333,10 +333,10 @@ class Application(UserTools, ObjectTools):
 	def change_password(self, username, old_password, new_password1, new_password2):
 		# validate passwords:
 		if not validate_password(new_password1):
-			raise exception.InvalidParameterException("new_password")
+			raise exception.InvalidParameterException("new_password1")
 
 		if new_password1 != new_password2:
-			raise exception.PasswordsNotEqualException()
+			raise exception.InvalidParameterException("new_password2")
 
 		# change password:
 		with self.__create_db_connection__() as conn:
@@ -363,7 +363,7 @@ class Application(UserTools, ObjectTools):
 
 					scope.complete()
 				else:
-					raise exception.InvalidPasswordException()
+					raise exception.WrongPasswordException()
 
 	## Tests if a password is correct.
 	#  @param username a user account
@@ -389,7 +389,7 @@ class Application(UserTools, ObjectTools):
 
 				# test if email address is correct:
 				if email.lower() <> user["email"].lower():
-					raise exception.InvalidEmailAddressException()
+					raise exception.WrongEmailAddressException()
 
 				# delete existing request ids:
 				self.__user_db.remove_password_requests_by_user_id(scope, user["id"])
@@ -427,22 +427,22 @@ class Application(UserTools, ObjectTools):
 	def reset_password(self, id, code, new_password1, new_password2):
 		# validate passwords:
 		if not validate_password(new_password1):
-			raise exception.InvalidParameterException("new_password")
+			raise exception.InvalidParameterException("new_password1")
 
 		if new_password1 != new_password2:
-			raise exception.PasswordsNotEqualException()
+			raise exception.InvalidParameterException("new_password2")
 
 		# reset password:
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				# find request id & test code:
+				if not self.__user_db.password_request_id_exists(scope, id):
+					raise exception.NotFoundException("Request not found.")
+
 				request = self.__user_db.get_password_request(scope, id)
 				username = request["user"]["username"]
 
 				self.__test_user_exists__(scope, username)
-
-				if request is None:
-					raise exception.InvalidRequestIdException()
 
 				if request["request_code"] != code:
 					raise exception.InvalidRequestCodeException()
@@ -501,7 +501,7 @@ class Application(UserTools, ObjectTools):
 
 				# test email
 				if not self.__user_db.user_can_change_email(scope, username, email):
-					raise exception.EmailAlreadyAssignedException()
+					raise exception.ConflictException("Email address is already assigned.")
 
 				# update user details:
 				self.__user_db.update_user_details(scope, username, email, firstname, lastname, gender, language, protected)
@@ -639,9 +639,9 @@ class Application(UserTools, ObjectTools):
 				is_following = db.is_following(scope, user1, user2)
 
 				if follow and is_following:
-					raise exception.UserAlreadyFollowingException()
+					raise exception.ConflictException("User is already following the specified account.")
 				elif not follow and not is_following:
-					raise exception.UserAlreadyFollowingException()
+					raise exception.NotFoundException("Couldn't find followed user account.")
 
 				details1 = db.get_user(scope, user1)
 				details2 = db.get_user(scope, user2)
@@ -664,7 +664,7 @@ class Application(UserTools, ObjectTools):
 				db = self.__object_db
 
 				if db.object_exists(scope, guid):
-					raise exception.ObjectAlreadyExists()
+					raise exception.ConflictException("Guid already exists.")
 
 				db.create_object(scope, guid, source)
 
@@ -783,7 +783,7 @@ class Application(UserTools, ObjectTools):
 				self.__test_writeable_object__(scope, guid)
 
 				if not self.__object_db.user_can_vote(scope, guid, username):
-					raise exception.UserAlreadyRatedException()
+					raise exception.ConflictException("User already rated.")
 
 				user = self.__user_db.get_user(scope, username)
 
@@ -805,9 +805,9 @@ class Application(UserTools, ObjectTools):
 				is_favorite = self.__user_db.is_favorite(scope, user["id"], guid)
 
 				if favor and is_favorite:
-					raise exception.FavoriteAlreadyExistException()
+					raise exception.ConflictException("Favorite already exists.")
 				elif not favor and not is_favorite:
-					raise exception.FavoriteNotFoundException()
+					raise exception.NotFoundException("Favorite no found.")
 
 				self.__user_db.favor(scope, user["id"], guid, favor)
 
@@ -896,7 +896,10 @@ class Application(UserTools, ObjectTools):
 					details = self.__user_db.get_user(scope, name)
 
 					if details["protected"] and not self.__user_db.is_following(scope, name, username):
-						raise exception.UserNotFollowingException()
+						raise exception.NoFriendshipExpception()
+
+					if details["blocked"]:
+						raise exception.UserIsBlockedException("Destination user account is blocked: %s" % (r))
 
 					if not self.__user_db.recommendation_exists(scope, username, r, guid):
 						self.__user_db.recommend(scope, sender["id"], details["id"], guid)
@@ -995,7 +998,7 @@ class Application(UserTools, ObjectTools):
 			id = m["target"]
 
 			if not self.__object_db.comment_exists(scope, id):
-				raise exception.CommentNotFoundException()
+				raise exception.NotFoundException("Comment not found.")
 
 			comment = self.__object_db.get_comment(scope, id)
 			self.__prepare_comment__(scope, comment, cache)
@@ -1019,345 +1022,3 @@ class Application(UserTools, ObjectTools):
 	# creates a database connection:
 	def __create_db_connection__(self):
 		return factory.create_db_connection()
-
-
-"""
-
-## This class provides access to the data store for authenticated users.
-#
-#  The AuthenticatedApplication class provides nearly the same methods to access the
-#  data store like the Application class. To get further information of a method please
-#  have a look at the documentation of the Application class.
-#
-#  The main difference between both classes is that this one adds an authentication layer
-#  to the application. Each request is validated by a checksum. To calculate this
-#  checksum you have to order the parameters alphabetically. Then calculate the HMAC-SHA1
-#  checksum using the hashed password (SHA-256) of the given user account. You find an
-#  example algorithm in the utility module (util.sign_message).
-class AuthenticatedApplication:
-	def __init__(self):
-		self.__app = None
-
-	def __enter__(self):
-		return self
-
-	def __exit__(self, type, value, traceback):
-		if not self.__app is None:
-			del self.__app
-
-	## Stores a user request in the data store.
-	#  This method wraps Application::request_account().
-	#  @param username name of the user to create
-	#  @param email email address of the user
-	#  @param user_request_timeout lifetime of the user request
-	#  @return an auto-generated request code
-	def request_account(self, username, email, user_request_timeout = config.USER_REQUEST_TIMEOUT):
-		return self.__create_app__().request_account(username, email, user_request_timeout)
-
-	## Generates a password request.
-	#  This method wraps Application::request_password().
-	#  @param username a user account
-	#  @param email email address of the authenticated user account
-	#  @return an auto-generated code
-	def request_password(self, username, email):
-		return self.__create_app__().request_password(username, email)
-
-	## Generates a new password using a request code generated by the AuthenticatedApplication::request_password() method.
-	#  This method wraps Application::generate_password().
-	#  @param code a password request code
-	#  @return username, email address & password (plaintext)
-	def generate_password(self, code):
-		return self.__create_app__().generate_password(code)
-
-	## Activates a user account using an auto-generated request code.
-	#  This method wraps Application::activate_user().
-	#  @param code a request code generated by the AuthenticatedApplication::request_account() method
-	#  @return username, email & password (plaintext)
-	def activate_user(self, code):
-		return self.__create_app__().activate_user(code)
-
-	## Disables a user account.
-	#  This method wraps Application::disable_user().
-	#  @param req request data
-	#  @param email email address of the authenticated user
-	def disable_user(self, req, email):
-		self.verify_message(req, email = email)
-
-		app = self.__create_app__()
-		user = app.get_active_user(req.username)
-
-		if user["email"] != email:
-			raise exception.InvalidEmailAddressException()
-
-		app.disable_user(req.username)
-
-	## Changes the password of a user account.
-	#  This method wraps Application::change_password().
-	#  @param req request data
-	#  @param old_password old password (plaintext) of the authenticated account
-	#  @param new_password a new password (plaintext) to set
-	def change_password(self, req, old_password, new_password):
-		self.verify_message(req, old_password = old_password, new_password = new_password)
-		self.__create_app__().change_password(req.username, old_password, new_password)
-
-	## Updates the details of a user account.
-	#  This method wraps Application::update_user_details().
-	#  @param req request data
-	#  @param email email address to set
-	#  @param firstname firstname to set
-	#  @param lastname lastname to set
-	#  @param gender gender to set
-	#  @param language language to set
-	#  @param protected protected status to set
-	def update_user_details(self, req, email, firstname, lastname, gender, language, protected):
-		self.verify_message(req, email = email, firstname = firstname, lastname = lastname, gender = gender, language = language, protected = protected)
-		self.__create_app__().update_user_details(req.username, email, firstname, lastname, gender, language, protected)
-
-	## Updates the avatar of a user account.
-	#  This method wraps Application::update_avatar().
-	#  @param req request data
-	#  @param filename filename of the image
-	#  @param stream input stream for reading image data
-	def update_avatar(self, req, filename, stream):
-		self.verify_message(req, filename = filename)
-		self.__create_app__().update_avatar(req.username, filename, stream)
-
-	## Finds users by search query.
-	#  This method wraps Application::find_user().
-	#  @param req request data
-	#  @param query a search query
-	#  @return an array
-	def find_user(self, req, query):
-		self.verify_message(req, query = query)
-
-		return self.__create_app__().find_user(req.username, query)
-
-	## Gets details of a user account depending on protected status & friendship.
-	#  This method wraps Application::get_user_details().
-	#  @param req request data
-	#  @param name user to get details from
-	#  @return a dictionary
-	def get_user_details(self, req, name):
-		self.verify_message(req, name = name)
-
-		return self.__create_app__().get_user_details(req.username, name)
-
-	## Gets object details.
-	#  This method wraps Application::get_object().
-	#  @param req request data
-	#  @param guid guid of an object
-	#  @return a dictionary
-	def get_object(self, req, guid):
-		self.verify_message(req, guid = guid)
-
-		return self.__create_app__().get_object(guid)
-
-	## Gets objects from the data store.
-	#  This method wraps Application::get_objects().
-	#  @param req request data
-	#  @param page page number
-	#  @param page_size size of each page
-	#  @return an array
-	def get_objects(self, req, page, page_size):
-		self.verify_message(req, page = page, page_size = page_size)
-
-		return self.__create_app__().get_objects(page, page_size)
-
-	## Gets objects assigned to a tag.
-	#  This method wraps Application::get_tagged_objects().
-	#  @param req request data
-	#  @param tag tag to search
-	#  @param page page number
-	#  @param page_size size of each page
-	#  @return an array
-	def get_tagged_objects(self, req, tag, page, page_size):
-		self.verify_message(req, tag = tag, page = page, page_size = page_size)
-
-		return self.__create_app__().get_tagged_objects(tag, page, page_size)
-
-	## Gets the most popular objects.
-	#  This method wraps Application::get_popular_objects().
-	#  @param req request data
-	#  @param page page number
-	#  @param page_size size of each page
-	#  @return an array
-	def get_popular_objects(self, req, page, page_size):
-		self.verify_message(req, page = page, page_size = page_size)
-
-		return self.__create_app__().get_popular_objects(page, page_size)
-
-	## Gets random objects.
-	#  This method wraps Application::get_random_objects().
-	#  @param req request data
-	#  @param page_size number of objects the method should(!) return
-	#  @return an array
-	def get_random_objects(self, req, page_size):
-		self.verify_message(req, page_size = page_size)
-
-		return self.__create_app__().get_random_objects(page_size)
-
-	## Adds tags to an object.
-	#  This method wraps Application::add_tags().
-	#  @param req request data
-	#  @param guid guid of an object
-	#  @param tags array containing tags to add
-	def add_tags(self, req, guid, tags):
-		self.verify_message(req, guid = guid, tags = tags)
-		self.__create_app__().add_tags(req.username, guid, tags)
-
-	## Upvotes/Downvotes an object.
-	#  This method wraps Application::rate().
-	#  @param req request data
-	#  @param guid guid of an object
-	#  @param up True to upvote
-	def rate(self, req, guid, up = True):
-		self.verify_message(req, guid = guid, up = up)
-		self.__create_app__().rate(req.username, guid, up)
-
-	## Adds an object to the favorites list of a user.
-	#  This method wraps Application::favor().
-	#  @param req request data
-	#  @param guid guid of an object
-	#  @param favor True to add the object to the list
-	def favor(self, req, guid, favor = True):
-		self.verify_message(req, guid = guid, favor = favor)
-		self.__create_app__().favor(req.username, guid, favor = favor)
-
-	## Returns the favorites list of a user.
-	#  This method wraps Application::get_favorites().
-	#  @param req request data
-	#  @param page page number
-	#  @param page_size size of each page
-	#  @return an array
-	def get_favorites(self, req, page, page_size):
-		self.verify_message(req, page = page, page_size = page_size)
-
-		return self.__create_app__().get_favorites(req.username, page, page_size)
-
-	## Appends a comment to an object.
-	#  This method wraps Application::add_comment().
-	#  @param req request data
-	#  @param guid guid of an object
-	#  @param text text to append
-	def add_comment(self, req, guid, text):
-		self.verify_message(req, guid = guid, text = text)
-		self.__create_app__().add_comment(guid, req.username, text)
-
-	## Gets comments assigned to an object.
-	#  This method wraps Application::get_comments().
-	#  @param req request data
-	#  @param guid guid of an object
-	#  @param page page number
-	#  @param page_size size of each page
-	#  @return an array
-	def get_comments(self, req, guid, page, page_size):
-		self.verify_message(req, guid = guid, page = page, page_size = page_size)
-
-		return self.__create_app__().get_comments(guid, page, page_size)
-
-	## Reports an object for abuse.
-	#  This method wraps Application::report_abuse().
-	#  @param req request data
-	#  @param guid guid of an object
-	#  @return True if the object has been reported
-	def report_abuse(self, req, guid):
-		self.verify_message(req, guid = guid)
-
-		return self.__create_app__().report_abuse(guid)
-
-	## Lets a user recommend an object to his/her friends.
-	#  This method wraps Application::recommend().
-	#  @param req request data
-	#  @param guid guid of an object
-	#  @param receivers array containing receiver names
-	def recommend(self, req, guid, receivers):
-		self.verify_message(req, guid = guid, receivers = receivers)
-		self.__create_app__().recommend(req.username, guid, receivers)
-
-	## Gets objects recommended to a user
-	#  This method wraps Application::get_recommendations().
-	#  @param req request data
-	#  @param page page number
-	#  @param page_size size of each page
-	#  @return an array
-	def get_recommendations(self, req, page, page_size):
-		self.verify_message(req, page = page, page_size = page_size)
-
-		return self.__create_app__().get_recommendations(req.username, page, page_size)
-
-	## Lets one user follow another user.
-	#  This method wraps Application::follow().
-	#  @param req request data
-	#  @param user a user account the authenticated user wants to follow
-	#  @param follow True to follow, False to unfollow
-	def follow(self, req, user, follow):
-		self.verify_message(req, user = user, follow = follow)
-		self.__create_app__().follow(req.username, user, follow)
-
-	## Gets messages sent to a user account.
-	#  This method wraps Application::get_messages().
-	#  @param req request data
-	#  @param limit number of messages to receive
-	#  @param older_than filter to get only messages older than the specified timestamp
-	#  @return an array
-	def get_messages(self, req, limit, older_than):
-		self.verify_message(req, limit = limit, older_than = older_than)
-
-		return self.__create_app__().get_messages(req.username, limit, older_than)
-
-	## Validates a signature.
-	#  @param req request data
-	#  @param kwargs additional arguments
-	def verify_message(self, req, **kwargs):
-		try:
-			# validate timestamp:
-			if util.unix_timestamp() - req.timestamp > config.REQUEST_EXPIRY_TIME:
-				raise exception.RequestExpiredException
-
-			# get user password:
-			password = self.__get_user_password__(req.username)
-
-			if password is None:
-				raise exception.AuthenticationFailedException()
-
-			# verify signature:
-			kwargs["username"] = req.username
-			kwargs["timestamp"] = req.timestamp
-
-			signature = util.sign_message(str(password), **kwargs)
-
-			if signature != req.signature:
-				raise exception.AuthenticationFailedException()
-
-		except exception.AuthenticationFailedException, ex:
-			raise ex
-
-		except exception.RequestExpiredException, ex:
-			raise ex
-
-		except Exception:
-			raise exception.InvalidRequestException()
-
-	## Gets the language of a user account.
-	#  @param username name of a user account
-	#  @return language of the user as string
-	def get_user_language(self, username):
-		user = self.__create_app__().get_full_user_details(username)
-
-		if not user is None:
-			if user["language"] is None:
-				return config.DEFAULT_LANGUAGE
-
-			return user["language"]
-
-		raise exception.UserNotFoundException()
-
-	def __get_user_password__(self, username):
-		return self.__create_app__().get_password(username)
-
-	def __create_app__(self):
-		if self.__app is None:
-			self.__app = Application()
-
-		return self.__app
-		"""

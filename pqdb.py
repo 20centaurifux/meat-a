@@ -158,7 +158,7 @@ class PQUserDb(PQDb, database.UserDb):
 		id = execute_scalar(cur, "select * from user_activate(%s, %s, %s, %s)", id, code, password, salt)
 
 		if id is None:
-			raise exception.UserActivationFailed()
+			raise exception.InternalFailureException("User activation failed.")
 
 		return id
 
@@ -228,7 +228,7 @@ class PQUserDb(PQDb, database.UserDb):
 		cur = scope.get_handle()
 
 		if not execute_scalar(cur, "select * from user_reset_password(%s, %s, %s, %s)", id, code, password, salt):
-			raise PasswordResetFailed()
+			raise exception.InternalFailureException("Password reset failed.")
 
 	def update_user_details(self, scope, username, email, firstname, lastname, gender, language, protected):
 		cur = scope.get_handle()
