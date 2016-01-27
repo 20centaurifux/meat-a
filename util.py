@@ -36,6 +36,7 @@ from time import mktime
 from datetime import datetime
 from hashlib import sha1, sha256
 from bson import json_util
+from urllib2 import quote
 import random, string, json, os, hmac, uuid
 
 ## Gets the current timestamp (UTC) in milliseconds.
@@ -193,6 +194,14 @@ def to_bool(obj):
 
 	return bool(obj)
 
+## Builds an URL.
+#  @param fmt a format string
+#  @param url an url
+#  @param params parameters to quote
+#  @return an url with quoted parameters
+def build_url(fmt, url, *params):
+	return url + fmt % tuple(map(quote, params))
+
 ## Removes all files found in a directory.
 #  @param directory path to a directory
 def remove_all_files(directory):
@@ -219,3 +228,15 @@ def read_from_stream(stream, block_size = 81920, max_size = None):
 		if not max_size is None and total > max_size:
 			from exception import StreamExceedsMaximumException
 			raise StreamExceedsMaximumException()
+
+def select_keys(m, keys):
+	def get(m, k):
+		try:
+			v = m[k]
+
+		except KeyError:
+			v = None
+
+		return v
+
+	return map(lambda k: get(m, k), keys)
