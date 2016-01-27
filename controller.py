@@ -65,18 +65,19 @@ class Controller:
 			# get function argument names:
 			spec = inspect.getargspec(f)
 			argnames = spec[0][2:]
-			defaults = spec[3]
 
 			# get argument values from kwargs:
-			values = util.select_keys(kwargs, argnames)
+			values = util.select_values(kwargs, argnames)
 
-			diff = len(values) - len(defaults)
+			# set default values:
+			defaults = spec[3]
 
-			for i in range(len(values)):
-				if values[i] is None and i >= diff:
-					values[i] = defaults[diff - i]
+			if not defaults is None:
+				diff = len(values) - len(defaults)
 
-			print values
+				for i in range(len(values)):
+					if values[i] is None and i >= diff:
+						values[i] = defaults[diff - i]
 
 			# merge argument list:
 			args = [env] + values
@@ -432,15 +433,12 @@ class ObjectTags(AuthorizedController):
 		return self.__get_tags__(guid)
 
 	def __put__(self, env, guid, tags):
-		s = set()
+		tags = list(util.split_strip_set(receivers, ","))
 
-		for tag in filter(lambda t: len(t) > 0, map(lambda t: t.strip(), tags.split(","))):
-			s.add(tag)
-
-		if len(s) == 0:
+		if len(tags) == 0:
 			raise exception.HTTPException(400, "tag list cannot be empty.")
 
-		self.app.add_tags(guid, self.username, s)
+		self.app.add_tags(guid, self.username, tags)
 
 		return self.__get_tags__(guid)
 
@@ -550,14 +548,14 @@ class Recommendation(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __put__(self, env, guid, receivers):
-		s = set()
+		receivers = list(util.split_strip_set(receivers, ","))
 
-		for receiver in filter(lambda r: len(r) > 0, map(lambda t: t.strip(), receivers.split(","))):
-			s.add(receiver)
+		if len(receivers) == 0:
+			raise exception.HTTPException(400, "receiver list cannot be empty.")
 
-		self.app.recommend(self.username, s, guid)
+		self.app.recommend(self.username, receivers, guid)
 
-		m = { "guid": guid, "receivers": list(s) }
+		m = { "guid": guid, "receivers": receivers }
 
 		v = view.JSONView(200)
 		v.bind(m)
