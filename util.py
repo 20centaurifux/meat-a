@@ -229,7 +229,11 @@ def read_from_stream(stream, block_size = 81920, max_size = None):
 			from exception import StreamExceedsMaximumException
 			raise StreamExceedsMaximumException()
 
-def select_keys(m, keys):
+## Selects values from a dictionary using a specified key collection.
+#  @param m a dictionary
+#  @param keys sequence of keys
+#  @return an array containing the selected values.
+def select_values(m, keys):
 	def get(m, k):
 		try:
 			v = m[k]
@@ -240,3 +244,15 @@ def select_keys(m, keys):
 		return v
 
 	return map(lambda k: get(m, k), keys)
+
+## Splits a string and returns a set of stripped tokens.
+#  @param str string to split
+#  @param sep the separator
+#  @return a set of token
+def split_strip_set(str, sep):
+	s = set()
+
+	for token in filter(lambda t: len(t) > 0, map(lambda t: t.strip(), str.split(sep))):
+		s.add(token)
+
+	return s
