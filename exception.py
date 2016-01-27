@@ -53,10 +53,11 @@ ErrorCode = util.enum(SUCCESS = 0,
                       WRONG_EMAIL_ADDRESS = 303,
 		      NO_FRIENDSHIP = 304,
                       OBJECT_NOT_FOUND = 400,
-                      OBJECT_IS_LOCKED = 401)
+                      OBJECT_IS_LOCKED = 401,
+		      HTTP_FAILURE = 500)
 
 ## Exception base class.
-class Exception:
+class BaseException:
 	## The constructor.
 	#  @param code error code
 	#  @param http_status a mapped HTTP status
@@ -70,97 +71,104 @@ class Exception:
 		self.message = message
 
 ## Exception used for internal failures.
-class InternalFailureException(Exception):
+class InternalFailureException(BaseException):
 	## The constructor.
 	#  @param message message describing the exception
 	def __init__(self, message):
-		Exception.__init__(self, ErrorCode.INTERNAL_FAILURE, 500, message)
+		BaseException.__init__(self, ErrorCode.INTERNAL_FAILURE, 500, message)
 
 ## Exception raised when a stream exceeds the allowed maximum length.
-class StreamExceedsMaximumException(Exception):
+class StreamExceedsMaximumException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.STREAM_EXCEEDS_MAXIMUM, 413, "The stream exceeds the allowed maximum length.")
+		BaseException.__init__(self, ErrorCode.STREAM_EXCEEDS_MAXIMUM, 413, "The stream exceeds the allowed maximum length.")
 
 ## Exception raised when the format of an image is invalid.
-class InvalidImageFormatException(Exception):
+class InvalidImageFormatException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.INVALID_IMAGE_FORMAT, 415, "The image has an invalid format.")
+		BaseException.__init__(self, ErrorCode.INVALID_IMAGE_FORMAT, 415, "The image has an invalid format.")
 
 ## Exception used when a controller doesn't support a method.
-class MethodNotSupportedException(Exception):
+class MethodNotSupportedException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.METHOD_NOT_SUPPORTED, 405, "Method not supported.")
+		BaseException.__init__(self, ErrorCode.METHOD_NOT_SUPPORTED, 405, "Method not supported.")
 
 ## Exception raised when authentication fails.
-class AuthenticationFailedException(Exception):
+class AuthenticationFailedException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.AUTHENTICATION_FAILED, 401, "Authentication failed.")
+		BaseException.__init__(self, ErrorCode.AUTHENTICATION_FAILED, 401, "Authentication failed.")
 
 ## Exception raised when a user is not authorized.
-class NotAuthorizedException(Exception):
+class NotAuthorizedException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.NOT_AUTHORIZED, 403, "User not authorized.")
+		BaseException.__init__(self, ErrorCode.NOT_AUTHORIZED, 403, "User not authorized.")
 
 ## Exception raised when at least one parameter is missing.
-class MissingParameterException(Exception):
+class MissingParameterException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.MISSING_PARAMETER, 400, "Missing parameter(s).")
+		BaseException.__init__(self, ErrorCode.MISSING_PARAMETER, 400, "Missing parameter(s).")
 
 ## Exception raised when a specified parameter is invalid.
-class InvalidParameterException(Exception):
+class InvalidParameterException(BaseException):
 	## The constructor.
 	#  @param parameter name of the invalid parameter
 	def __init__(self, parameter):
-		Exception.__init__(self, ErrorCode.INVALID_PARAMETER, 422, "Invalid parameter.")
+		BaseException.__init__(self, ErrorCode.INVALID_PARAMETER, 422, "Invalid parameter: \"%s\"" % (parameter))
 		## name of the invalid parameter
 		self.parameter = parameter
 
 ## Exception raised when a resource cannot be found.
-class NotFoundException(Exception):
+class NotFoundException(BaseException):
 	def __init__(self, message):
-		Exception.__init__(self, ErrorCode.NOT_FOUND, 404, message)
+		BaseException.__init__(self, ErrorCode.NOT_FOUND, 404, message)
 
 ## Exception raised when there's a conflict (e.g. an already existing Guid).
-class ConflictException(Exception):
+class ConflictException(BaseException):
 	def __init__(self, message):
-		Exception.__init__(self, ErrorCode.CONFLICT, 409, message)
+		BaseException.__init__(self, ErrorCode.CONFLICT, 409, message)
 
 ## Exception raised when a request code is invalid.
-class InvalidRequestCodeExceptionException(Exception):
+class InvalidRequestCodeException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.INVALID_REQUEST_CODE, 422, "Invalid request code.")
+		BaseException.__init__(self, ErrorCode.INVALID_REQUEST_CODE, 422, "Invalid request code.")
 
 ## Exception raised when a specified user cannot be found.
-class UserNotFoundException(Exception):
+class UserNotFoundException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.USER_NOT_FOUND, 404, "Username not found.")
+		BaseException.__init__(self, ErrorCode.USER_NOT_FOUND, 404, "Username not found.")
 
 ## Exception raised when a user is blocked.
-class UserIsBlockedException(Exception):
+class UserIsBlockedException(BaseException):
 	def __init__(self, message="User is blocked."):
-		Exception.__init__(self, ErrorCode.USER_IS_BLOCKED, 423, message)
+		BaseException.__init__(self, ErrorCode.USER_IS_BLOCKED, 423, message)
 
 ## Exception raised when a password is wrong.
-class WrongPasswordException(Exception):
+class WrongPasswordException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.WRONG_PASSWORD, 422, "Wrong password.")
+		BaseException.__init__(self, ErrorCode.WRONG_PASSWORD, 422, "Wrong password.")
 
 ## Exception raised when a mail address is wrong (does not belong to a user account).
-class WrongEmailAddressException(Exception):
+class WrongEmailAddressException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.WRONG_EMAIL_ADDRESS, 422, "Wrong email address.")
+		BaseException.__init__(self, ErrorCode.WRONG_EMAIL_ADDRESS, 422, "Wrong email address.")
 
 ## Exception raised when a friendship is required but does not exist.
-class NoFriendshipExpception(Exception):
+class NoFriendshipExpception(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.NO_FRIENDSHIP, 403, "No friendship.")
+		BaseException.__init__(self, ErrorCode.NO_FRIENDSHIP, 403, "No friendship.")
 
 ## Exception raised when an object cannot be found.
-class ObjectNotFoundException(Exception):
+class ObjectNotFoundException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.OBJECT_NOT_FOUND, 404, "Object not found.")
+		BaseException.__init__(self, ErrorCode.OBJECT_NOT_FOUND, 404, "Object not found.")
 
 ## Exception raised when an object cannot be modified because it's locked.
-class ObjectIsLockedException(Exception):
+class ObjectIsLockedException(BaseException):
 	def __init__(self):
-		Exception.__init__(self, ErrorCode.OBJECT_IS_LOCKED, 423, "The given object is locked.")
+		BaseException.__init__(self, ErrorCode.OBJECT_IS_LOCKED, 423, "The given object is locked.")
+
+## Exception used for general HTTP expceptions.
+class HTTPException(BaseException):
+	## The constructor.
+	#  @param message message describing the exception
+	def __init__(self, http_status, message):
+		BaseException.__init__(self, ErrorCode.HTTP_FAILURE, http_status, message)
