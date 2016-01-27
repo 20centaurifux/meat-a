@@ -32,6 +32,9 @@
 ## @package config
 #  Configuration settings.
 
+## Application REALM.
+REALM                     = "meat-a"
+
 ## URL of the website.
 WEBSITE_URL               = "http://localhost:8000"
 
