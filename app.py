@@ -293,7 +293,7 @@ class Application(UserTools, ObjectTools):
 
 				self.__user_db.block_user(scope, username, disabled)
 
-				tpl = template.AccountDisabledMail(self.__get_language__(details, disabled))
+				tpl = template.AccountDisabledMail(self.__get_language__(details), disabled)
 				tpl.bind(username=username)
 				subject, body = tpl.render()
 
@@ -362,6 +362,7 @@ class Application(UserTools, ObjectTools):
 					mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
 
 					scope.complete()
+
 				else:
 					raise exception.WrongPasswordException()
 
@@ -574,7 +575,7 @@ class Application(UserTools, ObjectTools):
 				for k in ["username", "firstname", "lastname", "email", "gender", "created_on", "avatar", "protected", "blocked", "language"]:
 					user[k] = details[k]
 
-				user["following"] = db.get_followed_usernames(scope, username)
+				user["following"] = self.__user_db.get_followed_usernames(scope, username)
 
 				return user
 
@@ -592,7 +593,7 @@ class Application(UserTools, ObjectTools):
 			with conn.enter_scope() as scope:
 				self.__test_active_user__(scope, account)
 
-				return self.__get_user_details__(scope, user_a, username)
+				return self.__get_user_details__(scope, account, username)
 
 	## Finds users by a search query.
 	#  @param account user account who searches the data store
@@ -612,10 +613,10 @@ class Application(UserTools, ObjectTools):
 				requester = self.__user_db.get_user(scope, account)
 
 				# search users:
-				lusername = username.lower()
+				lusername = account.lower()
 				result = []
 
-				for username in db.search(scope, query):
+				for username in self.__user_db.search(scope, query):
 					if lusername <> requester["username"].lower():
 						result.append(self.__get_user_details__(scope, db, requester, username))
 
@@ -649,6 +650,26 @@ class Application(UserTools, ObjectTools):
 				db.follow(scope, details1["id"], details2["id"], follow)
 
 				scope.complete()
+
+	## Tests if two users are friends.
+	#  @param user1 a username
+	#  @param user2 a username
+	#  @param a dictionary holding friendship details: { "following": bool, "followed": bool }
+	def get_friendship(self, user1, user2):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				db = self.__user_db
+
+				if user1 == user2:
+					raise InvalidParameterException("user2")
+
+				self.__test_active_user__(scope, user1)
+				self.__test_active_user__(scope, user2)
+
+				following = db.is_following(scope, user1, user2)
+				followed = db.is_following(scope, user1, user1)
+
+				return { "following": following, "followed": followed }
 
 	## Creates a new object.
 	#  @param guid guid of the object
@@ -710,7 +731,7 @@ class Application(UserTools, ObjectTools):
 	#  @return a dictionary holding object details: { "guid": str, "source": str, "locked": bool,
 	#          "reported": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int },
 	#          "created_on": datetime, "comments_n": int, "reported": bool }
-	def get_objects(self, page = 0, page_size = 10):
+	def get_objects(self, page=0, page_size=10):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				return self.__object_db.get_objects(scope, page, page_size)
@@ -721,7 +742,7 @@ class Application(UserTools, ObjectTools):
 	#  @return a dictionary holding object details: { "guid": str, "source": str, "locked": bool,
 	#          "reported": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int },
 	#          "created_on": datetime, "comments_n": int, "reported": bool }
-	def get_popular_objects(self, page = 0, page_size = 10):
+	def get_popular_objects(self, page=0, page_size=10):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				return self.__object_db.get_popular_objects(scope, page, page_size)
@@ -733,7 +754,7 @@ class Application(UserTools, ObjectTools):
 	#  @return a dictionary holding object details: { "guid": str, "source": str, "locked": bool,
 	#          "reported": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int },
 	#          "created_on": datetime, "comments_n": int, "reported": bool }
-	def get_tagged_objects(self, tag, page = 0, page_size = 10):
+	def get_tagged_objects(self, tag, page=0, page_size=10):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				return self.__object_db.get_tagged_objects(scope, tag, page, page_size)
@@ -779,7 +800,7 @@ class Application(UserTools, ObjectTools):
 	def vote(self, username, guid, up=True):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				self.__test_active_user__(scope,  username)
+				self.__test_active_user__(scope, username)
 				self.__test_writeable_object__(scope, guid)
 
 				if not self.__object_db.user_can_vote(scope, guid, username):
@@ -790,6 +811,18 @@ class Application(UserTools, ObjectTools):
 				self.__object_db.vote(scope, guid, user["id"], up)
 
 				scope.complete()
+
+	## Gets the voting of a user for an object.
+	#  @param username a username
+	#  @param username a username
+	#  @param up True, False or None
+	def get_voting(self, username, guid):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(scope, username)
+				self.__test_object_exists__(scope, guid)
+
+				return self.__object_db.get_voting(scope, guid, username)
 
 	## Adds an object to the favorites list of a user. Friends & unprotected followed users receive a notification.
 	#  @param username user who wants to add the object to his/her favorites list
@@ -807,7 +840,7 @@ class Application(UserTools, ObjectTools):
 				if favor and is_favorite:
 					raise exception.ConflictException("Favorite already exists.")
 				elif not favor and not is_favorite:
-					raise exception.NotFoundException("Favorite no found.")
+					raise exception.NotFoundException("Favorite not found.")
 
 				self.__user_db.favor(scope, user["id"], guid, favor)
 
@@ -855,10 +888,10 @@ class Application(UserTools, ObjectTools):
 	#  @return an array, each element is a dictionary holding a comment, the received user details of the author
 	#          depend on the friendship status: [ { "text": str, "timestamp": datetime, "deleted": bool,
 	#          "user": { } } ]
-	def get_comments(self, username, guid, page=0, page_size=100):
+	def get_comments(self, guid, username, page=0, page_size=100):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				self.__test_active_user__(username)
+				self.__test_active_user__(scope, username)
 				self.__test_object_exists__(scope, guid)
 
 				user = self.__user_db.get_user(scope, username)
@@ -867,8 +900,23 @@ class Application(UserTools, ObjectTools):
 
 				for comment in comments:
 					self.__prepare_comment__(scope, comment, cache)
-
 				return comments
+
+	## Gets a single comment.
+	#  @param username user who wants to receive the comment
+	#  @param id id of the comment
+	#  @return a dictionary holding a comment, the received user details of the author
+	#          depend on the friendship status: [ { "text": str, "timestamp": datetime, "deleted": bool,
+	#          "user": { } } ]
+	def get_comment(self, id, username):
+		with self.__create_db_connection__() as conn:
+			with conn.enter_scope() as scope:
+				self.__test_active_user__(scope, username)
+
+				comment = self.__object_db.get_comment(scope, id)
+				self.__prepare_comment_no_cache__(scope, comment, username)
+
+				return comment
 
 	## Lets a user recommend an object to his/her friends or followed unprotected users.
 	#  Each receiver gets a notification.
@@ -892,10 +940,10 @@ class Application(UserTools, ObjectTools):
 					if lname in receiver_set or lname == lsender:
 						continue
 
-					self.__test_active_user__(scope, name)
-					details = self.__user_db.get_user(scope, name)
+					self.__test_active_user__(scope, lname)
+					details = self.__user_db.get_user(scope, lname)
 
-					if details["protected"] and not self.__user_db.is_following(scope, name, username):
+					if details["protected"] and not self.__user_db.is_following(scope, lname, username):
 						raise exception.NoFriendshipExpception()
 
 					if details["blocked"]:
@@ -904,7 +952,7 @@ class Application(UserTools, ObjectTools):
 					if not self.__user_db.recommendation_exists(scope, username, r, guid):
 						self.__user_db.recommend(scope, sender["id"], details["id"], guid)
 
-					receiver_set.add(name)
+					receiver_set.add(lname)
 
 				scope.complete()
 
@@ -939,7 +987,7 @@ class Application(UserTools, ObjectTools):
 	def report_abuse(self, guid):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				self.__test_object_exists__(guid)
+				self.__test_object_exists__(scope, guid)
 				self.__object_db.report_abuse(scope, guid)
 
 	## Gets messages sent to a user account.
@@ -952,7 +1000,7 @@ class Application(UserTools, ObjectTools):
 	def get_messages(self, username, limit=100, older_than=None):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
-				self.__test_active_user__(username)
+				self.__test_active_user__(scope, username)
 				messages = []
 				cache = UserCache(self.__user_db, username)
 
@@ -1010,12 +1058,22 @@ class Application(UserTools, ObjectTools):
 
 		return msg
 
+	def __prepare_comment_no_cache__(self, scope, comment, username):
+		# set author's user details:
+		comment["user"] = self.__get_user_details__(scope, username, comment["username"])
+		del comment["username"]
+
+		self.__prepare_comment_text__(comment)
+
 	def __prepare_comment__(self, scope, comment, cache):
 		# set author's user details:
 		comment["user"] = cache.lookup(scope, comment["username"])
 		del comment["username"]
 
-		# remove text if comment has been deleted:
+		self.__prepare_comment_text__(comment)
+
+	def __prepare_comment_text__(self, comment):
+		# clear text if comment has been deleted:
 		if comment["deleted"]:
 			comment["text"] = ""
 
