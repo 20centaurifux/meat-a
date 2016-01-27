@@ -67,4 +67,7 @@ class JSONView(View):
 	## Converts the assigned model to a JSON string.
 	#  @return a JSON string
 	def render(self):
-		return to_json(self.model)
+		if self.model is None:
+			return "null"
+		else:
+			return to_json(self.model)
