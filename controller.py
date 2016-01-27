@@ -63,10 +63,20 @@ class Controller:
 			f = m[method]
 
 			# get function argument names:
-			argnames = inspect.getargspec(f)[0][2:]
+			spec = inspect.getargspec(f)
+			argnames = spec[0][2:]
+			defaults = spec[3]
 
 			# get argument values from kwargs:
 			values = util.select_keys(kwargs, argnames)
+
+			diff = len(values) - len(defaults)
+
+			for i in range(len(values)):
+				if values[i] is None and i >= diff:
+					values[i] = defaults[diff - i]
+
+			print values
 
 			# merge argument list:
 			args = [env] + values
@@ -322,7 +332,7 @@ class Messages(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
-	def __get__(self, env, limit, timestamp):
+	def __get__(self, env, limit=50, timestamp=None):
 		m = self.app.get_messages(self.username, limit, timestamp)
 
 		v = view.JSONView(200)
@@ -334,7 +344,7 @@ class PublicMessages(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
-	def __get__(self, env, limit, timestamp):
+	def __get__(self, env, limit=50, timestamp=None):
 		m = self.app.get_public_messages(self.username, limit, timestamp)
 
 		v = view.JSONView(200)
@@ -346,7 +356,7 @@ class Objects(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
-	def __get__(self, env, page, page_size):
+	def __get__(self, env, page=0, page_size=10):
 		m = self.app.get_objects(page, page_size)
 
 		v = view.JSONView(200)
@@ -358,7 +368,7 @@ class RandomObjects(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
-	def __get__(self, env, page_size):
+	def __get__(self, env, page_size=10):
 		m = self.app.get_random_objects(page_size)
 
 		v = view.JSONView(200)
@@ -370,7 +380,7 @@ class PopularObjects(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
-	def __get__(self, env, page, page_size):
+	def __get__(self, env, page=0, page_size=10):
 		m = self.app.get_popular_objects(page, page_size)
 
 		v = view.JSONView(200)
@@ -382,7 +392,7 @@ class TaggedObjects(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
-	def __get__(self, env, tag, page, page_size):
+	def __get__(self, env, tag, page=0, page_size=10):
 		m = self.app.get_tagged_objects(tag, page, page_size)
 
 		v = view.JSONView(200)
@@ -469,7 +479,7 @@ class Comments(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
-	def __get__(self, env, guid, page, page_size):
+	def __get__(self, env, guid, page=0, page_size=50):
 		return self.__get_comments__(guid, page, page_size)
 
 	def __post__(self, env, guid, text):
@@ -477,7 +487,7 @@ class Comments(AuthorizedController):
 
 		return self.__get_comments__(guid)
 
-	def __get_comments__(self, guid, page=0, page_size=100):
+	def __get_comments__(self, guid, page=0, page_size=50):
 		m = self.app.get_comments(guid, self.username, page, page_size)
 
 		v = view.JSONView(200)
@@ -527,7 +537,7 @@ class Recommendations(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
-	def __get__(self, env, page, page_size):
+	def __get__(self, env, page=0, page_size=10):
 		m = self.app.get_recommendations(self.username, page, page_size)
 
 		v = view.JSONView(200)
