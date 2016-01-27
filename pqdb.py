@@ -32,9 +32,6 @@ def fetch_one(cur, query, *params):
 	cur.execute(query, params)
 	row = cur.fetchone()
 
-	if not row is None:
-		row = to_dict(row)
-
 	return row
 
 def fetch_all(cur, query, *params):
@@ -262,10 +259,11 @@ class PQUserDb(PQDb, database.UserDb):
 		if query is None:
 			query = re.sub("[^0-9a-zA-Z]+", "_", query)
 
+		sql = "select username from \"user\" where firstname ilike '%%%s%%' or lastname ilike '%%%s%%' or username ilike '%%%s%%' " \
+		      "or iemail like '%%%s%%' and deleted=false order by iusername, firstname, lastname" % (query, query, query, query)
+
 		cur = scope.get_handle()
-		cur.execute("select username from \"user\" "                                                                                    + \
-		            "where firstname ilike '%%%s%%' or lastname ilike '%%%s%%' or username ilike '%%%s%%' "                             + \
-		            "or iemail like '%%%s%%' and deleted=false order by iusername, firstname, lastname" % (query, query, query, query))
+		cur.execute(sql)
 
 		result = []
 
@@ -407,7 +405,7 @@ class PQObjectDb(PQDb, database.ObjectDb):
 	def vote(self, scope, guid, user_id, up=True):
 		scope.get_handle().execute("insert into object_score (user_id, object_guid, up) values (%s, %s, %s)", (user_id, guid, up))
 
-	def get_vote(self, scope, guid, username):
+	def get_voting(self, scope, guid, username):
 		query = "select up from object_score inner join \"user\" on object_score.user_id=\"user\".id where iusername=lower(%s) and object_guid=%s"
 
 		return execute_scalar(scope.get_handle(), query, username, guid)
@@ -436,7 +434,8 @@ class PQObjectDb(PQDb, database.ObjectDb):
 		return util.to_bool(execute_scalar(scope.get_handle(), "select count(id) from object_comment where id=%s", id))
 
 	def report_abuse(self, scope, guid):
-		scope.get_handle("update object set reported=true where guid=%s", (guid,))
+		cur = scope.get_handle()
+		cur.execute("update object set reported=true where guid=%s", (guid,))
 
 class PQStreamDb(PQDb, database.StreamDb):
 	def __init__(self):

@@ -504,7 +504,7 @@ class ObjectDb(object):
 	#  @param username a username
 	#  @return True or False
 	@abc.abstractmethod
-	def get_vote(self, scope, guid, username): return
+	def get_voting(self, scope, guid, username): return
 
 	## Appends a comment to an object.
 	#  @param scope a transaction scope
