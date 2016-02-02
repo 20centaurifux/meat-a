@@ -1,4 +1,4 @@
-import database, psycopg2, psycopg2.extras, re, util
+import database, psycopg2, psycopg2.extras, re, util, exception
 from random import random
 
 class PQTransactionScope(database.TransactionScope):
@@ -121,6 +121,28 @@ class PQDb:
 
 		return objs
 
+class TestDb(PQDb, database.TestDb):
+	def __init__(self):
+		database.TestDb.__init__(self)
+		PQDb.__init__(self)
+
+	def clear(self, scope):
+		cur = scope.get_handle()
+
+		cur.execute("delete from public_message")
+		cur.execute("delete from user_favorite")
+		cur.execute("delete from user_recommendation")
+		cur.execute("delete from object_score")
+		cur.execute("delete from object_tag")
+		cur.execute("delete from object_comment")
+		cur.execute("delete from object")
+		cur.execute("delete from password_request")
+		cur.execute("delete from user_friendship")
+		cur.execute("delete from user_request")
+		cur.execute("delete from mail")
+		cur.execute("delete from message")
+		cur.execute("delete from \"user\"")
+
 class PQUserDb(PQDb, database.UserDb):
 	def __init__(self):
 		database.UserDb.__init__(self)
@@ -134,12 +156,12 @@ class PQUserDb(PQDb, database.UserDb):
 	def get_user_request(self, scope, id):
 		cur = scope.get_handle()
 
-		return to_dict(fetch_one(cur, "select request_id, request_code, username, email, created_on from user_request where request_id=%s", (id, )))
+		req = fetch_one(cur, "select request_id, request_code, username, email, created_on from user_request where request_id=%s", (id, ))
 
-	def map_user_id(self, scope, user_id):
-		cur = scope.get_handle()
+		if req is not None:
+			req = to_dict(req)
 
-		return execute_scalar(cur, "select username from \"user\" where id=%s", user_id)
+		return req
 
 	def username_or_email_assigned(self, scope, username, email):
 		cur = scope.get_handle()
@@ -164,16 +186,21 @@ class PQUserDb(PQDb, database.UserDb):
 
 		return execute_scalar(cur, "select count(id) from \"user\" where iusername=lower(%s) and deleted=false", username) > 0
 
+	def map_user_id(self, scope, user_id):
+		cur = scope.get_handle()
+
+		return execute_scalar(cur, "select username from \"user\" where id=%s", user_id)
+
 	def user_is_blocked(self, scope, username):
 		cur = scope.get_handle()
 
 		return execute_scalar(cur, "select blocked from \"user\" where iusername=lower(%s)", username)
 
-	def block_user(self, scope, username, blocked):
+	def block_user(self, scope, username, blocked=True):
 		cur = scope.get_handle()
 		cur.execute("update \"user\" set blocked=%s where iusername=lower(%s)", (blocked, username,))
 
-	def delete_user(self, scope, username, deleted):
+	def delete_user(self, scope, username, deleted=True):
 		cur = scope.get_handle()
 		cur.execute("update \"user\" set deleted=%s where iusername=lower(%s)", (deleted, username,))
 
@@ -259,8 +286,8 @@ class PQUserDb(PQDb, database.UserDb):
 		if query is None:
 			query = re.sub("[^0-9a-zA-Z]+", "_", query)
 
-		sql = "select username from \"user\" where firstname ilike '%%%s%%' or lastname ilike '%%%s%%' or username ilike '%%%s%%' " \
-		      "or iemail like '%%%s%%' and deleted=false order by iusername, firstname, lastname" % (query, query, query, query)
+		sql = "select username from \"user\" where (firstname ilike '%%%s%%' or lastname ilike '%%%s%%' or username ilike '%%%s%%' " \
+		      "or iemail like '%%%s%%') and deleted=false order by iusername, firstname, lastname" % (query, query, query, query)
 
 		cur = scope.get_handle()
 		cur.execute(sql)
@@ -388,6 +415,8 @@ class PQObjectDb(PQDb, database.ObjectDb):
 
 		if execute_scalar(cur, "select count(object_guid) from object_tag where user_id=%s and object_guid=%s and lower(tag)=lower(%s)", user_id, guid, tag) == 0:
 			cur.execute("insert into object_tag (user_id, object_guid, tag) values (%s, %s, %s)", (user_id, guid, tag))
+		else:
+			raise exception.ConflictException("Tag already exists.")
 
 	def get_tags(self, scope):
 		tags = []
@@ -413,6 +442,9 @@ class PQObjectDb(PQDb, database.ObjectDb):
 	def add_comment(self, scope, guid, user_id, text):
 		scope.get_handle().execute("insert into object_comment (user_id, object_guid, comment_text) values (%s, %s, %s)", (user_id, guid, text))
 
+	def flag_comment_deleted(self, scope, id):
+		scope.get_handle().execute("update object_comment set deleted=true where id=%s", (id,))
+
 	def get_comments(self, scope, guid, page=0, page_size=100):
 		comments = []
 
@@ -425,8 +457,8 @@ class PQObjectDb(PQDb, database.ObjectDb):
 
 	def get_comment(self, scope, id):
 		query = "select object_comment.id, comment_text as text, object_comment.created_on, object_comment.deleted, " + \
-		        "\"user\".username from object_comment join \"user\" on object_comment.user_id=\"user\".id "          + \
-			"where object_comment.id=%s"
+		        "\"user\".username, object_guid as \"object-guid\" "                                                  + \
+			" from object_comment join \"user\" on object_comment.user_id=\"user\".id where object_comment.id=%s"
 
 		return to_dict(fetch_one(scope.get_handle(), query, id))
 
@@ -443,9 +475,9 @@ class PQStreamDb(PQDb, database.StreamDb):
 		PQDb.__init__(self)
 
 	def get_messages(self, scope, user, limit=100, older_than=None):
-		query = "select message.id, target, source, message.created_on, type from message "                     + \
-		        "inner join \"user\" on \"user\".id=receiver_id "                                               + \
-		        "where iusername=lower(%s) and (%s is null or message.created_on<%s) order by created_on desc " + \
+		query = "select message.id, target, source, message.created_on, type from message "                + \
+		        "inner join \"user\" on \"user\".id=receiver_id "                                          + \
+		        "where iusername=lower(%s) and (%s is null or message.created_on<%s) order by created_on " + \
 		        "limit %s"
 
 		cur = scope.get_handle()
@@ -481,6 +513,20 @@ class PQMailDb(PQDb, database.MailDb):
 		cur = scope.get_handle()
 		cur.execute("insert into mail (subject, body, mail) values (%s, %s, %s)", (subject, body, mail))
 
-	def get_unsent_messages(self, scope, limit=100): return None
+	def get_unsent_messages(self, scope, limit=100):
+		query = "select mail.id, mail.subject, mail.body, mail.created_on, " + \
+		        "coalesce(mail.mail, \"user\".email) as email "              + \
+		        "from mail left join \"user\" on receiver_id=\"user\".id "   + \
+		        "where sent=false order by created_on desc limit %d" % (limit)
 
-	def mark_sent(self, scope, id): return
+		mails = []
+		cur = scope.get_handle()
+
+		for row in fetch_all(cur, query):
+			mails.append(to_dict(row))
+
+		return mails
+
+	def mark_sent(self, scope, id):
+		cur = scope.get_handle()
+		cur.execute("update mail set sent=true where id=%s" % (id,))
