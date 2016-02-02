@@ -34,14 +34,13 @@
 
 import config, mongodb, pqdb, pymongo, smtp
 
-"""
-## Creates a database.DbUtil instance.
-def create_db_util():
-	return mongodb.MongoDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
-"""
-
+# Creates a database.Connection instance.
 def create_db_connection():
 	return pqdb.PQConnection(config.PQ_DB, host=config.PQ_HOST, port=config.PQ_PORT, username=config.PQ_USER, password=config.PQ_PWD)
+
+## Creates a database.TestDb instance.
+def create_test_db():
+	return pqdb.TestDb()
 
 ## Creates a database.UserDb instance.
 def create_user_db():
@@ -58,47 +57,3 @@ def create_stream_db():
 ## Creates a database.MailDb instance.
 def create_mail_db():
 	return pqdb.PQMailDb()
-
-"""
-## Creates a database.UserDb instance using a shared connecion.
-#  @param client a shared connection
-def create_shared_user_db(client):
-	return mongodb.MongoUserDb(config.MONGODB_DATABASE, client = client)
-
-## Creates a database.ObjectDb instance using a shared connection.
-#  @param client a shared connection
-def create_shared_object_db(client):
-	return mongodb.MongoObjectDb(config.MONGODB_DATABASE, client = client)
-
-
-## Creates a database.StreamDb instance using a shared connection.
-#  @param client a shared connection
-def create_shared_stream_db(client):
-	return mongodb.MongoStreamDb(config.MONGODB_DATABASE, client = client)
-
-## Creates a database.MailDb instance.
-def create_mail_db():
-	return mongodb.MongoMailDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
-
-## Creates a database.MailDb instance using a shared connection.
-#  @param client a shared connection
-def create_shared_mail_db(client):
-	return mongodb.MongoMailDb(config.MONGODB_DATABASE, client = client)
-
-## Creates a database.RequestDb instance.
-def create_request_db():
-	return mongodb.MongoRequestDb(config.MONGODB_DATABASE, host = config.MONGODB_HOST, port = config.MONGODB_PORT)
-
-## Creates a database.RequestDb instance using a shared connection.
-#  @param client a shared connection
-def create_shared_request_db(client):
-	return mongodb.MongoRequestDb(config.MONGODB_DATABASE, client = client)
-
-## Creates a connection instance which can be shared by multiple data stores.
-def create_shared_client():
-	return pymongo.MongoClient(config.MONGODB_HOST, config.MONGODB_PORT)
-
-## Creates a mail transfer agent.
-def create_mta():
-	return smtp.SMTP_MTA(config.SMTP_HOST, config.SMTP_PORT, config.SMTP_SSL, config.SMTP_ADDRESS, config.SMTP_USERNAME, config.SMTP_PASSWORD)
-"""
