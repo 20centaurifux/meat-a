@@ -25,2589 +25,1264 @@
 	OTHER DEALINGS IN THE SOFTWARE.
 """
 
-import unittest, random, string, os, hashlib, re, json
-import factory, util, config, app, client, mailer, exception
-from time import sleep
-from exception import ErrorCode
-from database import StreamDb, RequestDb
+import unittest, factory, util, exception, config, string, random, re, itertools, datetime
 
-class TestMTA(mailer.MTA):
-	def __init__(self):
-		mailer.MTA.__init__(self)
-		self.count = 0
+class TestBase:
+	def __init__(self): pass
 
-	def start_session(self): return
+	def clear(self, scope):
+		db = factory.create_test_db()
+		db.clear(scope)
 
-	def send(self, subject, body, receiver):
-		self.count += 1
+	def pick_one(self, arr):
+		return arr[random.randint(0, len(arr) - 1)]
 
-		return True
+	def generate_username(self):
+		return self.generate_text(1, 1, string.ascii_letters) + self.generate_text(1, 15)
 
-	def end_session(self): return
+	def generate_email(self):
+		domains = ["com", "net", "de", "org", "biz", "co.uk"]
 
-class TestCase:
-	def __clear_tables__(self):
-		util = factory.create_db_util()
-		util.clear_tables()
-		util.close()
+		return self.generate_text(2, 10) + "@" + self.generate_text(1, 10, string.ascii_letters) + "." +  self.pick_one(domains)
 
-class TestUserDb(unittest.TestCase, TestCase):
-	def setUp(self):
-		self.db = self.__connect_and_prepare__()
+	def generate_text(self, min=20, max=30, characters=string.ascii_letters + string.digits):
+		result = []
 
-		# generate user details:
-		self.user_count = 100
-		self.default_text_length = 64
-		self.users = self.__generate_users__(self.user_count, self.default_text_length)
+		for i in range(random.randint(min, max)):
+			result.append(self.pick_one(characters))
 
-		# save users in database:
-		for user in self.users:
-			self.db.create_user(user["name"], user["email"], user["password"], user["firstname"], user["lastname"], user["gender"], user["language"], user["protected"])
+		return "".join(result)
 
-	def tearDown(self):
-		self.__clear_tables__()
-		self.db.close()
+	def generate_set(self, count, f):
+		l = []
 
-	def test_00_check_user_count(self):
-		self.assertEqual(self.db.count("users"), self.user_count)
+		while len(l) < count:
+			text = f()
 
-	def test_01_get_users(self):
-		# test if non-existing users can be found:
-		for user in self.__generate_users__(10, self.default_text_length * 2):
-			self.assertFalse(self.db.user_exists(user["name"]))
-			self.assertIsNone(self.db.get_user(user["name"]))
-			self.assertIsNone(self.db.get_user_password(user["name"]))
+			if len(filter(lambda s: s.lower() == text.lower(), l)) == 0:
+				l.append(text)
 
-		# get details of each user & compare fields:
-		for user in self.users:
-			self.assertTrue(self.db.user_exists(user["name"]))
+		return l
 
-			# test details:
-			details = self.db.get_user(user["name"])
-			self.assertIsNotNone(details)
-			self.__test_full_user_structure__(details)
+	def generate_sex(self):
+		sex = ["male", "female", "trans man", "trans woman"]
 
-			details = self.db.get_user_by_email(user["email"])
-			self.assertIsNotNone(details)
-			self.__test_full_user_structure__(details)
+		return self.pick_one(sex)
 
-			for key in user:
-				self.assertEqual(user[key], details[key])
+	def generate_language(self):
+		return self.pick_one(config.LANGUAGES)
 
-			# test password:
-			password = self.db.get_user_password(user["name"])
-			self.assertEqual(user["password"], password)
-
-	def test_02_block_users(self):
-		for i in range(len(self.users)):
-			self.users[i]["blocked"] = bool(i % 2)
-			self.db.block_user(self.users[i]["name"], self.users[i]["blocked"])
-
-		for user in self.users:
-			self.assertEqual(user["blocked"], self.db.user_is_blocked(user["name"]))
-
-	def test_03_update_users(self):
-		for user in self.users:
-			# update user details:
-			for key in user:
-				if key != "name" and key != "gender" and key != "password" and key != "avatar":
-					user[key] = util.generate_junk(self.default_text_length * 2)
-				elif key == "gender":
-					if random.randint(0, 1) == 1:
-						user["gender"] = "m"
-					else:
-						user["gender"] = "f"
-
-					user["protected"] = bool(random.randint(0, 1))
-
-			self.db.update_user_details(user["name"], user["email"], user["firstname"], user["lastname"], user["gender"], user["language"], user["protected"])
-
-			# get details from database & compare fields:
-			details = self.db.get_user(user["name"])
-			self.assertIsNot(details, None)
-
-			for key in user:
-				self.assertEqual(user[key], details[key])
-
-			# update password:
-			user["password"] = util.generate_junk(self.default_text_length * 2)
-			self.db.update_user_password(user["name"], user["password"])
-
-			# test if password has been changed:
-			self.assertEqual(user["password"], self.db.get_user_password(user["name"]))
-
-			# update avatar:
-			user["avatar"] = util.generate_junk(self.default_text_length * 2)
-			self.db.update_avatar(user["name"], user["avatar"])
-
-			# test if avatar has been changed:
-			details = self.db.get_user(user["name"])
-			self.assertEqual(details["avatar"], details["avatar"])
-
-			# request new password:
-			code = util.generate_junk(128)
-			self.assertFalse(self.db.password_request_code_exists(code))
-
-			self.db.create_password_request(user["name"], code, 60)
-			self.assertTrue(self.db.password_request_code_exists(code))
-
-			username = self.db.get_password_request(code)
-			self.assertEqual(username, user["name"])
-
-			self.db.remove_password_request(code)
-			self.assertFalse(self.db.password_request_code_exists(code))
-
-	def test_04_email_assigned(self):
-		for user in self.users:
-			self.assertTrue(self.db.email_assigned(user["email"]))
-
-		for i in range(100):
-			self.assertFalse(self.db.email_assigned(util.generate_junk(self.default_text_length * 2)))
-
-	def test_05_search_user(self):
-		# search for each user:
-		for user in self.users:
-			queries = [ user["name"], user["firstname"], user["lastname"], user["email"] ]
-
-			queries.append("%s %s" % (user["firstname"], user["lastname"]))
-			queries.append("%s %s" % (user["lastname"], user["firstname"]))
-			queries.append("%s, %s" % (user["firstname"], user["lastname"]))
-
-			for query in queries:
-				result = self.db.search_user(query)
-
-				# test if search result contains at least one user:
-				self.assertTrue(len(result) >= 1)
-
-				# test if current user exists in search result:
-				user_exists = False
-
-				for entry in result:
-					if entry["name"] == user["name"]:
-						user_exists = True
-						break
-
-				self.assertTrue(user_exists)
-				self.__test_user_structure__(entry)
-
-	def test_06_user_requests(self):
-		# try to find non-existing requests:
-		for i in range(100):
-			code = util.generate_junk(128)
-			self.assertFalse(self.db.user_request_code_exists(code))
-			self.assertIsNone(self.db.get_user_request(code))
-
-		for user in self.users:
-			self.assertFalse(self.db.username_requested(user["name"]))
-
-		# create request:
-		username = util.generate_junk(self.default_text_length * 2)
-		email = util.generate_junk(self.default_text_length * 2)
-		code = util.generate_junk(128)
-
-		self.db.create_user_request(username, email, code, 60)
-
-		# test created data:
-		self.assertTrue(self.db.user_request_code_exists(code))
-
-		request = self.db.get_user_request(code)
-		self.assertIsNotNone(request)
-		self.assertTrue(request.has_key("name"))
-		self.assertTrue(request.has_key("email"))
-
-		# remove request:
-		self.db.remove_user_request(code)
-		self.assertFalse(self.db.user_request_code_exists(code))
-
-		# create new request with short lifetime:
-		code = util.generate_junk(128)
-
-		self.db.create_user_request(username, email, code, 1)
-		sleep(1.5)
-
-		# test if request still exists:
-		self.assertFalse(self.db.user_request_code_exists(code))
-
-		request = self.db.get_user_request(code)
-		self.assertIsNone(request)
-
-	def test_07_friendship(self):
-		users_a = self.users[:50]
-		users_b = self.users[50:]
-
-		for i in range(50):
-			self.assertFalse(self.db.is_following(users_a[i]["name"], users_b[i]["name"]))
-			self.assertFalse(self.db.is_following(users_b[i]["name"], users_a[i]["name"]))
-
-			self.db.follow(users_a[i]["name"], users_b[i]["name"])
-			self.assertTrue(self.db.is_following(users_a[i]["name"], users_b[i]["name"]))
-			self.assertFalse(self.db.is_following(users_b[i]["name"], users_a[i]["name"]))
-
-			self.db.follow(users_b[i]["name"], users_a[i]["name"])
-			self.assertTrue(self.db.is_following(users_a[i]["name"], users_b[i]["name"]))
-			self.assertTrue(self.db.is_following(users_b[i]["name"], users_a[i]["name"]))
-
-			self.db.follow(users_a[i]["name"], users_b[i]["name"], False)
-			self.assertFalse(self.db.is_following(users_a[i]["name"], users_b[i]["name"]))
-			self.assertTrue(self.db.is_following(users_b[i]["name"], users_a[i]["name"]))
-
-	def __connect_and_prepare__(self):
+	def generate_user_account(self, scope):
 		db = factory.create_user_db()
-		self.__clear_tables__()
 
-		return db
+		username = self.generate_username()
+		email = self.generate_email()
 
-	def __generate_users__(self, count, text_length = 64):
-		users = []
+		while db.username_or_email_assigned(scope, username, email):
+			username = self.generate_username()
+			email = self.generate_email()
 
-		for i in range(count):
-			users.append(self.__generate_user_details__(text_length))
+		id = self.generate_text()
 
-		return users
+		while db.user_request_id_exists(scope, id):
+			id = self.generate_text()
 
-	def __generate_user_details__(self, text_length):
-		if random.randint(0, 1) == 1:
-			gender = "m"
-		else:
-			gender = "f"
+		code = self.generate_text()
+		password = self.generate_text()
+		salt = self.generate_text()
+		hash = util.password_hash(password, salt)
 
-		return { "name": util.generate_junk(text_length),
-		         "email": util.generate_junk(text_length),
-		         "firstname": util.generate_junk(text_length),
-		         "lastname": util.generate_junk(text_length),
-		         "password": util.generate_junk(text_length),
-		         "gender": gender,
-		         "language": util.generate_junk(text_length),
-		         "protected": True,
-		         "avatar": None }
+		db.create_user_request(scope, id, code, username, email)
+		db.activate_user(scope, id, code, hash, salt)
 
-	def __test_full_user_structure__(self, user):
-		self.assertTrue(user.has_key("name"))
-		self.assertTrue(user.has_key("firstname"))
-		self.assertTrue(user.has_key("lastname"))
-		self.assertTrue(user.has_key("email"))
-		self.assertTrue(user.has_key("password"))
-		self.assertTrue(user.has_key("gender"))
-		self.assertTrue(user.has_key("timestamp"))
-		self.assertTrue(user.has_key("avatar"))
-		self.assertTrue(user.has_key("blocked"))
-		self.assertTrue(user.has_key("language"))
-		self.assertTrue(user.has_key("protected"))
+		user = db.get_user(scope, username)
+		user.update({ "password": password })
 
-	def __test_user_structure__(self, user):
-		self.assertTrue(user.has_key("name"))
-		self.assertTrue(user.has_key("firstname"))
-		self.assertTrue(user.has_key("lastname"))
-		self.assertTrue(user.has_key("gender"))
-		self.assertTrue(user.has_key("protected"))
+		return user
 
-class TestObjectDb(unittest.TestCase, TestCase):
-	def setUp(self):
-		self.db = self.__connect_and_prepare__()
-
-	def tearDown(self):
-		self.__clear_tables__()
-		self.db.close()
-
-	def test_00_create_objects(self):
-		objs = self.__generate_and_store_objects__(100, 64)
-		self.assertEqual(len(objs), self.db.count("objects"))
-
-	def test_01_get_objects(self):
-		# create objects:
-		objs = self.__generate_and_store_objects__(100, 64)
-
-		# test if non-existing objects can be found:
-		for obj in self.__generate_objects__(10, 128):
-			self.assertIsNone(self.db.get_object(obj["guid"]))
-			self.assertFalse(self.db.object_exists(obj["guid"]))
-			
-		# get details of each object & compare fields:
-		for obj in objs:
-			details = self.db.get_object(obj["guid"])
-			self.assertIsNot(details, None)
-			self.__test_object_structure__(details)
-			self.assertTrue(self.db.object_exists(obj["guid"]))
-
-			for key in obj:
-				self.assertEqual(obj[key], details[key])
-
-		# delete all objects:
-		self.db.remove("objects")
-
-		# create new test records:
-		objs = self.__generate_objects__(12, 64)
-
-		for obj in objs:
-			self.db.create_object(obj["guid"], obj["source"])
-			sleep(0.2)
-
-		# test paging:
-		page = self.db.get_objects(0, 5)
-		self.assertEqual(len(page), 5)
-		self.assertEqual(objs[11]["guid"], page[0]["guid"])
-
-		for details in page:
-			self.__test_object_structure__(details)
-
-		page = self.db.get_objects(2, 5)
-		self.assertEqual(len(page), 2)
-		self.assertEqual(objs[0]["guid"], page[1]["guid"])
-
-		for details in page:
-			self.__test_object_structure__(details)
-
-	def test_02_remove_objects(self):
-		objs = self.__generate_and_store_objects__(100, 64)
-
-		# remove objects:
-		for i in range(100):
-			if i % 3 == 1:
-				self.db.remove_object(objs[i]["guid"])
-
-		# test object count:
-		self.assertEqual(len(objs) - len(objs) / 3, self.db.count("objects"))
-
-		# test if correct objects have been deleted:
-		for i in range(100):
-			if i % 3 == 1:
-				deleted = True
-			else:
-				deleted = False
-
-			if self.db.get_object(objs[i]["guid"]) is None:
-				exists = False
-			else:
-				exists = True
-
-			self.assertNotEqual(exists, deleted)
-
-	def test_03_lock_objects(self):
-		objs = self.__generate_and_store_objects__(100, 64)
-
-		for i in range(100):
-			if i % 5 == 1:
-				self.db.lock_object(objs[i]["guid"], True)
-			else:
-				self.db.lock_object(objs[i]["guid"], False)
-
-		for i in range(100):
-			if i % 5 == 1:
-				self.assertTrue(self.db.is_locked(objs[i]["guid"]))
-			else:
-				self.assertFalse(self.db.is_locked(objs[i]["guid"]))
-
-	def test_04_add_tags(self):
-		# create two arrays containing tags:
-		tags = [ [], [] ]
-
-		for i in range(100):
-			tags[0].append(util.generate_junk(64))
-
-			if i % 2 == 1:
-				tags[1].append(util.generate_junk(128))
-
-		# create two test objects:
-		objs = self.__generate_and_store_objects__(2, 32)
-
-		# assign each array to one object:
-		for i in range(2):
-			self.db.add_tags(objs[i]["guid"], tags[i])
-			details = self.db.get_object(objs[i]["guid"])
-
-			self.assertTrue(details.has_key("tags"))
-			self.assertEqual(len(details["tags"]), len(tags[i]))
-
-		# assign both arrays to first object:
-		self.db.add_tags(objs[0]["guid"], tags[0])
-		self.db.add_tags(objs[0]["guid"], tags[1])
-
-		details = self.db.get_object(objs[0]["guid"])
-		self.assertTrue(details.has_key("tags"))
-		self.assertEqual(len(details["tags"]), len(tags[0]) + len(tags[1]))
-
-	def test_05_tag_statistic(self):
-		# create test objects:
-		objs = self.__generate_and_store_objects__(5, 64)
-
-		# insert tags:
-		self.db.add_tags(objs[0]["guid"], [ "1", "2", "4", "5" ])
-		self.db.add_tags(objs[1]["guid"], [ "2", "5" ])
-		self.db.add_tags(objs[2]["guid"], [ "8", "6", "1" ])
-		self.db.add_tags(objs[3]["guid"], [ "7", "5", "2" ])
-		self.db.add_tags(objs[4]["guid"], [ "1", "2", "7", "3" ])
-
-		# update statistic:
-		self.db.build_tag_statistic()
-
-		# get statistic:
-		statistic = self.db.get_tags(2)
-		self.assertIsNotNone(statistic)
-		self.assertEqual(len(statistic), 2)
-		self.assertEqual(statistic[0]["count"], 4)
-		self.assertEqual(statistic[0]["tag"], "2")
-		self.assertEqual(statistic[1]["count"], 3)
-		self.assertEqual(statistic[1]["tag"], "1")
-
-		statistic = self.db.get_tags()
-		self.assertIsNotNone(statistic)
-		self.assertEqual(len(statistic), 8)
-		self.assertEqual(statistic[0]["count"], 4)
-		self.assertEqual(statistic[0]["tag"], "2")
-		self.assertEqual(statistic[1]["count"], 3)
-		self.assertEqual(statistic[2]["count"], 3)
-		self.assertEqual(statistic[3]["count"], 2)
-		self.assertEqual(statistic[3]["tag"], "7")
-
-		for i in range(4, 7):
-			self.assertEqual(statistic[i]["count"], 1)
-
-	def test_06_get_tagged_objects(self):
-		# create test objects:
-		objs = self.__generate_objects__(3, 64)
-
-		for obj in objs:
-			self.db.create_object(obj["guid"], obj["source"])
-			sleep(0.2)
-
-		# tag objects:
-		self.db.add_tags(objs[0]["guid"], [ "1", "4", "5" ])
-		self.db.add_tags(objs[1]["guid"], [ "3", "5", "1" ])
-		self.db.add_tags(objs[2]["guid"], [ "6", "2", "1" ])
-
-		# get objects:
-		result = self.db.get_tagged_objects("1")
-		self.assertEqual(len(result), 3)
-		self.assertEqual(result[0]["guid"], objs[2]["guid"])
-		self.assertEqual(result[1]["guid"], objs[1]["guid"])
-		self.assertEqual(result[2]["guid"], objs[0]["guid"])
-		map(self.__test_object_structure__, result)
-
-		result = self.db.get_tagged_objects("1", page = 0, page_size = 2)
-		self.assertEqual(len(result), 2)
-		self.assertEqual(result[0]["guid"], objs[2]["guid"])
-		self.assertEqual(result[1]["guid"], objs[1]["guid"])
-		map(self.__test_object_structure__, result)
-
-		result = self.db.get_tagged_objects("1", page = 1, page_size = 2)
-		self.assertEqual(len(result), 1)
-		self.assertEqual(result[0]["guid"], objs[0]["guid"])
-		map(self.__test_object_structure__, result)
-
-		result = self.db.get_tagged_objects("5")
-		self.assertEqual(len(result), 2)
-		map(self.__test_object_structure__, result)
-
-		result = self.db.get_tagged_objects("2")
-		self.assertEqual(len(result), 1)
-		map(self.__test_object_structure__, result)
-
-	def test_07_get_random_objects(self):
-		# create test objects:
-		objs = self.__generate_and_store_objects__(500 , 64)
-
-		# get random objects:
-		a = self.db.get_random_objects(100)
-		self.assertEqual(len(a), 100)
-
-		b = self.db.get_random_objects(100)
-		self.assertEqual(len(b), 100)
-
-		# test if results differ:
-		count = 0
-
-		for i in range(100):
-			if a[i] == b[i]:
-				count += 1
-
-		self.assertNotEqual(count, 100)
-
-		# try to get more random objects than possible:
-		result = self.db.get_random_objects(1000)
-		self.assertNotEqual(len(result), 1000)
-
-	def test_08_favorites(self):
-		# create test objects:
-		objs = self.__generate_and_store_objects__(500, 32)
-
-		# set/unset favorites:
-		users = [ "a", "b", "c", "d", "e", "f", "g" ]
-
-		for r in range(2):
-			for obj in objs:
-				for user in users:
-					if r == 0:
-						self.assertFalse(self.db.is_favorite(obj["guid"], user))
-
-					if random.random() >= 0.5:
-						fav = True
-					else:
-						fav = False
-
-					self.db.favor_object(obj["guid"], user, fav)
-					self.assertEqual(self.db.is_favorite(obj["guid"], user), fav)
-
-					# test score:
-					details = self.db.get_object(obj["guid"])
-					self.assertEqual(details["score"]["up"] - details["score"]["down"], details["score"]["total"])
-
-		# get favorites assigned to user:
-		favs = self.db.get_favorites("h")
-		self.assertEqual(len(favs), 0)
-
-		for i in range(10):
-			self.db.favor_object(objs[i]["guid"], "h", True)
-
-		favs = self.db.get_favorites("h")
-		self.assertEqual(len(favs), 10)
-
-		favs = self.db.get_favorites("h", 0, 8)
-		self.assertEqual(len(favs), 8)
-
-		favs = self.db.get_favorites("h", 1, 8)
-		self.assertEqual(len(favs), 2)
-
-		for i in range(0, 10, 2):
-			self.db.favor_object(objs[i]["guid"], "h", False)
-
-		favs = self.db.get_favorites("h")
-		self.assertEqual(len(favs), 5)
-
-		for fav in favs:
-			for i in range(10):
-				if fav["guid"] == objs[i]["guid"]:
-					exists = True
-					break
-		
-			if i % 2 == 0:
-				self.assertFalse(exists)
-			else:
-				self.assertTrue(exists)
-
-		# test sort order:
-		for i in range(20):
-			self.db.favor_object(objs[i]["guid"], "h", True)
-			sleep(0.1)
-
-		r = self.db.get_favorites("h", 0, 20)
-
-		timestamp = 0
-
-		for obj in r:
-			assert obj["timestamp"] >= timestamp
-			timestamp = obj["timestamp"]
-
-	def test_09_score(self):
-		# create test objects:
-		objs = self.__generate_and_store_objects__(500, 32)
-
-		# let first user rate all objects two times:
-		for i in range(2):
-			for i in range(500):
-				self.db.rate(objs[i]["guid"], "a", True)
-
-			# test score:
-			for obj in self.db.get_objects():
-				details = self.db.get_object(objs[i]["guid"])
-				self.__test_object_structure__(details)
-				self.assertEqual(details["score"]["total"], 1)
-				self.assertEqual(details["score"]["up"], 1)
-				self.assertEqual(details["score"]["down"], 0)
-
-		# let other users rate all objects randomly:
-		users = [ "b", "c", "d", "e", "f", "g" ]
-
-		for i in range(500):
-			for user in users:
-				self.assertTrue(self.db.user_can_rate(objs[i]["guid"], user))
-
-				if random.random() >= 0.5:
-					self.db.rate(objs[i]["guid"], user, True)
-				else:
-					self.db.rate(objs[i]["guid"], user, False)
-
-				self.assertFalse(self.db.user_can_rate(objs[i]["guid"], user))
-
-		# test score:
-		for obj in self.db.get_objects():
-			self.__test_object_structure__(obj)
-			self.assertEqual(obj["score"]["up"] - obj["score"]["down"], obj["score"]["total"])
-
-		# get popular objects:
-		result = self.db.get_popular_objects(0, 1000)
-		self.assertEqual(len(result), 500)
-
-		for i in range(499):
-			self.__test_object_structure__(result[i])
-
-			if i > 0:
-				assert result[i]["score"]["total"] >= result[i + 1]["score"]["total"]
-
-	def test_10_recommendations(self):
-		# create test objects:
-		objs = self.__generate_and_store_objects__(100, 32)
-
-		# create recommendations:
-		for i in range(100):
-			if i % 2 == 0:
-				self.db.recommend(objs[i]["guid"], "a", [ "b", "c" ])
-			else:
-				self.db.recommend(objs[i]["guid"], "b", [ "a", "c" ])
-
-		# get recommendations:
-		r = self.db.get_recommendations("c", 0, 500)
-		self.assertEqual(len(r), 100)
-
-		r = self.db.get_recommendations("a", 0, 30)
-		self.assertEqual(len(r), 30)
-
-		r = self.db.get_recommendations("a", 1, 30)
-		self.assertEqual(len(r), 20)
-
-		for user in [ "a", "b" ]:
-			count = 0
-
-			for obj in self.db.get_recommendations(user, 0, 100):
-				self.__test_object_structure__(obj)
-
-				count += 1
-				flag = 0
-				exists = False
-
-				if user == "a":
-					flag = 1
-
-				for i in range(100):
-					if i % 2 == flag:
-						if objs[i]["guid"] == obj["guid"]:
-							exists = True
-							break
-
-				self.assertTrue(exists)
-				self.assertEqual(exists, self.db.recommendation_exists(objs[i]["guid"], user))
-
-			self.assertEqual(count, 50)
-
-		# test sort order:
-		for i in range(20):
-			self.db.recommend(objs[i]["guid"], "a", [ "d" ])
-			sleep(0.1)
-
-
-		r = self.db.get_recommendations("d", 0, 20)
-
-		timestamp = 0
-
-		for obj in r:
-			assert obj["timestamp"] >= timestamp
-			timestamp = obj["timestamp"]
-
-	def test_11_comments(self):
-		# create test users:
-		with factory.create_user_db() as userdb:
-			userdb.create_user("a", "email-a", "first-a", "last-a", "pwd-a", "m")
-			userdb.create_user("b", "email-b", "first-b", "last-b", "pwd-b", "f")
-
-		# create test objects:
-		objs = self.__generate_and_store_objects__(2, 32)
-
-		# create comments:
-		for i in range(16):
-			user = "a"
-
-			if i % 2 == 0:
-				user = "b"
-
-			guid = objs[0]["guid"]
-
-			if i % 4 == 0:
-				guid = objs[1]["guid"]
-
-			self.db.add_comment(guid, user, util.generate_junk(256))
-			sleep(0.2)
-
-		# get comments:
-		comments = self.db.get_comments(objs[0]["guid"], 0, 100)
-		self.assertEqual(len(comments), 12)
-
-		# test paging:
-		comments = self.db.get_comments(objs[0]["guid"], 0, 10)
-		self.assertEqual(len(comments), 10)
-
-		comments = self.db.get_comments(objs[0]["guid"], 1, 10)
-		self.assertEqual(len(comments), 2)
-
-		comments = self.db.get_comments(objs[1]["guid"], 0, 100)
-		self.assertEqual(len(comments), 4)
-
-		# test fields:
-		comment = comments[0]
-
-		self.assertTrue(comment.has_key("timestamp"))
-		self.assertTrue(comment.has_key("text"))
-		self.assertTrue(comment.has_key("user"))
-
-		user = comment["user"]
-
-		self.assertTrue(user.has_key("name"))
-		self.assertTrue(user.has_key("firstname"))
-		self.assertTrue(user.has_key("lastname"))
-		self.assertTrue(user.has_key("gender"))
-		self.assertTrue(user.has_key("avatar"))
-		self.assertTrue(user.has_key("blocked"))
-
-	def __connect_and_prepare__(self):
+	def generate_object(self, scope):
 		db = factory.create_object_db()
-		self.__clear_tables__()
 
-		return db
+		guid = str(util.new_guid())
+		source = self.generate_text()
 
-	def __generate_and_store_objects__(self, count, text_length):
-		objs = self.__generate_objects__(count, text_length)
+		db.create_object(scope, guid, source)
 
-		for obj in objs:
-			self.db.create_object(obj["guid"], obj["source"])
+		return { "guid": guid, "source": source }
 
-		return objs
+	def assertNoneOrEmpty(self, str):
+		assert(str is None or len(str) == 0)
 
-	def __generate_objects__(self, count, text_length = 64):
-		objs = []
-
-		for i in range(count):
-			objs.append(self.__generate_object__(text_length))
-
-		return objs
-
-	def __generate_object__(self, text_length):
-		return { "guid": util.generate_junk(text_length), "source": util.generate_junk(text_length) }
-
-	def __test_object_structure__(self, obj):
-		self.assertTrue(obj.has_key("guid"))
-		self.assertTrue(obj.has_key("source"))
-		self.assertTrue(obj.has_key("locked"))
-		self.assertTrue(obj.has_key("tags"))
-		self.assertTrue(obj.has_key("score"))
-		self.assertTrue(obj["score"].has_key("up"))
-		self.assertTrue(obj["score"].has_key("down"))
-		self.assertTrue(obj["score"].has_key("fav"))
-		self.assertTrue(obj["score"].has_key("total"))
-		self.assertTrue(obj.has_key("timestamp"))
-		self.assertTrue(obj.has_key("comments_n"))
-
-class TestStreamDb(unittest.TestCase, TestCase):
-	def test_00_recommendations(self):
-		# generate test data:
-		recommendations = {}
-
-		for i in range(333):
-			if i % 7 == 0:
-				comment = None
-			else:
-				comment = util.generate_junk(128)
-
-			data = {}
-
-			data["comment"] = comment
-
-			if i % 3 == 0:
-				data["sender"] = "user_b"
-				data["receiver"] = "user_a"
-			else:
-				data["sender"] = "user_a"
-				data["receiver"] = "user_b"
-
-			recommendations[util.generate_junk(64)] = data
-
-		with factory.create_stream_db() as db:
-			# create messages:
-			i = 0
-
-			for guid, data in recommendations.items():
-				db.add_message(StreamDb.MessageType.RECOMMENDATION, data["sender"], data["receiver"], guid = guid, comment = data["comment"])
-
-				if i % 33 == 0:
-					sleep(0.1)
-
-				i += 1
-
-			# get & validate messages:
-			self.__validate_messages__(db, 111, 222, self.__test_recommendation__)
-
-			with factory.create_stream_db() as db:
-				for msg in db.get_messages("user_a"):
-					if recommendations[msg["guid"]].has_key("comment"):
-						self.assertTrue(msg.has_key("comment"))
-
-	def test_01_comments(self):
-		# generate test data:
-		comments = {}
-
-		for i in range(500):
-			data = {}
-
-			data["comment"] = util.generate_junk(128)
-
-			if i % 5 == 0:
-				data["sender"] = "user_b"
-				data["receiver"] = "user_a"
-			else:
-				data["sender"] = "user_a"
-				data["receiver"] = "user_b"
-
-			comments[util.generate_junk(64)] = data
-
-		with factory.create_stream_db() as db:
-			# create messages:
-			i = 0
-
-			for guid, data in comments.items():
-				db.add_message(StreamDb.MessageType.COMMENT, data["sender"], data["receiver"], guid = guid, comment = data["comment"])
-
-				if i % 25 == 0:
-					sleep(0.1)
-
-				i += 1
-
-			# get & validate messages:
-			self.__validate_messages__(db, 100, 400, self.__test_comment__)
-
-	def test_02_favor(self):
-		# generate test data:
-		favorites = {}
-
-		for i in range(777):
-			data = {}
-
-			if i % 7 == 0:
-				data["sender"] = "user_b"
-				data["receiver"] = "user_a"
-			else:
-				data["sender"] = "user_a"
-				data["receiver"] = "user_b"
-
-			favorites[util.generate_junk(64)] = data
-
-		with factory.create_stream_db() as db:
-			# create messages:
-			i = 0
-
-			for guid, data in favorites.items():
-				db.add_message(StreamDb.MessageType.FAVOR, data["sender"], data["receiver"], guid = guid)
-
-				if i % 25 == 0:
-					sleep(0.1)
-
-				i += 1
-
-			# get & validate messages:
-			self.__validate_messages__(db, 111, 666, self.__test_favor__)
-
-	def test_03_votes(self):
-		# generate test data:
-		votes = {}
-
-		for i in range(600):
-			data = {}
-
-			if i % 6 == 0:
-				data["sender"] = "user_b"
-				data["receiver"] = "user_a"
-			else:
-				data["sender"] = "user_a"
-				data["receiver"] = "user_b"
-
-			if i % 3 == 0:
-				data["up"] = True
-			else:
-				data["up"] = False
-
-			votes[util.generate_junk(64)] = data
-
-		with factory.create_stream_db() as db:
-			# create messages:
-			i = 0
-
-			for guid, data in votes.items():
-				db.add_message(StreamDb.MessageType.VOTE, data["sender"], data["receiver"], guid = guid, up = data["up"])
-
-				if i % 30 == 0:
-					sleep(0.1)
-
-				i += 1
-
-			# get & validate messages:
-			self.__validate_messages__(db, 100, 500, self.__test_vote__)
-
-			with factory.create_stream_db() as db:
-				for msg in db.get_messages("user_a"):
-					self.assertEqual(votes[msg["guid"]]["up"], msg["up"])
-
-	def setUp(self):
-		self.__clear_tables__()
-
-		# create test users:
-		with factory.create_user_db() as db:
-			db.create_user("user_a", "user_a@testmail.com", util.generate_junk(64), util.generate_junk(64), util.generate_junk(64), "m", True)
-			db.create_user("user_b", "user_b@testmail.com", util.generate_junk(64), util.generate_junk(64), util.generate_junk(64), "f", False)
-
-	def tearDown(self):
-		self.__clear_tables__()
-
-	def __test_order__(self, stream):
-		timestamp = -1
-
-		for msg in stream:
-			if timestamp == -1:
-				timestamp = msg["timestamp"]
-			else:
-				assert msg["timestamp"] <= timestamp
-				timestamp = msg["timestamp"]
-
-	def __find_test_timestamp__(self, messages):
-		i = int(len(messages) / 1.5)
-		timestamp = messages[i]["timestamp"]
-
-		while messages[i]["timestamp"] == timestamp:
-			i += 1
-
-		return i, messages[i]["timestamp"]
-
-	def __test_message__(self, msg, code, sender, receiver):
-		self.assertEqual(msg["type_id"], code)
-		self.assertEqual(msg["sender"]["name"], sender)
-		self.assertTrue(msg["sender"].has_key("firstname"))
-		self.assertTrue(msg["sender"].has_key("lastname"))
-		self.assertTrue(msg["sender"].has_key("avatar"))
-		self.assertTrue(msg["sender"].has_key("blocked"))
-		self.assertTrue(msg["sender"].has_key("gender"))
-		self.assertEqual(msg["receiver"], receiver)
-		self.assertTrue(msg.has_key("timestamp"))
-
-	def __test_messages__(self, messages, sender, receiver, validator):
-		for msg in messages:
-			validator(msg, sender, receiver)
-
-		self.__test_order__(messages)
-
-	def __validate_messages__(self, db, len_a, len_b, validator):
-		result = db.get_messages("user_a", len_a * 2)
-		self.assertEqual(len(result), len_a)
-		self.__test_messages__(result, "user_b", "user_a", validator)
-
-		result = db.get_messages("user_b", len_a / 2)
-		self.assertEqual(len(result), len_a / 2)
-
-		result = db.get_messages("user_b", len_b * 2)
-		self.assertEqual(len(result), len_b)
-		self.__test_messages__(result, "user_a", "user_b", validator)
-
-		index, timestamp = self.__find_test_timestamp__(result)
-		length = len_b - index
-
-		count = len(result)
-
-		result = db.get_messages("user_b", len_b, timestamp)
-		self.assertEqual(count - index, len(result))
-
-	def __test_recommendation__(self, r, sender, receiver):
-		self.__test_message__(r, StreamDb.MessageType.RECOMMENDATION, sender, receiver)
-		self.assertTrue(r.has_key("guid"))
-
-	def __test_comment__(self, v, sender, receiver):
-		self.__test_message__(v, StreamDb.MessageType.COMMENT, sender, receiver)
-		self.assertTrue(v.has_key("guid"))
-		self.assertTrue(v.has_key("comment"))
-
-	def __test_favor__(self, f, sender, receiver):
-		self.__test_message__(f, StreamDb.MessageType.FAVOR, sender, receiver)
-
-	def __test_vote__(self, v, sender, receiver):
-		self.__test_message__(v, StreamDb.MessageType.VOTE, sender, receiver)
-		self.assertTrue(v.has_key("guid"))
-		self.assertTrue(v.has_key("up"))
-
-class TestMailDb(unittest.TestCase, TestCase):
-	def test_00_mails(self):
-		with factory.create_mail_db() as db:
-			# create test messages:
-			for i in range(1000):
-				db.append_message("subject-%d" % i, "body-%d" % i, "test@testmail.com", 120)
-
-			# get & validate messages:
-			result = db.get_unsent_messages(10)
-			self.assertEqual(len(result), 10)
-
-			result = db.get_unsent_messages(5000)
-			self.assertEqual(len(result), 1000)
-
-			i = 0
-			created = 0
-
-			reg_subject = re.compile("^subject-[\d]{1,3}$")
-			reg_body = re.compile("^body-[\d]{1,3}$")
-
-			for msg in result:
-				self.assertIsNotNone(msg["id"])
-				self.assertIsNotNone(reg_subject.match(msg["subject"]))
-				self.assertIsNotNone(reg_body.match(msg["body"]))
-				self.assertEqual(msg["receiver"], "test@testmail.com")
-				assert msg["created"] >= created
-
-				created = msg["created"]
-				i += 1
-
-				# mark message as sent:
-				db.mark_sent(msg["id"])
-
-			result = db.get_unsent_messages(5000)
-			self.assertEqual(len(result), 0)
-
-			# test lifetime:
-			db.append_message("foo", "bar", "test@testmail.com", 1)
-			sleep(1.5)
-
-			result = db.get_unsent_messages()
-			self.assertEqual(len(result), 0)
-
-	def setUp(self):
-		self.__clear_tables__()
-
-	def tearDown(self):
-		self.__clear_tables__()
-
-class TestRequestDb(unittest.TestCase, TestCase):
-	def test_00_requests(self):
-		with factory.create_request_db() as db:
-			# append a single request & test lifetime:
-			db.append_request(RequestDb.RequestType.ACCOUNT_REQUEST, "127.0.0.1", 1)
-			sleep(1.5)
-
-			self.assertEqual(db.count_requests(RequestDb.RequestType.ACCOUNT_REQUEST, "127.0.0.1"), 0)
-			self.assertEqual(db.total_requests(), 1)
-
-			db.remove_old_requests()
-
-			self.assertEqual(db.total_requests(), 0)
-
-			# insert multiple requests:
-			for i in range(1000):
-				if i % 2 == 0:
-					ip = "127.0.0.1"
-				else:
-					ip = "192.168.1.1"
-
-				if i % 5 == 0:
-					code = RequestDb.RequestType.ACCOUNT_REQUEST
-				else:
-					code = RequestDb.RequestType.PASSWORD_RESET
-
-				db.append_request(code, ip)
-	
-			self.assertEqual(db.count_requests(RequestDb.RequestType.ACCOUNT_REQUEST, "127.0.0.1"), 100)
-			self.assertEqual(db.count_requests(RequestDb.RequestType.PASSWORD_RESET, "127.0.0.1"), 400)
-
-			self.assertEqual(db.count_requests(RequestDb.RequestType.ACCOUNT_REQUEST, "192.168.1.1"), 100)
-			self.assertEqual(db.count_requests(RequestDb.RequestType.PASSWORD_RESET, "192.168.1.1"), 400)
-
-			self.assertEqual(db.count_requests(RequestDb.RequestType.PASSWORD_RESET, "255.255.255.0"), 0)
-
-	def setUp(self):
-		self.__clear_tables__()
-
-	def tearDown(self):
-		self.__clear_tables__()
-
-class TestApplication(unittest.TestCase, TestCase):
-	def test_00_account_creation(self):
-		with app.Application() as a:
-			# generate test data:
-			users = []
-
-			user = {}
-			user["username"] = util.generate_junk(8, string.ascii_letters)
-			user["email"] = "test@testmail.com"
-			users.append(user)
-
-			user = {}
-			user["username"] = util.generate_junk(8, string.ascii_letters)
-			user["email"] = "test@test-mail.com"
-			users.append(user)
-
-			# account requests with invalid username/email:
-			parameters = [ { "username": "." + util.generate_junk(64), "email": "test@testmail.com", "parameter": "username" },
-				       { "username": util.generate_junk(8, string.ascii_letters), "email": util.generate_junk(64), "parameter": "email" } ]
-
-			for p in parameters:
-				err = False
-
-				try:
-					code = a.request_account(p["username"], p["email"])
-
-				except exception.Exception, ex:
-					err = self.__assert_invalid_parameter__(ex, p["parameter"])
-
-				self.assertTrue(err)
-
-			# check request timeout:
-			code = a.request_account(users[0]["username"], users[0]["email"], 1)
-			sleep(1.5)
-			
-			err = False
-
-			try:
-				username, email, password = a.activate_user(code)
-
-			except exception.Exception, ex:
-				err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
-
-			self.assertTrue(err)
-
-			# create first request & activate user:
-			code = a.request_account(users[0]["username"], users[0]["email"], 60)
-			username, email, password = a.activate_user(code)
-			self.assertEqual(users[0]["username"], username)
-			self.assertEqual(users[0]["email"], email)
-
-			# try to create user with same username/email address:
-			parameters = [ { "username": users[0]["username"], "email": users[1]["email"], "code": ErrorCode.USER_ALREADY_EXISTS },
-				       { "username": users[1]["username"], "email": users[0]["email"], "code": ErrorCode.EMAIL_ALREADY_ASSIGNED } ]
-
-			for p in parameters:
-				err = False
-
-				try:
-					code = a.request_account(p["username"], p["email"])
-
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-			err = False
-
-			# create second request:
-			code = a.request_account(users[1]["username"], users[1]["email"])
-
-			# try to create second account request with same username:
-			err = False
-
-			try:
-				code = a.request_account(users[1]["username"], users[1]["email"])
-
-			except exception.Exception, ex:
-				err = self.__assert_error_code__(ex, ErrorCode.USERNAME_ALREADY_REQUESTED)
-
-			self.assertTrue(err)
-
-			# activate second user:
-			username, email, password = a.activate_user(code)
-			self.assertEqual(users[1]["username"], username)
-			self.assertEqual(users[1]["email"], email)
-
-			# activate user with invalid request code:
-			err = False
-
-			try:
-				code = a.activate_user(util.generate_junk(64))
-
-			except exception.Exception, ex:
-				err = self.__assert_error_code__(ex, ErrorCode.INVALID_REQUEST_CODE)
-
-			self.assertTrue(err)
-
-	def test_01_change_password(self):
-		with app.Application() as a:
-			username, email, password = self.__create_account__(a, util.generate_junk(8), "test@testmail.com")
-			new_password = util.generate_junk(8)
-
-			# test invalid parameters:
-			parameters = [ { "new_password": util.generate_junk(2), "username": username, "old_password": password,
-					 "parameter": "new_password" },
-				       { "new_password": util.generate_junk(128), "username": username, "old_password": password,
-					 "parameter": "new_password" },
-				       { "new_password": new_password, "username": util.generate_junk(64), "old_password": password,
-					 "code": ErrorCode.COULD_NOT_FIND_USER },
-				       { "new_password": new_password, "username": username, "old_password": util.generate_junk(64),
-					 "code": ErrorCode.INVALID_PASSWORD } ]
-
-			for p in parameters:
-				err = False
-
-				try:
-					a.change_password(p["username"], p["old_password"], p["new_password"])
-				
-				except exception.Exception, ex:
-					if p.has_key("parameter"):
-						err = self.__assert_invalid_parameter__(ex, "new_password")
-					else:
-						err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-			# blocked user:
-			err = False
-
-			with factory.create_user_db() as db:
-				db.block_user(username, True)
-
-				try:
-					a.change_password(username, password, new_password)
-
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, ErrorCode.USER_IS_BLOCKED)
-
-				self.assertTrue(err)
-
-				# reactivate user:
-				db.block_user(username, False)
-
-			# test old password:
-			self.assertTrue(a.validate_password(username, password))
-
-			# change password & test new one:
-			a.change_password(username, password, new_password)
-			self.assertTrue(a.validate_password(username, new_password))
-
-			# change password using request code:
-			code = a.request_password(username, email)
-			name, addr, password = a.generate_password(code)
-
-			self.assertEqual(addr, email)
-			self.assertEqual(name, username)
-			self.assertTrue(a.validate_password(username, password))
-
-			# test invalid parameters:
-			parameters = [ { "username": username, "email": email, "timeout": 60, "code": ErrorCode.INVALID_REQUEST_CODE },
-			               { "username": util.generate_junk(16), "email": email, "timeout": 60, "code": ErrorCode.COULD_NOT_FIND_USER },
-			               { "username": username, "email": util.generate_junk(16), "timeout": 1, "code": ErrorCode.INVALID_EMAIL_ADDRESS },
-			               { "username": username, "email": email, "timeout": 1, "code": ErrorCode.INVALID_REQUEST_CODE } ]
-
-			for p in parameters:
-				err = False
-
-				try:
-					code = a.request_password(p["username"], p["email"], p["timeout"])
-					sleep(1.1)
-
-					if p.has_key("code"):
-						code = p["code"]
-
-					name, addr, password = a.generate_password(code)
-				
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-	def test_02_change_user_details(self):
-		with app.Application() as a:
-			# create test users:
-			user0 = self.__create_account__(a, "user0", "user0@testmail.com")
-			user1 = self.__create_account__(a, "user1", "user1@testmail.com")
-
-			# invalid parameters:
-			parameters = [ { "firstname": util.generate_junk(128), "lastname": None, "email": "user0@testmail.com", "gender": None, "language": "en", "protected": False, "parameter": "firstname" },
-				       { "firstname": None, "lastname": util.generate_junk(128), "email": "user0@testmail.com", "gender": None, "language": "en", "protected": False, "parameter": "lastname" },
-				       { "firstname": None, "lastname": None, "email": util.generate_junk(128), "gender": None, "language": "en", "protected": False, "parameter": "email" },
-				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "x", "language": "en", "protected": False, "parameter": "gender" },
-				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "m", "language": "en", "protected": None, "parameter": "protected" },
-				       { "firstname": None, "lastname": None, "email": "user0@testmail.com", "gender": "m", "language": util.generate_junk(8), "protected": True, "parameter": "language" } ]
-
-			for p in parameters:
-				err = False
-
-				try:
-					code = a.update_user_details("user0", p["email"], p["firstname"], p["lastname"], p["gender"], p["language"], p["protected"])
-
-				except exception.Exception, ex:
-					err = self.__assert_invalid_parameter__(ex, p["parameter"])
-
-				self.assertTrue(err)
-		
-			# use already assigned email address:
-			err = False
-
-			try:
-				a.update_user_details("user0", "user1@testmail.com", None, None, None, "en", True)
-
-			except exception.Exception, ex:
-				err = self.__assert_error_code__(ex, ErrorCode.EMAIL_ALREADY_ASSIGNED)
-
-			self.assertTrue(err)
-
-			# update user details & test result:
-			a.update_user_details("user0", "test-x@testmail.com", "_firstname", "_lastname", "f", "en", False)
-
-			with factory.create_user_db() as db:
-				user = db.get_user("user0")
-
-			self.assertEqual(user["name"], "user0")
-			self.assertEqual(user["email"], "test-x@testmail.com")
-			self.assertEqual(user["firstname"], "_firstname")
-			self.assertEqual(user["lastname"], "_lastname")
-			self.assertEqual(user["gender"], "f")
-			self.assertFalse(user["protected"])
-
-	def test_03_avatar(self):
-		with app.Application() as a:
-			self.__create_account__(a, "test-user", "test@testmail.com")
-
-			# try to set invalid avatars:
-			for image in [ "avatar00.png", "avatar01.tif" ]:
-				path = os.path.join("test-data", image)
-
-				with open(path, "rb") as f:
-					err = False
-
-					try:
-						a.update_avatar("test-user", image, f)
-			
-					except exception.Exception, ex:
-						err = self.__assert_error_code__(ex, ErrorCode.INVALID_IMAGE_FORMAT)
-
-					self.assertTrue(err)
-
-			# set valid avatar:
-			path = os.path.join("test-data", "avatar02.jpg")
-			f = open(path, "rb")
-			a.update_avatar("test-user", "avatar02.jpg", f)
-			f.close()
-
-			# checksum:
-			src_hash = util.hash_file(path, hashlib.md5())
-
-			# compare file checksums:
-			with factory.create_user_db() as db:
-				user = db.get_user("test-user")
-
-			path = os.path.join(config.AVATAR_DIR, user["avatar"])
-			dst_hash = util.hash_file(path, hashlib.md5())
-
-			self.assertEqual(src_hash, dst_hash)
-
-	def test_04_get_users(self):
-		with app.Application() as a:
-			# create test accounts:
-			self.__create_account__(a, "John.Doe", "john@testmail.com")
-			self.__create_account__(a, "Martin.Smith", "martin@testmail.com")
-			self.__create_account__(a, "Ada.Muster", "ada@testmail.com")
-
-			# get user details:
-			user = a.get_full_user_details("John.Doe")
-			self.__test_user_details__(user)
-			self.assertEqual(user["name"], "John.Doe")
-			self.assertEqual(user["email"], "john@testmail.com")
-
-			# block user & try to get details:
-			a.disable_user("John.Doe")
-
-			err = False
-
-			try:
-				details = a.get_full_user_details("John.Doe")
-
-			except exception.Exception, ex:
-				err = self.__assert_error_code__(ex, ErrorCode.COULD_NOT_FIND_USER)
-
-			self.assertTrue(err)
-
-			# get user details respecting friendship:
-			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", "en", False)
-			details = a.get_user_details("Martin.Smith", "Ada.Muster")
-			self.__test_user_details__(details, with_language = False)
-
-			a.update_user_details("Ada.Muster", "ada@testmail.com", None, None, "f", "en", True)
-			details = a.get_user_details("Martin.Smith", "Ada.Muster")
-			self.__test_user_details__(details, False, False, False, False)
-
-			a.follow("Martin.Smith", "Ada.Muster")
-			details = a.get_user_details("Martin.Smith", "Ada.Muster")
-			self.__test_user_details__(details, False, False, False, False)
-
-			a.follow("Ada.Muster", "Martin.Smith")
-			details = a.get_user_details("Martin.Smith", "Ada.Muster")
-			self.__test_user_details__(details, with_language = False)
-
-			params = [ { "user1": "John.Doe", "user2": "Ada.Muster", "code": ErrorCode.USER_IS_BLOCKED,
-			             "user1": "Martin.Smith", "user2": "John.Doe", "code": ErrorCode.USER_IS_BLOCKED,
-			             "user1": "Martin.Smith", "user2": util.generate_junk(16), "code": ErrorCode.COULD_NOT_FIND_USER,
-			             "user1": util.generate_junk(16), "user2": "Ada.Muster", "code": ErrorCode.COULD_NOT_FIND_USER } ]
-
-			for p in params:
-				err = False
-
-				try:
-					a.follow(p["user1"], p["user2"])
-			
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-			# get own user profile:
-			details = a.get_user_details("Ada.Muster", "Ada.Muster")
-			self.__test_user_details__(details, with_password = True)
-			self.assertTrue(details.has_key("password"))
-
-	def test_05_add_tags(self):
-		objs = []
-
-		# create test objects:
-		with factory.create_object_db() as db:
-			for i in range(1000):
-				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
-				db.create_object(obj["guid"], obj["source"])
-				objs.append(obj)
-
-		# get objects from database & test tags:
-		with app.Application() as a:
-			# create test accounts:
-			user_a = self.__create_account__(a, "user_a", "usera@testmail.com")
-			user_b = self.__create_account__(a, "user_b", "userb@testmail.com")
-
-			a.disable_user("user_b")
-
-			for i in range(1000):
-				if i % 2 == 0:
-					a.add_tags("user_a", objs[i]["guid"], [ "tag00", "tag01" ])
-				else:
-					a.add_tags("user_a", objs[i]["guid"], [ "tag02", "tag03" ])
-
-			for obj in a.get_objects(0, 1000):
-				self.assertEqual(len(obj["tags"]), 2)
-				self.assertTrue("tag00" in obj["tags"] or "tag02" in obj["tags"])
-				self.assertTrue("tag01" in obj["tags"] or "tag03" in obj["tags"])
-
-			# test if tags can be added to locked objects:
-			with factory.create_object_db() as db:
-				for i in range(0, 1000, 3):
-					db.lock_object(objs[i]["guid"], True)
-
-			for i in range(1000):
-				if i % 3 == 0:
-					err = False
-
-					try:
-						a.add_tags("user_a", objs[i]["guid"], [ "tag04"])
-
-					except exception.Exception, ex:
-						err = self.__assert_error_code__(ex, ErrorCode.OBJECT_IS_LOCKED)
-
-					self.assertTrue(err)
-				else:
-					a.add_tags("user_a", objs[i]["guid"], [ "tag04"])
-
-			# invalid accounts:
-			params = [ { "username": util.generate_junk(16), "tags": [ "foo" ], "code": ErrorCode.COULD_NOT_FIND_USER,
-			             "username": "user_b", "tags": [ "foo" ], "code": ErrorCode.USER_IS_BLOCKED,
-			             "username": "user_b", "tags": [ "f" ], "code": ErrorCode.INVALID_PARAMETER,
-			             "username": "user_b", "tags": [ util.generate_junk(128) ], "code": ErrorCode.INVALID_PARAMETER } ]
-
-			for p in params:
-				err = False
-
-				try:
-					a.add_tags(p["username"], objs[0]["guid"], "foo")
-
-				except exception.Exception, ex:
-					if p["code"] == ErrorCode.INVALID_PARAMETER:
-						err = self.__assert_invalid_parameter__(ex, "tag")
-					else:
-						err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-	def test_06_get_objects(self):
-		objs = []
-
-		# create test objects:
-		with factory.create_object_db() as db:
-			for i in range(1000):
-				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
-				db.create_object(obj["guid"], obj["source"])
-				objs.append(obj)
-
-		# test wrapped database functions to get objects:
-		with app.Application() as a:
-			self.__create_account__(a, "user_a", "user_a@testmail.com")
-
-			for obj in objs:	
-				details = a.get_object(obj["guid"])
-				self.assertEqual(details["source"], obj["source"])
-
-			result = a.get_objects(0, 100)
-			self.assertEqual(len(result), 100)
-
-			for i in range(0, 1000, 2):
-				a.add_tags("user_a", objs[i]["guid"], [ "foo", "bar" ])
-
-			result = a.get_tagged_objects("foo", 0, 1000)
-			self.assertEqual(len(result), 500)
-
-			result = a.get_random_objects(100)
-			self.assertEqual(len(result), 100)
-
-			result = a.get_popular_objects(0, 100)
-			self.assertEqual(len(result), 100)
-
-	def test_07_score(self):
-		objs = []
-
-		# create test objects:
-		with factory.create_object_db() as db:
-			for i in range(1000):
-				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
-				db.create_object(obj["guid"], obj["source"])
-				objs.append(obj)
-
-		# create test accounts:
-		with app.Application() as a:
-			user_a = self.__create_account__(a, "user_a", "user_a@testmail.com")
-			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
-			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")
-
-			# create friendship
-			a.follow("user_a", "user_b")
-			a.follow("user_b", "user_a")
-			a.follow("user_b", "user_c")
-
-			# invalid user account/object guid:
-			params = [ { "username": util.generate_junk(16), "guid": objs[0]["guid"], "code": ErrorCode.COULD_NOT_FIND_USER,
-			             "username": "user_a", "guid": util.generate_junk(64), "code": ErrorCode.OBJECT_NOT_FOUND } ]
-
-			for p in params:
-				err = False
-
-				try:
-					a.rate(p["username"], p["guid"], True)
-			
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-			# (b)locked user/object:
-			a.disable_user("user_c")
-
-			with factory.create_object_db() as db:
-				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
-				db.create_object(obj["guid"], obj["source"])
-				db.lock_object(obj["guid"])
-
-			params = [ { "username": "user_c", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED,
-			             "username": "user_a", "guid": obj["guid"], "code": ErrorCode.OBJECT_IS_LOCKED } ]
-
-			for p in params:
-				err = False
-
-				try:
-					a.rate(p["username"], p["guid"], True)
-			
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-			# rate:
-			for obj in objs:
-				for i in range(2):
-					up = False
-
-					if random.randint(0, 100) >= 20:
-						up = True
-
-					user = "user_a"
-
-					if i == 1:
-						user = "user_b"
-
-					a.rate(user, obj["guid"], user)
-
-			# test score:
-			for obj in a.get_objects(0, 1000):
-				self.assertEqual(obj["score"]["up"] - obj["score"]["down"], obj["score"]["total"])
-
-			# try to vote two times:
-			for obj in objs:
-				err = False
-
-				try:
-					a.rate("user_a", obj["guid"], True)
-
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, ErrorCode.USER_ALREADY_RATED)
-
-				self.assertTrue(err)
-
-			# get & validete messages:
-			result = a.get_messages("user_a", 5000)
-			self.assertEqual(len(result), 1001)
-
-			result = a.get_messages("user_b", 5000)
-			self.assertEqual(len(result), 1001)
-
-	def test_08_favorites(self):
-		objs = []
-
-		# create test objects:
-		with factory.create_object_db() as db:
-			for i in range(1000):
-				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
-				db.create_object(obj["guid"], obj["source"])
-				objs.append(obj)
-
-		# create test accounts:
-		with app.Application() as a:
-			user_a = self.__create_account__(a, "user_a", "user_a@testmail.com")
-			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
-			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")	
-
-			# friendship:
-			a.follow("user_a", "user_b")
-			a.follow("user_a", "user_c")
-			a.follow("user_b", "user_a")
-
-			# test blocked users:
-			a.disable_user("user_c")
-
-			# test blocked/invalid users & invalid objects:
-			params = [ { "user": "user_c", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED },
-			           { "user": "user_d", "guid": objs[0]["guid"], "code": ErrorCode.COULD_NOT_FIND_USER },
-			           { "user": "user_b", "guid": util.generate_junk(64), "code": ErrorCode.OBJECT_NOT_FOUND} ]
-
-			for p in params:
-				err = False
-
-				try:
-					a.favor(p["user"], p["guid"], True)
-				
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-			# create favorites:
-			for obj in objs:
-				a.favor("user_a", obj["guid"], True)
-
-			for i in range(0, 1000, 2):
-				a.favor("user_a", objs[i]["guid"], False)
-
-			# get favorites:
-			result = a.get_favorites("user_b")
-			self.assertEqual(len(result), 0)
-
-			result = a.get_favorites("user_a", 0, 1000)
-			self.assertEqual(len(result), 500)
-
-			# get & validete messages:
-			result = a.get_messages("user_a", 5000)
-			self.assertEqual(len(result), 1)
-
-			result = a.get_messages("user_b", 5000)
-			self.assertEqual(len(result), 1001)
-
-			# get favorites from non-existing object:
-			params = [ { "user": "user_c", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED },
-			           { "user": "user_d", "guid": objs[0]["guid"], "code": ErrorCode.COULD_NOT_FIND_USER } ]
-
-			for p in params:
-				err = False
-
-				try:
-					a.favor(p["user"], p["guid"], True)
-				
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-	def test_09_comments(self):
-		# create test objects:
-		with factory.create_object_db() as db:
-			obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
-			db.create_object(obj["guid"], obj["source"])
-
-			obj_locked = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
-			db.create_object(obj_locked["guid"], obj_locked["source"])
-			db.lock_object(obj_locked["guid"])
-
-		# create test accounts:
-		with app.Application() as a:
-			user_a = self.__create_account__(a, "user_a", "user_a@testmail.com")
-			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
-			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")	
-
-			# create friendship:
-			a.follow("user_a", "user_b")
-			a.follow("user_b", "user_a")
-			a.follow("user_b", "user_c")
-
-			# block user:
-			a.disable_user("user_c")
-
-			# test blocked/invalid users, invalid/locked objects & invalid comments:
-			params = [ { "user": "user_c", "guid": obj["guid"], "comment": util.generate_junk(64), "code": ErrorCode.USER_IS_BLOCKED },
-			           { "user": "user_d", "guid": obj["guid"], "comment": util.generate_junk(64), "code": ErrorCode.COULD_NOT_FIND_USER },
-			           { "user": "user_b", "guid": util.generate_junk(64), "comment": util.generate_junk(64), "code": ErrorCode.OBJECT_NOT_FOUND },
-			           { "user": "user_b", "guid": obj_locked["guid"], "comment": util.generate_junk(64), "code": ErrorCode.OBJECT_IS_LOCKED },
-			           { "user": "user_b", "guid": obj["guid"], "comment": None, "code": ErrorCode.INVALID_PARAMETER },
-			           { "user": "user_b", "guid": obj["guid"], "comment": util.generate_junk(1024), "code": ErrorCode.INVALID_PARAMETER } ]
-
-			for p in params:
-				err = False
-
-				try:
-					a.add_comment(p["guid"], p["user"], p["comment"])
-
-				except exception.Exception, ex:
-					if p["code"] == ErrorCode.INVALID_PARAMETER:
-						err = self.__assert_invalid_parameter__(ex, "comment")
-					else:
-						err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-			# create comments:
-			users = [ "user_a", "user_b" ]
-
-			for i in range(1000):
-				a.add_comment(obj["guid"], users[i % 2], str(i))
-
-			# get comments & validate order:
-			result = a.get_comments(obj["guid"], 0, 5000)
-			self.assertEqual(len(result), 1000)
-
-			timestamp = 0
-			i = 0
-
-			for comment in result:
-				self.assertEqual(comment["user"]["name"], users[i % 2])
-				assert comment["timestamp"] >= timestamp
-				self.assertEqual(str(i), comment["text"])
-
-				timestamp = comment["timestamp"]
-				i += 1
-
-			# get & validate messages:
-			result = a.get_messages("user_a", 5000)
-			self.assertEqual(len(result), 501)
-
-			result = a.get_messages("user_b", 5000)
-			self.assertEqual(len(result), 501)
-
-	def test_10_friendship(self):
-		with app.Application() as a:
-			# create test users:
-			self.__create_account__(a, "John.Doe", "john@testmail.com")
-			self.__create_account__(a, "Martin.Smith", "martin@testmail.com")
-			self.__create_account__(a, "Ada.Muster", "ada@testmail.com")
-
-			# invalid parameters:
-			a.disable_user("John.Doe")
-
-			params = [ { "user1": "John.Doe", "user2": "Ada.Muster", "code": ErrorCode.USER_IS_BLOCKED,
-			             "user1": "Martin.Smith", "user2": "John.Doe", "code": ErrorCode.USER_IS_BLOCKED,
-			             "user1": "Martin.Smith", "user2": util.generate_junk(16), "code": ErrorCode.COULD_NOT_FIND_USER } ]
-
-			for p in params:
-				err = False
-
-				try:
-					a.follow(p["user1"], p["user2"])
-			
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-			# create friendship:
-			params = [ { "user1": "Martin.Smith", "user2": "Ada.Muster" }, { "user1": "Ada.Muster", "user2": "Martin.Smith" } ]
-
-			for p in params:
-				a.follow(p["user1"], p["user2"])
-				self.assertTrue(a.is_following(p["user1"], p["user2"]))
-
-			a.follow("Martin.Smith", "Ada.Muster", False)
-			self.assertFalse(a.is_following("Martin.Smith", "Ada.Muster"))
-			self.assertTrue(a.is_following("Ada.Muster", "Martin.Smith"))
-
-			# get & validate messages:
-			messages = a.get_messages("Martin.Smith")
-			self.assertEqual(len(messages), 1)
-
-			messages = a.get_messages("Ada.Muster")
-			self.assertEqual(len(messages), 2)
-
-	def test_11_recommendations(self):
-		objs = []
-
-		# create test objects:
-		with factory.create_object_db() as db:
-			for i in range(1000):
-				obj = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
-				db.create_object(obj["guid"], obj["source"])
-				objs.append(obj)
-
-			obj_locked = { "guid": util.generate_junk(128), "source": util.generate_junk(128) }
-			db.create_object(obj_locked["guid"], obj_locked["source"])
-			db.lock_object(obj_locked["guid"])
-
-		# create test accounts:
-		with app.Application() as a:
-			user_a = self.__create_account__(a, "user_a", "user_a@testmail.com")
-			user_b = self.__create_account__(a, "user_b", "user_b@testmail.com")
-			user_c = self.__create_account__(a, "user_c", "user_c@testmail.com")	
-			user_d = self.__create_account__(a, "user_d", "user_d@testmail.com")	
-
-			# block account:
-			a.disable_user("user_d")
-
-			# create friendship:
-			a.follow("user_a", "user_c")
-			a.follow("user_c", "user_a")
-
-			# create recommendations:
-			for obj in objs:
-				a.recommend("user_a", obj["guid"], [ "user_a", "user_b", "user_c" ])
-				a.recommend("user_b", obj["guid"], [ "user_c", "foo", "user_d" ])
-
-			# get recommendations & messages:
-			result = a.get_recommendations("user_a", 0, 5000)
-			self.assertEqual(len(result), 0)
-
-			result = a.get_messages("user_a", 5000)
-			self.assertEqual(len(result), 1)
-
-			result = a.get_recommendations("user_b", 0, 5000)
-			self.assertEqual(len(result), 0)
-
-			result = a.get_messages("user_b", 5000)
-			self.assertEqual(len(result), 0)
-
-			result = a.get_recommendations("user_c", 0, 5000)
-			self.assertEqual(len(result), 1000)
-
-			result = a.get_messages("user_c", 5000)
-			self.assertEqual(len(result), 1001)
-
-			# test invalid & blocked users:
-			params = [ { "username": "user_d", "guid": objs[0]["guid"], "code": ErrorCode.USER_IS_BLOCKED },
-			           { "username": "foo", "guid": objs[0]["guid"], "code": ErrorCode.COULD_NOT_FIND_USER },
-			           { "username": "user_a", "guid": util.generate_junk(64), "code": ErrorCode.OBJECT_NOT_FOUND }]
-
-			for p in params:
-				err = False
-
-				try:
-					a.recommend(p["username"], p["guid"], [ "user_a", "user_b", "user_c" ])
-			
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-			params = [ { "username": "user_d", "code": ErrorCode.USER_IS_BLOCKED },
-			           { "username": "foo", "code": ErrorCode.COULD_NOT_FIND_USER } ]
-
-
-			for p in params:
-				err = False
-
-				try:
-					a.get_recommendations(p["username"])
-			
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-	def test_12_find_users(self):
-		with app.Application() as a:
-			# create test accounts:
-			for c in [ "a", "b", "c", "d", "e" ]:
-				self.__create_account__(a, "user_%s" % c, "user_%s@testmail.com" % c)
-
-			# create friendship:
-			a.follow("user_a", "user_b")
-			a.follow("user_b", "user_a")
-
-			# make user profile public:
-			a.update_user_details("user_d", "user_d@testmail.com", None, None, None, "en", False)
-
-			# block user:
-			a.disable_user("user_e")
-
-			# search users:
-			result = a.find_user("user_a", "user")
-			self.assertEqual(len(result), 3)
-
-			for user in result:
-				if user["name"] == "user_b" or user["name"] == "user_d":
-					self.__test_user_details__(user, with_language = False)
-				elif user["name"] == "user_c":
-					self.__test_user_details__(user, False, False, False, False)
-
-	def test_13_messages(self):
-		with app.Application() as a:
-			# create test accounts:
-			self.__create_account__(a, "John.Doe", "john@testmail.com")
-			self.__create_account__(a, "Martin.Smith", "martin@testmail.com")
-
-			# block user:
-			a.disable_user("John.Doe")
-
-			# invalid parameters:
-			params = [ { "username": "John.Doe", "code": ErrorCode.USER_IS_BLOCKED },
-			           { "username": util.generate_junk(16), "code": ErrorCode.COULD_NOT_FIND_USER } ]
-
-			for p in params:
-				err = False
-
-				try:
-					a.get_messages(p["username"])
-			
-				except exception.Exception, ex:
-					err = self.__assert_error_code__(ex, p["code"])
-
-				self.assertTrue(err)
-
-			with factory.create_stream_db() as db:
-				for i in range(500):
-					db.add_message(StreamDb.MessageType.RECOMMENDATION, "John.Doe", "Martin.Smith", guid = util.generate_junk(128))
-
-			result = a.get_messages("Martin.Smith", 5)
-			self.assertEqual(len(result), 5)
-
-			result = a.get_messages("Martin.Smith", 1000)
-			self.assertEqual(len(result), 500)
-
-	def setUp(self):
-		self.__clear_tables__()
-		util.remove_all_files(config.AVATAR_DIR)
-
-	def tearDown(self):
-		self.__clear_tables__()
-		util.remove_all_files(config.AVATAR_DIR)
-
-	def __create_account__(self, app, username, email):
-		code = app.request_account(username, email)
-
-		return app.activate_user(code)
-
-	def __assert_invalid_parameter__(self, ex, parameter):
-		self.assertEqual(ex.code, ErrorCode.INVALID_PARAMETER)
-		self.assertEqual(ex.parameter, parameter)
-
-		return True
-
-	def __assert_error_code__(self, ex, code):
-		self.assertEqual(ex.code, code)
-
-		return True
-
-	def __test_user_details__(self, user, with_email = True, with_following = True, with_password = False, with_language = True):
-		self.assertTrue(user.has_key("name"))
-		self.assertTrue(user.has_key("firstname"))
-		self.assertTrue(user.has_key("lastname"))
-		self.assertEqual(user.has_key("email"), with_email)
-		self.assertEqual(user.has_key("following"), with_following)
-		self.assertEqual(user.has_key("password"), with_password)
-		self.assertTrue(user.has_key("gender"))
-		self.assertTrue(user.has_key("timestamp"))
-		self.assertTrue(user.has_key("avatar"))
-		self.assertFalse(user.has_key("blocked"))
-		self.assertEqual(user.has_key("language"), with_language)
-		self.assertTrue(user.has_key("protected"))
-
-		return True
-
-class TestAuthenticatedApplication(unittest.TestCase, TestCase):
-	def test_00_user_functions(self):
-		with app.AuthenticatedApplication() as a:
-			# change password:
-			new_password = util.generate_junk(16)
-			self.__test_method__(a.change_password, "user_a", old_password = self.__users["user_a"]["password"], new_password = new_password)
-			self.__test_failed_method__(a.change_password, "user_a", ErrorCode.AUTHENTICATION_FAILED,
-			                            old_password = self.__users["user_a"]["password"], new_password = new_password)
-
-			self.__users["user_a"]["password"] = new_password
-
-			# update user details:
-			self.__test_method__(a.update_user_details, "user_a", email = "_user_a@testmail.com", firstname = "first_a", lastname = "last_a",
-			                     gender = "m", language = "en", protected = False)
-
-			# get user details:
-			details = self.__test_method__(a.get_user_details, "user_a", name = "user_a")
-
-			self.assertEqual(details["name"], "user_a")
-			self.assertEqual(details["email"], "_user_a@testmail.com")
-			self.assertEqual(details["firstname"], "first_a")
-			self.assertEqual(details["lastname"], "last_a")
-			self.assertEqual(details["gender"], "m")
-			self.assertEqual(details["language"], "en")
-			self.assertFalse(details["protected"])
-			self.assertEqual(details["password"], util.hash(new_password))
-			self.assertIsNone(details["avatar"])
-
-			details = self.__test_method__(a.get_user_details, "user_a", name = "user_b")
-			self.assertEqual(details["name"], "user_b")
-			self.assertFalse(details.has_key("language"))
-			self.assertFalse(details.has_key("password"))
-			self.assertFalse(details.has_key("email"))
-
-			# update avatar:
-			path = os.path.join("test-data", "avatar02.jpg")
-			with open(path, "rb") as f:
-				req = self.__create_signature__("user_a", new_password, filename = "avatar02.jpg")
-				a.update_avatar(req, "avatar02.jpg", f)
-
-			details = self.__test_method__(a.get_user_details, "user_a", name = "user_a")
-			self.assertIsNotNone(details["avatar"])
-
-			# find users:
-			result = self.__test_method__(a.find_user, "user_a", query = "test")
-			self.assertEqual(len(result), 2)
-
-	def test_01_object_functions(self):
-		# create test objects:
-		objs = []
-
-		with factory.create_object_db() as db:
-			for i in range(100):
-				obj = { "guid": util.generate_junk(64), "source": util.generate_junk(128) }
-				objs.append(obj)
-				db.create_object(obj["guid"], obj["source"])
-
-		
-		with app.AuthenticatedApplication() as a:
-			# get objects:
-			for obj in objs:
-				details = self.__test_method__(a.get_object, "user_a", guid = obj["guid"])
-				self.assertEqual(obj["source"], details["source"])
-
-			result = self.__test_method__(a.get_objects, "user_a", page = 1, page_size = 80)
-			self.assertEqual(len(result), 20)
-
-			# tags:
-			for i in range(50):
-				self.__test_method__(a.add_tags, "user_a", guid = objs[i]["guid"], tags = [ "foo", "bar"])
-
-			result = self.__test_method__(a.get_tagged_objects, "user_a", tag = "foo", page = 1, page_size = 40)
-			self.assertEqual(len(result), 10)
-
-			for obj in result:
-				assert "foo" in obj["tags"]
-
-			# random objects:
-			result = self.__test_method__(a.get_random_objects, "user_a", page_size = 25)
-			self.assertEqual(len(result), 25)
-
-			# score:
-			for obj in objs:
-				for i in range(2):
-					up = False
-
-					if random.randint(0, 1) == 1:
-						up = True
-
-					user = "user_a"
-
-					if i == 1:
-						user = "user_b"
-
-					self.__test_method__(a.rate, user, guid = obj["guid"], up = up)
-
-			result = self.__test_method__(a.get_popular_objects, "user_a", page = 0, page_size = 500)
-			self.assertEqual(len(result), 100)
-
-			for i in range(99):
-				assert result[i]["score"]["total"] >= result[i + 1]["score"]["total"]
-
-			# favorites:
-			for i in range(100):
-				user = "user_a"
-
-				if i % 2 == 0:
-					user = "user_b"
-
-				self.__test_method__(a.favor, user, guid = objs[i]["guid"], favor = True)
-
-			result = self.__test_method__(a.get_favorites, "user_a", page = 0, page_size = 500)
-			self.assertEqual(len(result), 50)
-
-			for obj in result[25:]:
-				self.__test_method__(a.favor, user, guid = obj["guid"], favor = False)
-
-			result = self.__test_method__(a.get_favorites, "user_a", page = 0, page_size = 500)
-			self.assertEqual(len(result), 25)
-
-			result = self.__test_method__(a.get_favorites, "user_b", page = 1, page_size = 40)
-			self.assertEqual(len(result), 10)
-
-			# comments:
-			for obj in objs:
-				for i in range(20):
-					user = "user_a"
-
-					if i % 2 == 0:
-						user = "user_b"
-
-					self.__test_method__(a.add_comment, user, guid = obj["guid"], text = util.generate_junk(128))
-
-			for obj in objs:
-				comments = self.__test_method__(a.get_comments, user, guid = obj["guid"], page = 0, page_size = 50)
-				self.assertEqual(len(comments), 20)
-
-			# create friendship:
-			self.__test_method__(a.follow, "user_a", user = "user_b", follow = True)
-			self.__test_method__(a.follow, "user_b", user = "user_a", follow = True)
-
-			# recommendations:
-			for obj in objs:
-				self.__test_method__(a.recommend, "user_a", guid = obj["guid"], receivers = [ "user_b", "user_c" ])
-
-			result = self.__test_method__(a.get_recommendations, "user_b", page = 0, page_size = 100)
-			self.assertEqual(len(result), 100)
-
-			result = self.__test_method__(a.get_recommendations, "user_b", page = 1, page_size = 99)
-			self.assertEqual(len(result), 1)
-
-			result = self.__test_method__(a.get_recommendations, "user_c", page = 0, page_size = 100)
-			self.assertEqual(len(result), 0)
-
-			# messages:
-			messages = self.__test_method__(a.get_messages, "user_a", limit = 10, older_than = None)
-			self.assertEqual(len(messages), 1)
-
-			messages = self.__test_method__(a.get_messages, "user_b", limit = 200, older_than = None)
-			self.assertEqual(len(messages), 101)
-
-	def setUp(self):
-		def __create_account__(username, email):
-			code = self.__app.request_account(username, email)
-
-			user, email, password = self.__app.activate_user(code)
-			self.__users[username] = { "email": email, "password": password }
-
-		self.__clear_tables__()
-		util.remove_all_files(config.AVATAR_DIR)
-
-		# create test accounts:
-		self.__app = app.AuthenticatedApplication()
-		self.__users = {}
-
-		for c in [ "a", "b", "c" ]:
-			__create_account__("user_%s" % c, "user_%s@testmail.com" % c)
-
-	def tearDown(self):
-		self.__clear_tables__()
-		util.remove_all_files(config.AVATAR_DIR)
-
-	def __create_signature__(self, username, password, **kwargs):
-			req = app.RequestData(username)
-			req.signature = util.sign_message(util.hash(password), username = username, timestamp = req.timestamp, **kwargs)
-
-			return req
-
-	def __test_method__(self, f, username, **kwargs):
-		password = self.__users[username]["password"]
-		req = self.__create_signature__(username, password, **kwargs)
-		
-		return f(req, **kwargs)
-
-	def __test_failed_method__(self, f, username, code, **kwargs):
-		err = False
+	def assertExceptionRaised(self, f, *args):
+		raised = False
 
 		try:
-			self.__test_method__(f, username, **kwargs)
-
-		except exception.Exception, ex:
-			self.assertEqual(ex.code, code)
-			err = True
-
-		self.assertTrue(err)
+			apply(f, args)
 
-class TestHttpServer(unittest.TestCase, TestCase):
-	def test_00_create_user_accounts(self):
-		# create accounts:
-		password_a = self.__create_user__("user_a", "user_a@testmail.com")
-		password_b = self.__create_user__("user_b", "user_b@testmail.com")
+		except:
+			raised = True
 
-		# test authentication:
-		obj = json.loads(self.client.test_authentication("user_a", password_a))
-		self.assertEqual(obj["status"], 0)
+		assert(raised == True)
 
-		obj = json.loads(self.client.test_authentication("user_b", password_b))
-		self.assertEqual(obj["status"], 0)
+	def assertPaging(self, count, eq, f, *args):
+		all = apply(f, list(args) + [0, count])
+		assert(len(all) == count)
 
-		# search users:
-		with factory.create_user_db() as db:
-			result = db.search_user("testmail.com")
-			self.assertEqual(len(result), 2)
+		all = apply(f, list(args) + [0, count * 2])
+		assert(len(all) == count)
 
-	def test_01_update_users(self):
-		password = self.__create_user__("user_a", "user_a@testmail.com")
-		
-		# update password:
-		new_password = util.generate_junk(16)
-		self.client.update_password("user_a", password, new_password)
+		empty = apply(f, list(args) + [0, 0])
+		assert(len(empty) == 0)
 
-		# update details:
-		self.client.update_user_details("user_a", new_password, "user_a@testmail.org", "firstname", "lastname", "f", "de", False)
+		if count > 1:
+			d =  count / 2
+			r = count % 2
 
-		# get details:
-		details = json.loads(self.client.get_user_details("user_a", new_password, "user_a"))
-		self.assertEqual(details["name"], "user_a")
-		self.assertEqual(details["firstname"], "firstname")
-		self.assertEqual(details["lastname"], "lastname")
-		self.assertEqual(details["email"], "user_a@testmail.org")
-		self.assertEqual(details["gender"], "f")
-		self.assertEqual(details["language"], "de")
-		self.assertIsNone(details["avatar"])
-		self.assertFalse(details["protected"])
+			pages = []
 
-		# update avatar:
-		self.client.update_avatar("user_a", new_password, os.path.join("test-data", "avatar02.jpg"))
-		details = json.loads(self.client.get_user_details("user_a", new_password, "user_a"))
-		self.assertIsNotNone(details["avatar"])
+			for i in range(3):
+				pages.append(apply(f, list(args) + [i, d]))
 
-	def test_02_reset_password(self):
-		# create test user:
-		self.__create_user__("user_a", "user_a@testmail.com")
+			assert(len(pages[0]) == d)
+			assert(len(pages[1]) == d)
+			assert(len(pages[2]) == r)
 
-		# request new password:
-		self.client.request_password("user_a", "user_a@testmail.com")
+			assert(self.sequencesAreEqual(pages[0], pages[1], eq) == False)
+			assert(self.sequencesAreEqual(pages[0], pages[2], eq) == False)
+			assert(self.sequencesAreEqual(pages[1], pages[2], eq) == False)
 
-		# get password reset URL from mail:
-		with factory.create_mail_db() as db:
-			mail = db.get_unsent_messages()[0]
-			db.mark_sent(mail["id"])
+			if count > 1:
+				a = apply(f, list(args) + [0, 2])
+				b = apply(f, list(args) + [1, 1])
 
-			m = re.search("(http://.*)\n", mail["body"])
-			url = m.group()
+				assert(eq(a[1], b[0]) == True)
 
-			# reset password:
-			self.client.get(url)
+	def sequencesAreEqual(self, a, b, eq=lambda a, b: a == b):
+			if len(a) != len(b):
+				return False
 
-			# get new password:
-			mail = db.get_unsent_messages()[0]
-			db.mark_sent(mail["id"])
+			for e in a:
+				if not self.contains(b, eq, e):
+					return False
 
-			m = re.search("login:\n\n(.*)\n\n", mail["body"])
-			password = m.group(1)
+			for e in b:
+				if not self.contains(a, eq, e):
+					return False
 
-			with app.Application() as a:
-				self.assertTrue(a.validate_password("user_a", password))
+			return True
 
-	def test_03_disable_account(self):
-		# create test user:
-		password = self.__create_user__("user_a", "user_a@testmail.com")
+	def contains(self, l, eq, e):
+		for i in l:
+			if eq(i, e):
+				return True
 
-		# disable account:
-		self.client.disable_user("user_a", password, "user_a@testmail.com")
+		return False
 
-		# check if account has been disabled successfully:
-		with factory.create_user_db() as db:
-			self.assertTrue(db.user_is_blocked("user_a"))
-
-	def test_04_search_users(self):
-		users = {}
-		i = 0
-
-		for c in [ "a", "b", "c", "d", "e", "f" ]:
-			name = "user_%s" % c
-
-			if i % 2 == 0:
-				email = "%s@testmail.com" % name
-			else:
-				email = "%s@testmail.org" % name
-
-			users["user_%s" % c] = self.__create_user__(name, email)
-
-			i += 1
-
-		result = json.loads(self.client.find_user("user_a", users["user_a"], "testmail.com"))
-		self.assertEqual(len(result), 2)
-
-		result = json.loads(self.client.find_user("user_a", users["user_a"], "testmail.org"))
-		self.assertEqual(len(result), 3)
-
-		result = json.loads(self.client.find_user("user_a", users["user_a"], "testmail"))
-		self.assertEqual(len(result), 5)
-
-		result = json.loads(self.client.find_user("user_a", users["user_a"], "user_b"))
-		self.assertEqual(len(result), 1)
-
-	def test_05_objects(self):
-		# create test users & objects:
-		password_a = self.__create_user__("user_a", "user_a@testmail.com")
-		password_b = self.__create_user__("user_b", "user_b@testmail.com")
-		objs = self.__generate_objects__(100)
-
-		# get objects:
-		for obj in objs[:10]:
-			details = json.loads(self.client.get_object("user_a", password_a, obj["guid"]))
-			self.assertEqual(details["guid"], obj["guid"])
-
-		result = json.loads(self.client.get_objects("user_a", password_a, 0, 50))
-		self.assertEqual(len(result), 50)
-
-		result = json.loads(self.client.get_objects("user_a", password_a, 1, 90))
-		self.assertEqual(len(result), 10)
-
-		result = json.loads(self.client.get_random_objects("user_a", password_a, 50))
-		self.assertEqual(len(result), 50)
-
-		for obj in objs[:15]:
-			self.client.add_tags("user_a", password_a, obj["guid"], ( "foo", "bar" ))
-
-		result = json.loads(self.client.get_tagged_objects("user_a", password_a, "foo", 0, 50))
-		self.assertEqual(len(result), 15)
-
-		result = json.loads(self.client.get_tagged_objects("user_a", password_a, "foobar", 0, 50))
-		self.assertEqual(len(result), 0)
-
-		# score:
-		for obj in objs[:20]:
-			for i in range(2):
-				up = True
-
-				if random.randint(0, 100) >= 70:
-					up = False
-
-				user = "user_a"
-				password = password_a
-
-				if i == 1:
-					user = "user_b"
-					password = password_b
-				
-				self.client.rate(user, password, obj["guid"], up = up)
-
-		result = json.loads(self.client.get_popular_objects("user_a", password_a, 0, 15))
-		self.assertEqual(len(result), 15)
-
-		for i in range(14):
-			assert result[i]["score"]["total"] >= result[i + 1]["score"]["total"]
-
-		# favorites:
-		for i in range(20):
-			user = "user_a"
-			password = password_a
-
-			if i % 2 == 0:
-				user = "user_b"
-				password = password_b
-
-			self.client.favor(user, password, objs[i]["guid"], favor = True)
-
-		result = json.loads(self.client.get_favorites("user_a", password_a, 0, 15))
-		self.assertEqual(len(result), 10)
-
-		result = json.loads(self.client.get_favorites("user_a", password_a, 1, 9))
-		self.assertEqual(len(result), 1)
-
-		# comments:
-		for obj in objs[:5]:
-			for i in range(4):
-				user = "user_a"
-				password = password_a
-
-				if i % 2 == 0:
-					user = "user_b"
-					password = password_b
-
-				self.client.add_comment(user, password, obj["guid"], util.generate_junk(128))
-
-		for obj in objs[:5]:
-			comments = json.loads(self.client.get_comments("user_a", password_a, obj["guid"], 0, 10))
-			self.assertEqual(len(comments), 4)
-
-			comments = json.loads(self.client.get_comments("user_b", password_b, obj["guid"], 1, 3))
-			self.assertEqual(len(comments), 1)
-
-		# create frienship:
-		self.client.follow("user_a", password_a, "user_b")
-		self.client.follow("user_b", password_b, "user_a")
-
-		# recommendations:
-		for obj in objs[:10]:
-			self.client.recommend("user_a", password_a, obj["guid"], ( "user_a", "user_b" ))
-
-		result = json.loads(self.client.get_recommendations("user_a", password_a, 0, 100))
-		self.assertEqual(len(result), 0)
-
-		result = json.loads(self.client.get_recommendations("user_b", password_b, 0, 100))
-		self.assertEqual(len(result), 10)
-
-		result = json.loads(self.client.get_recommendations("user_b", password_b, 1, 8))
-		self.assertEqual(len(result), 2)
-
-		# messages:
-		messages = json.loads(self.client.get_messages("user_a", password_a, 100, None))
-		self.assertEqual(len(messages), 1)
-
-		messages = json.loads(self.client.get_messages("user_b", password_b, 100, None))
-		self.assertEqual(len(messages), 11)
-		timestamp = messages[0]["timestamp"] - 1000
-
-		messages = json.loads(self.client.get_messages("user_b", password_b, 100, timestamp))
-		assert len(messages) > 0
-
-	def test_06_request_counter(self):
-		for i in range(config.ACCOUNT_REQUESTS_PER_HOUR):
-			username = "user-%d" % i
-			email = "%s@testmail.com" % username
-
-			response = json.loads(self.client.request_account(username, email))
-			self.assertEqual(response["status"], ErrorCode.SUCCESS)
-
-		username = "user-x"
-		email = "%s@testmail.com" % username
-
-		response = self.client.request_account(username, email)
-		response = json.loads(self.client.request_account(username, email))
-		self.assertEqual(response["status"], ErrorCode.TOO_MANY_REQUESTS)
-
-	def test_07_report_abuse(self):
-		# create test data:
-		password = self.__create_user__("user_a", "user_a@testmail.com")
-		objs = self.__generate_objects__(10)
-
-		# start test mailer:
-		mta = TestMTA()
-		m = mailer.Mailer(config.MAILER_HOST, config.MAILER_PORT, mta)
-
-		m.start()
-
-		# report objects:
-		for i in range(2):
-			for obj in objs:
-				self.client.report_abuse("user_a", password, obj["guid"])
-
-		for i in range(10):
-			self.client.report_abuse("user_a", password, util.generate_junk(32))
-
-		# trigger mailer & quit:
-		mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
-
-		sleep(2)
-		m.quit()
-
-		# test mail count:
-		self.assertEqual(mta.count, 10)
-
+class TestUserDb(unittest.TestCase, TestBase):
 	def setUp(self):
-		# get test url & port:
-		self.port = 80
-
-		m = re.match("(http://.*):(\d+)", config.WEBSITE_URL)
-
-		if m is None:
-			self.url = config.WEBSITE_URL
-		else:
-			self.url = m.group(1)
-			self.port = int(m.group(2))
-
-		# create test client:
-		self.client = client.Client(self.url, self.port)
-
-		# clear tables & remove test files:
-		self.__clear_tables__()
-		util.remove_all_files(config.AVATAR_DIR)
+		self.__connection = factory.create_db_connection()
 
 	def tearDown(self):
-		self.__clear_tables__()
-		util.remove_all_files(config.AVATAR_DIR)
+		self.__connection.close()
 
-	def __create_user__(self, username, email):
-		# send account request:
-		response = self.client.request_account(username, email)
+	def test_00_user_request(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
 
-		with factory.create_mail_db() as db:
-			# get activation code from generated mail:
-			mail = db.get_unsent_messages()[0]
-			db.mark_sent(mail["id"])
+			# generate test data:
+			db = factory.create_user_db()
 
-			m = re.search("(http://.*)\n", mail["body"])
-			url = m.group()
+			requests = []
+			size = 10
 
-			self.client.get(url)
+			usernames = self.generate_set(size * 2, self.generate_username)
+			emails = self.generate_set(size * 2, self.generate_email)
+			ids = self.generate_set(size * 2, self.generate_text)
 
-			mail = db.get_unsent_messages()[0]
-			db.mark_sent(mail["id"])
+			# create account requests:
+			for i in range(size):
+				requests.append({ "username": usernames[i], "email": emails[i], "id": ids[i], "code": self.generate_text() })
 
-			m = re.search("login:\n\n(.*)\n\n", mail["body"])
-			password = m.group(1)
+			for r in requests:
+				db.create_user_request(scope, r["id"], r["code"], r["username"], r["email"])
 
-			return password
+			# find & get requests:
+			for r in requests:
+				self.assertTrue(db.user_request_id_exists(scope, r["id"]))
 
-	def __generate_objects__(self, count):
-		objs = []
+				req = db.get_user_request(scope, r["id"])
 
-		with factory.create_object_db() as db:
-			for i in range(count):
-				obj = { "guid": util.generate_junk(32), "source": util.generate_junk(64) }
-				db.create_object(obj["guid"], obj["source"])
-				objs.append(obj)
+				self.assertEqual(r["id"], req["request_id"])
+				self.assertEqual(r["code"], req["request_code"])
+				self.assertEqual(r["username"], req["username"])
+				self.assertEqual(r["email"], req["email"])
 
-		return objs
+				self.assertTrue(db.username_or_email_assigned(scope, r["username"], r["email"]))
 
-class TestMailer(unittest.TestCase, TestCase):
-	def test_00_mailer(self):
-		mta = TestMTA()
-		m = mailer.Mailer(config.MAILER_HOST, config.MAILER_PORT, mta)
+			# check non-existing ids & users:
+			for i in range(size, size * 2):
+				id = ids[i]
+				username = usernames[i]
+				email = emails[i]
 
-		m.start()
+				self.assertFalse(db.user_request_id_exists(scope, id))
+				self.assertIsNone(db.get_user_request(scope, id))
+				self.assertFalse(db.username_or_email_assigned(scope, username, email))
 
-		with factory.create_mail_db() as db:
+			for r in requests:
+				self.assertFalse(db.user_exists(scope, r["username"]))
+
+	def test_01_user_activation(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# generate test data:
+			db = factory.create_user_db()
+
+			data = []
+			size = 10
+
+			usernames = self.generate_set(size * 2, self.generate_username)
+			emails = self.generate_set(size * 2, self.generate_email)
+			ids = self.generate_set(size * 2, self.generate_text)
+			codes = self.generate_set(size * 2, self.generate_text)
+
+			# create account requests:
+			for i in range(size):
+				data.append({ "username": usernames[i], "email": emails[i], "id": ids[i], "code": codes[i],
+				              "password": self.generate_text(), "salt": self.generate_text() })
+
+			for i in range(size):
+				r = data[i]
+				db.create_user_request(scope, r["id"], r["code"], r["username"], r["email"])
+
+			# activate accounts:
+			for i in range(size):
+				r = data[i]
+
+				# test wrong code:
+				self.assertExceptionRaised(db.activate_user, scope, r["id"], codes[i + 1], r["password"], r["salt"])
+
+				# use correct code:
+				db.activate_user(scope, r["id"], r["code"], r["password"], r["salt"])
+
+				self.assertFalse(db.user_request_id_exists(scope, r["id"]))
+				self.assertIsNone(db.get_user_request(scope, r["id"]))
+				self.assertTrue(db.username_or_email_assigned(scope, r["username"], r["email"]))
+				self.assertTrue(db.user_exists(scope, r["username"]))
+
+			# check non-existing ids:
+			for i in range(size, size * 2):
+				id = ids[i]
+				username = usernames[i]
+				email = emails[i]
+				code = codes[i]
+
+				self.assertExceptionRaised(db.activate_user, scope, id, code, self.generate_text(), self.generate_text())
+
+	def test_02_user_details(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# create test accounts & update details:
+			db = factory.create_user_db()
+
+			for _ in range(100):
+				user = self.generate_user_account(scope)
+
+				self.assertTrue(db.user_exists(scope, user["username"]))
+				self.assertFalse(db.user_is_blocked(scope, user["username"]))
+
+				db.delete_user(scope, user["username"], True)
+				self.assertFalse(db.user_exists(scope, user["username"]))
+
+				db.delete_user(scope, user["username"], False)
+				self.assertTrue(db.user_exists(scope, user["username"]))
+
+				db.block_user(scope, user["username"], True)
+				self.assertTrue(db.user_is_blocked(scope, user["username"]))
+
+				db.block_user(scope, user["username"], False)
+				self.assertFalse(db.user_is_blocked(scope, user["username"]))
+
+				hash, salt = db.get_user_password(scope, user["username"])
+				self.assertEqual(util.password_hash(user["password"], salt), hash)
+
+				details = db.get_user(scope, user["username"])
+
+				for k in ["id", "username", "firstname", "lastname", "email", "gender", "created_on", "avatar", "protected", "blocked", "language"]:
+					self.assertTrue(details.has_key(k))
+
+					if k in ["username", "email"]:
+						self.assertEqual(details[k], user[k])
+					elif isinstance(details[k], str):
+						self.assertNoneOrEmpty(details[k])
+
+				details["firstname"] = self.generate_text()
+				details["lastname"] = self.generate_text()
+				details["email"] = self.generate_email()
+				details["gender"] = self.generate_sex()
+				details["language"] = self.generate_language()
+				details["avatar"] = self.generate_text()
+
+				params = [scope] + util.select_values(details, ["username", "email", "firstname", "lastname", "gender", "language", "protected"])
+				apply(db.update_user_details, params)
+
+				db.update_avatar(scope, user["username"], details["avatar"])
+
+				new_details = db.get_user(scope, user["username"])
+
+				for k in new_details.keys():
+					self.assertEqual(details[k], new_details[k])
+
+				user["password"] = self.generate_text()
+
+				salt = self.generate_text()
+				hash = util.password_hash(user["password"], salt)
+
+				db.update_user_password(scope, user["username"], hash, salt)
+
+				hash, salt = db.get_user_password(scope, user["username"])
+				self.assertEqual(util.password_hash(user["password"], salt), hash)
+
+	def test_03_password_reset(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			db = factory.create_user_db()
+
+			for _ in range(100):
+				# create user account:
+				user = self.generate_user_account(scope)
+
+				# request password change:
+				id = self.generate_text()
+				code = self.generate_text()
+
+				self.assertFalse(db.password_request_id_exists(scope, id))
+
+				db.create_password_request(scope, id, code, user["id"])
+
+				self.assertTrue(db.password_request_id_exists(scope, id))
+
+				# set new password:
+				new_password = self.generate_text()
+				new_salt = self.generate_text()
+				new_hash = util.password_hash(new_password, new_salt)
+
+				self.assertExceptionRaised(db.reset_password, scope, id, self.generate_text(), new_hash, new_salt)
+
+				db.reset_password(scope, id, code, new_hash, new_salt)
+				self.assertFalse(db.password_request_id_exists(scope, id))
+
+				hash, salt = db.get_user_password(scope, user["username"])
+				self.assertEqual(hash, new_hash)
+				self.assertEqual(salt, new_salt)
+
+				# create and remove password requests:
+				id = self.generate_text()
+				code = self.generate_text()
+
+				db.create_password_request(scope, id, code, user["id"])
+
+				self.assertTrue(db.password_request_id_exists(scope, id))
+
+				db.remove_password_requests_by_user_id(scope, user["id"])
+
+				self.assertFalse(db.password_request_id_exists(scope, id))
+
+	def test_04_map_id(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# map user ids:
+			db = factory.create_user_db()
+
+			for _ in range(10):
+				user = self.generate_user_account(scope)
+				self.assertEqual(user["username"], db.map_user_id(scope, user["id"]))
+
+	def test_05_change_email(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			db = factory.create_user_db()
+
+			for _ in range(100):
+				# create test accoutns:
+				a = self.generate_user_account(scope)
+				b = self.generate_user_account(scope)
+
+				# test if emails can be changed:
+				self.assertTrue(db.user_can_change_email(scope, a["username"], a["email"]))
+				self.assertFalse(db.user_can_change_email(scope, a["username"], b["email"]))
+				self.assertFalse(db.user_can_change_email(scope, b["username"], a["email"]))
+
+				# set new email address:
+				new_email = self.generate_email()
+
+				while not db.user_can_change_email(scope, a["username"], new_email):
+					new_email = self.generate_email()
+
+				details = db.get_user(scope, a["username"])
+
+				details["email"] = new_email
+
+				params = [scope] + util.select_values(details, ["username", "email", "firstname", "lastname", "gender", "language", "protected"])
+				apply(db.update_user_details, params)
+
+				details = db.get_user(scope, a["username"])
+				self.assertEqual(details["email"], new_email)
+
+	def test_06_search(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# generate test accounts:
+			db = factory.create_user_db()
+
+			users = []
+
 			for i in range(1000):
-				db.append_message("subject-%d" % i, "body-%d" % i, "test@testmail.com", 120)
+				user = self.generate_user_account(scope)
 
-				if i % 10 == 0:
-					mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
+				if i % 7 == 0:
+					db.delete_user(scope, user["username"], True)
+				else:
+					user["firstname"] = self.generate_text()
+					user["lastname"] = self.generate_text()
 
-		sleep(3)
-		mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
-		sleep(3)
-		m.quit()
+					db.update_user_details(scope, user["username"], user["email"], user["firstname"], user["lastname"], "male", "en", True)
 
-		self.assertEqual(mta.count, 1000)
+					for k in user.keys():
+						if isinstance(user[k], str):
+							user[k] = user[k].lower()
 
-		with factory.create_mail_db() as db:
-			mails = db.get_unsent_messages(1000)
-			self.assertEqual(len(mails), 0)
+					users.append(user)
 
+			# search for test accounts:
+			for _ in range(10):
+				user = users[random.randint(0, len(users) - 1)]
+				query = user["firstname"].lower()[0:2]
+				expected = 0
+
+				for user in users:
+					if query in user["username"] or query in user["email"] or query in user["firstname"] or query in user["lastname"]:
+						expected += 1
+
+				result = db.search(scope, query)
+
+				self.assertEqual(expected, len(result))
+
+	def test_07_friendship(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			db = factory.create_user_db()
+
+			for _ in range(10):
+				# generate test accounts:
+				a = self.generate_user_account(scope)
+				b = self.generate_user_account(scope)
+				c = self.generate_user_account(scope)
+
+				for p in itertools.permutations([a, b, c], 2):
+					self.assertFalse(db.is_following(scope, p[0]["username"], p[1]["username"]))
+
+				for u in [a, b, c]:
+					followed = db.get_followed_usernames(scope, a["username"])
+					self.assertEqual(len(followed), 0)
+
+				# set and test friendship:
+				m = { a["id"]: [b, c], b["id"]: [a], c["id"]: [a, b] }
+
+				for k, v in m.items():
+					for u in v:
+						db.follow(scope, k, u["id"], True)
+
+				for p in itertools.permutations([a, b, c], 2):
+					self.assertEqual(db.is_following(scope, p[0]["username"], p[1]["username"]), p[1] in m[p[0]["id"]])
+
+				for u in [a, b, c]:
+					for f in m[u["id"]]:
+						followed = db.get_followed_usernames(scope, u["username"])
+
+						self.assertEqual(len(followed), len(m[u["id"]]))
+						self.assertEqual(len(filter(lambda username: username == f["username"], followed)), 1)
+
+				db.follow(scope, a["id"], c["id"], False)
+				db.follow(scope, c["id"], b["id"], False)
+
+				self.assertTrue(db.is_following(scope, a["username"], b["username"]))
+				self.assertFalse(db.is_following(scope, a["username"], c["username"]))
+				self.assertTrue(db.is_following(scope, c["username"], a["username"]))
+				self.assertFalse(db.is_following(scope, c["username"], b["username"]))
+
+			# test invalid usernames:
+			self.assertExceptionRaised(db.follow, scope, self.generate_text(), self.generate_text(), True)
+			self.assertExceptionRaised(db.follow, scope, self.generate_text(), self.generate_text(), False)
+
+	def test_08_favorites(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# create test objects:
+			db = factory.create_user_db()
+			object_db = factory.create_object_db()
+
+			objects = []
+
+			for _ in range(500):
+				objects.append(self.generate_object(scope))
+
+			for _ in range(10):
+				# create test accounts:
+				a = self.generate_user_account(scope)
+				b = self.generate_user_account(scope)
+
+				# add and remove favorites:
+				for i in range(len(objects)):
+					obj = objects[i]
+
+					if i % 5 == 0:
+						db.favor(scope, a["id"], obj["guid"], True)
+
+					if i % 10 == 0:
+						db.favor(scope, a["id"], obj["guid"], False)
+
+					if i % 7 == 0:
+						db.favor(scope, b["id"], obj["guid"], True)
+
+					if i % 14 == 0:
+						db.favor(scope, b["id"], obj["guid"], False)
+
+				# test favorites:
+				count_a = 0
+				count_b = 0
+
+				favs_a = db.get_favorites(scope, a["id"])
+				favs_b = db.get_favorites(scope, b["id"])
+
+				for i in range(len(objects)):
+					obj = objects[i]
+
+					if i % 5 == 0 and not i % 10 == 0:
+						count_a += 1
+						self.assertTrue(db.is_favorite(scope, a["id"], obj["guid"]))
+					else:
+						self.assertFalse(db.is_favorite(scope, a["id"], obj["guid"]))
+
+					if i % 7 == 0 and not i % 14 == 0:
+						count_b += 1
+						self.assertTrue(db.is_favorite(scope, b["id"], obj["guid"]))
+					else:
+						self.assertFalse(db.is_favorite(scope, b["id"], obj["guid"]))
+
+				self.assertEqual(count_a, len(favs_a))
+				self.assertEqual(count_b, len(favs_b))
+
+				# delete object and test favorites:
+				object_db.delete_object(scope, favs_a[0]["guid"], True)
+
+				new_favs = db.get_favorites(scope, a["id"])
+
+				self.assertEqual(len(favs_a) - 1, len(new_favs))
+				self.assertEqual(len(filter(lambda f: f["guid"] == favs_a[0]["guid"], new_favs)), 0)
+
+				object_db.delete_object(scope, favs_a[0]["guid"], False)
+
+			# invalid user id and guid:
+			self.assertExceptionRaised(db.favor, scope, random.randint(0, pow(2, 32) - 1), str(util.new_guid()))
+
+	def test_09_recommendations(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# create test objects:
+			db = factory.create_user_db()
+			object_db = factory.create_object_db()
+
+			objects = []
+
+			for _ in range(100):
+				objects.append(self.generate_object(scope))
+
+			for _ in range(10):
+				# create test acconts and recommendations:
+				a = self.generate_user_account(scope)
+				b = self.generate_user_account(scope)
+
+				count_a = 0
+				count_b = 0
+
+				for i in range(len(objects)):
+					obj = objects[i]
+
+					if i % 5 == 0:
+						db.recommend(scope, a["id"], b["id"], obj["guid"])
+						count_b += 1
+
+					if i % 10 == 0:
+						db.recommend(scope, b["id"], a["id"], obj["guid"])
+						count_a += 1
+
+				# test recommendations:
+				for i in range(len(objects)):
+					obj = objects[i]
+
+					self.assertEqual(db.recommendation_exists(scope, a["username"], b["username"], obj["guid"]), i % 5 == 0)
+					self.assertEqual(db.recommendation_exists(scope, b["username"], a["username"], obj["guid"]), i % 10 == 0)
+
+				# paging:
+				eq = lambda x, y: x["username"] == y["username"] and x["guid"] == y["guid"]
+
+				self.assertPaging(count_b, eq, db.get_recommendations, scope, b["username"])
+				self.assertPaging(count_a, eq, db.get_recommendations, scope, a["username"])
+
+				# delete object and test recommendations:
+				recommendations = db.get_recommendations(scope, b["username"], 0, count_b)
+
+				object_db.delete_object(scope, recommendations[0]["guid"], True)
+
+				self.assertEqual(len(recommendations) - 1, len(db.get_recommendations(scope, b["username"], 0, count_b)))
+
+				object_db.delete_object(scope, recommendations[0]["guid"], False)
+
+			# invalid username and guid:
+			self.assertExceptionRaised(db.favor, scope, self.generate_username(), self.generate_username(), str(util.new_guid()))
+
+class TestObjectDb(unittest.TestCase, TestBase):
 	def setUp(self):
-		# get test url & port:
-		self.port = 80
-
-		m = re.match("(http://.*):(\d+)", config.WEBSITE_URL)
-
-		if m is None:
-			self.url = config.WEBSITE_URL
-		else:
-			self.url = m.group(1)
-			self.port = int(m.group(2))
-
-		# create test client:
-		self.client = client.Client(self.url, self.port)
-
-		# clear tables & remove test files:
-		self.__clear_tables__()
-		util.remove_all_files(config.AVATAR_DIR)
+		self.__connection = factory.create_db_connection()
 
 	def tearDown(self):
-		self.__clear_tables__()
-		util.remove_all_files(config.AVATAR_DIR)
+		self.__connection.close()
 
+	def test_00_general(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# create objects:
+			db = factory.create_object_db()
+
+			objects = []
+
+			for _ in range(100):
+				obj = { "guid": util.new_guid(), "source": self.generate_text() }
+				objects.append(obj)
+
+				db.create_object(scope, obj["guid"], obj["source"])
+
+			# test if object exists:
+			for obj in objects:
+				self.assertTrue(db.object_exists(scope, obj["guid"]))
+
+			for _ in range(100):
+				self.assertFalse(db.object_exists(scope, util.new_guid()))
+
+			# delete objects:
+			for i in range(0, len(objects), 3):
+				db.delete_object(scope, objects[i]["guid"], True)
+
+			for i in range(len(objects)):
+				self.assertEqual(db.object_exists(scope, objects[i]["guid"]), i % 3 != 0)
+
+			for i in range(len(objects)):
+				db.delete_object(scope, objects[i]["guid"], i % 3 != 0)
+
+			for i in range(len(objects)):
+				self.assertEqual(db.object_exists(scope, objects[i]["guid"]), i % 3 == 0)
+
+			# lock objects:
+			for i in range(0, len(objects), 7):
+				db.lock_object(scope, objects[i]["guid"])
+
+			for i in range(0, len(objects)):
+				self.assertEqual(db.is_locked(scope, objects[i]["guid"]), i % 7 == 0)
+
+	def test_01_get_objects(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# create objects:
+			db = factory.create_object_db()
+
+			objects = []
+
+			for _ in range(100):
+				obj = { "guid": util.new_guid(), "source": self.generate_text() }
+				objects.append(obj)
+
+				db.create_object(scope, obj["guid"], obj["source"])
+
+			# test details:
+			for obj in objects:
+				data = db.get_object(scope, obj["guid"])
+
+				self.assertEqual(obj["guid"], data["guid"])
+				self.assertEqual(obj["source"], data["source"])
+
+				self.assertFalse(data["locked"])
+				self.assertFalse(data["reported"])
+				self.assertEqual(len(data["tags"]), 0)
+				self.assertEqual(data["comments_n"], 0)
+				self.assertIsInstance(data["created_on"], datetime.datetime)
+				self.assertEqual(data["score"]["up"], 0)
+				self.assertEqual(data["score"]["down"], 0)
+				self.assertEqual(data["score"]["fav"], 0)
+
+			# lock objects and test lock field:
+			for i in range(0, len(objects), 3):
+				db.lock_object(scope, objects[i]["guid"])
+
+			for i in range(len(objects)):
+				obj = db.get_object(scope, objects[i]["guid"])
+				self.assertEqual(obj["locked"], i % 3 == 0)
+
+			# paging:
+			eq = lambda a, b: a["guid"] == b["guid"] and a["source"] == b["source"]
+			self.assertPaging(len(objects), eq, db.get_objects, scope)
+
+	def test_02_vote(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# create test data:
+			db = factory.create_object_db()
+			user_db = factory.create_user_db()
+
+			objects = []
+			size = 50
+
+			for _ in range(size):
+				obj = self.generate_object(scope)
+
+				sep = []
+
+				sep.append(random.randint(9, size * 2 - 20))
+				sep.append(random.randint(sep[0] + 1, size * 2 - 10))
+				sep.append(random.randint(9, size * 2 - 20))
+
+				obj["separators"] = sep
+
+				score = {}
+
+				score["up"] = sep[0]
+				score["down"] = sep[1] - sep[0]
+				score["fav"] = sep[2]
+
+				obj["score"] = score
+
+				objects.append(obj)
+
+			users = []
+
+			for _ in range(size * 2):
+				users.append(self.generate_user_account(scope))
+
+			# let users vote:
+			for obj in objects:
+				for i in range(obj["separators"][0]):
+					db.vote(scope, obj["guid"], users[i]["id"], True)
+
+				for i in range(obj["separators"][0], obj["separators"][1]):
+					db.vote(scope, obj["guid"], users[i]["id"], False)
+
+				for i in range(obj["separators"][2]):
+					user_db.favor(scope, users[i]["id"], obj["guid"])
+
+			# test score:
+			for obj in objects:
+				for i in range(size * 2):
+					self.assertEqual(db.user_can_vote(scope, obj["guid"], users[i]["username"]), i >= obj["separators"][1])
+
+					voting = db.get_voting(scope, obj["guid"], users[i]["username"])
+
+					if i < obj["separators"][1]:
+						self.assertEqual(voting, i < obj["separators"][0])
+					else:
+						self.assertIsNone(voting)
+
+				details = db.get_object(scope, obj["guid"])
+
+				self.assertEqual(obj["score"]["up"], details["score"]["up"])
+				self.assertEqual(obj["score"]["down"], details["score"]["down"])
+				self.assertEqual(obj["score"]["fav"], details["score"]["fav"])
+
+			# paging:
+			eq = lambda a, b: a["guid"] == b["guid"] and a["source"] == b["source"]
+			self.assertPaging(len(objects), eq, db.get_popular_objects, scope)
+
+			# test sort order:
+			prev_score = size * 4
+
+			for obj in db.get_popular_objects(scope, 0, size):
+				score = obj["score"]["up"] - obj["score"]["down"] + obj["score"]["fav"]
+
+				self.assertTrue(score <= prev_score)
+
+				prev_score = score
+
+	def test_03_tags(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# create test data:
+			db = factory.create_object_db()
+			user_db = factory.create_user_db()
+
+			objects = []
+			users = []
+
+			# generate users and tags:
+			tags = self.generate_set(20, lambda: self.generate_text(2, 16).lower())
+
+			for _ in range(len(tags)):
+				users.append(self.generate_user_account(scope))
+
+			for _ in range(50):
+				obj = self.generate_object(scope)
+
+				indeces = range(len(tags))
+				random.shuffle(indeces)
+				indeces = indeces[:random.randint(1, len(indeces) - 1)]
+
+				obj["indeces"] = indeces
+				obj["count"] = map(lambda _: random.randint(1, len(users)), range(len(indeces)))
+
+				objects.append(obj)
+
+			# generate objects and add tags:
+			for obj in objects:
+				for i in range(len(obj["indeces"])):
+					count = obj["count"][i]
+					tag = tags[obj["indeces"][i]]
+
+					for m in range(count):
+						db.add_tag(scope, obj["guid"], users[m]["id"], tag)
+						self.assertExceptionRaised(db.add_tag, scope, obj["guid"], users[m]["id"], tag)
+
+			# test tag cloud:
+			prev_count = len(tags) * len(objects)
+
+			for m in db.get_tags(scope):
+				tag = m["tag"]
+				count = m["count"]
+
+				self.assertTrue(count <= prev_count)
+				prev_count = count
+
+				index = tags.index(tag)
+				sum = 0
+
+				for obj in objects:
+					if index in obj["indeces"]:
+						pos = obj["indeces"].index(index)
+						sum += obj["count"][pos]
+
+				self.assertEqual(sum, count)
+
+			# get tags of each object:
+			for obj in objects:
+				details = db.get_object(scope, obj["guid"])
+				equal = self.sequencesAreEqual(obj["indeces"], map(lambda t: tags.index(t), details["tags"]))
+
+				self.assertTrue(equal)
+
+			# paging:
+			for t in tags:
+				sum = 0
+
+				for obj in objects:
+					if tags.index(t) in obj["indeces"]:
+						sum += 1
+
+				self.assertPaging(sum, lambda a, b: a["guid"] == b["guid"], db.get_tagged_objects, scope, t)
+
+	def test_04_comments(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# create test data:
+			db = factory.create_object_db()
+			user_db = factory.create_user_db()
+
+			objects = []
+			users = []
+			comments = {}
+
+			for _ in range(50):
+				users.append(self.generate_user_account(scope))
+
+			for _ in range(100):
+				objects.append(self.generate_object(scope))
+
+			for obj in objects:
+				l = []
+
+				size = random.randint(0, 100)
+				text = self.generate_set(size, self.generate_text)
+
+				for t in text:
+					user = self.pick_one(users)
+
+					comment = { "guid": obj["guid"], "username": user["username"], "text": t }
+					l.append(comment)
+
+					db.add_comment(scope, obj["guid"], user["id"], t)
+
+				comments[obj["guid"]] = l
+
+			# get comments:
+			eq = lambda a, b: a["text"] == b["text"]
+
+			for k, v in comments.items():
+				# paging:
+				self.assertPaging(len(v), eq, db.get_comments, scope, k)
+
+				# get all comments:
+				l = db.get_comments(scope, k, 0, len(v))
+
+				self.assertTrue(self.sequencesAreEqual(l, v, lambda a, b: a["text"] == b["text"] and a["username"] == b["username"]))
+
+				# get single comment:
+				for c in l:
+					details = db.get_comment(scope, c["id"])
+
+					self.assertEqual(details["id"], c["id"])
+					self.assertEqual(details["text"], c["text"])
+					self.assertEqual(details["username"], c["username"])
+
+			# delete comments:
+			for guid in comments.keys():
+				deleted = []
+
+				first = db.get_comments(scope, guid, 0, 100)
+
+				for i in range(0, len(first), 3):
+					db.flag_comment_deleted(scope, first[i]["id"])
+					deleted.append(first[i]["id"])
+
+				second = db.get_comments(scope, guid, 0, 100)
+
+				self.assertTrue(self.sequencesAreEqual(first, second, lambda a, b: a["id"] == b["id"] and a["text"] == b["text"]))
+
+				count = 0
+
+				for c in second:
+					if c["deleted"]:
+						count += 1
+
+						self.assertTrue(c["id"] in deleted)
+
+				self.assertEqual(count, len(deleted))
+
+	def test_05_abuse(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			db = factory.create_object_db()
+
+			objects = []
+
+			for _ in range(1000):
+				obj = { "guid": util.new_guid(), "source": self.generate_text() }
+				objects.append(obj)
+
+				db.create_object(scope, obj["guid"], obj["source"])
+
+			for i in range(0, len(objects), 3):
+				db.report_abuse(scope, objects[i]["guid"])
+
+			for i in range(0, len(objects), 3):
+				details = db.get_object(scope, objects[i]["guid"])
+
+				self.assertEqual(details["reported"], i % 3 == 0)
+
+	def test_06_random(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			db = factory.create_object_db()
+
+			objects = {}
+
+			for _ in range(100):
+				guid = util.new_guid()
+
+				objects[guid] = 0
+
+				obj = { "guid": guid, "source": self.generate_text() }
+				db.create_object(scope, obj["guid"], obj["source"])
+
+			empty = db.get_random_objects(scope, 0)
+			self.assertEqual(len(empty), 0)
+
+			half = db.get_random_objects(scope, 50)
+			self.assertEqual(len(half), 50)
+
+			all = db.get_random_objects(scope, 100)
+			self.assertEqual(len(all), 100)
+
+			for obj in all:
+				objects[obj["guid"]] = 1
+
+			for guid in objects:
+				self.assertEqual(objects[guid], 1)
+
+			for _ in range(10000):
+				for obj in db.get_random_objects(scope, 10):
+					objects[obj["guid"]] = objects[obj["guid"]] + 1
+
+			for v in objects.values():
+				self.assertTrue(v >= 800 and v <= 1200)
+
+class TestStreamDb(unittest.TestCase, TestBase):
+	def setUp(self):
+		self.__connection = factory.create_db_connection()
+
+	def tearDown(self):
+		self.__connection.close()
+
+	def test_00_friendship(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			db = factory.create_stream_db()
+			user_db = factory.create_user_db()
+
+			a, b, c = map(lambda _: self.generate_user_account(scope), range(3))
+
+			user_db.follow(scope, a["id"], b["id"], True)
+			user_db.follow(scope, b["id"], a["id"], True)
+			user_db.follow(scope, a["id"], c["id"], True)
+			user_db.follow(scope, a["id"], c["id"], False)
+
+			for user in [a, b]:
+				messages = db.get_messages(scope, user["username"])
+
+				self.assertEqual(len(messages), 1)
+				msg = messages[0]
+
+				if user is a:
+					friend = long(b["id"])
+				else:
+					friend = long(a["id"])
+
+				source = long(msg["source"])
+
+				self.assertTrue(msg["type"] == "following")
+				self.assertEqual(source, friend)
+
+			messages = db.get_messages(scope, c["username"])
+			self.assertEqual(len(messages), 2)
+
+			for msg in messages:
+				source = long(msg["source"])
+
+				self.assertTrue(msg["type"] == "following" or msg["type"] == "unfollowing")
+				self.assertEqual(source, a["id"])
+
+	def test_01_recommendations(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# create test data:
+			db = factory.create_stream_db()
+			user_db = factory.create_user_db()
+
+			users = map(lambda _: self.generate_user_account(scope), range(10))
+			objects = map(lambda _: self.generate_object(scope), range(1000))
+
+			m = {}
+
+			for receiver in users:
+				d = {}
+
+				senders = [user["id"] for user in filter(lambda u: u["id"] != receiver["id"], users)]
+				random.shuffle(senders)
+
+				for sender in senders[:random.randint(1, len(senders) - 2)]:
+					d[sender] = random.randint(2, 20)
+
+				m[receiver["id"]] = d
+
+			for i in range(len(objects)):
+				for receiver_id, senders in m.items():
+					for sender_id, n in senders.items():
+						if i % n == 0:
+							user_db.recommend(scope, sender_id, receiver_id, objects[i]["guid"])
+
+			# get and test messages:
+			for user in users:
+				messages = db.get_messages(scope, user["username"])
+
+				for msg in messages:
+					self.assertEqual(msg["type"], "recommendation")
+
+					source = int(msg["source"])
+
+					index = filter(lambda i: objects[i]["guid"] == msg["target"], range(len(objects)))[0]
+
+					self.assertTrue(index % m[user["id"]][source] == 0)
+
+
+	def test_02_comment_and_vote(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+			# create test data:
+			db = factory.create_stream_db()
+			user_db = factory.create_user_db()
+			object_db = factory.create_object_db()
+
+			a, b, c = map(lambda _: self.generate_user_account(scope), range(3))
+			objects = map(lambda _: self.generate_object(scope), range(1000))
+
+			user_db.follow(scope, a["id"], b["id"], True)
+			user_db.follow(scope, b["id"], a["id"], True)
+
+			user_db.update_user_details(scope, c["username"], c["email"], None, None, None, None, False)
+
+			comment_stat = {}
+			vote_stat = {}
+
+			for user in [a, b, c]:
+				comment_stat[user["id"]] = {}
+				vote_stat[user["id"]] = {}
+
+			for obj in objects:
+				guid = obj["guid"]
+				author = long(self.pick_one([a["id"], b["id"], c["id"]]))
+
+				# add comments:
+				for _ in range(random.randint(1, 50)):
+					object_db.add_comment(scope, guid, author, self.generate_text())
+
+					if comment_stat[author].has_key(guid):
+						comment_stat[author][guid] = comment_stat[author][guid] + 1
+					else:
+						comment_stat[author][guid] = 1
+
+				# vote:
+				object_db.vote(scope, guid, author, random.randint(0, 1) == 1)
+
+				if vote_stat[author].has_key(guid):
+					vote_stat[author][guid] = vote_stat[author][guid] + 1
+				else:
+					vote_stat[author][guid] = 1
+
+			# run test:
+			for user in [a, b]:
+				for msg in db.get_messages(scope, user["username"], pow(2, 31)):
+					if user is a:
+						friend = long(b["id"])
+					else:
+						friend = long(a["id"])
+
+					source = long(msg["source"])
+					target = msg["target"]
+
+					self.assertTrue(msg["type"] in ["following", "wrote-comment", "voted-object"])
+					self.assertEqual(source, friend)
+
+					if msg["type"] == "wrote-comment":
+						comment = object_db.get_comment(scope, target)
+
+						guid = comment["object-guid"]
+						comment_stat[source][guid] = comment_stat[source][guid] - 1
+					elif msg["type"] == "voted-object":
+						vote_stat[source][target] = vote_stat[source][target] - 1
+
+			messages = db.get_messages(scope, c["username"], 100)
+			self.assertEqual(len(messages), 0)
+
+			for msg in db.get_public_messages(scope, pow(2, 31)):
+				source = long(msg["source"])
+
+				self.assertTrue(msg["type"] in ["wrote-comment", "voted-object"])
+				self.assertEqual(source, c["id"])
+
+				if msg["type"] == "wrote-comment":
+					target = msg["target"]
+					comment = object_db.get_comment(scope, target)
+
+					guid = comment["object-guid"]
+					comment_stat[source][guid] = comment_stat[source][guid] - 1
+				else:
+					vote_stat[source][guid] = vote_stat[source][guid] - 1
+
+			for user in [a, b, c]:
+				for v in comment_stat[user["id"]].values():
+					self.assertEqual(v, 0)
+
+				for v in vote_stat[user["id"]].values():
+					self.assertEqual(v, 0)
+
+class TestMailDb(unittest.TestCase, TestBase):
+	def setUp(self):
+		self.__connection = factory.create_db_connection()
+
+	def tearDown(self):
+		self.__connection.close()
+
+	def test_00_mail(self):
+		with self.__connection.enter_scope() as scope:
+			self.clear(scope)
+
+		# create test data:
+		db = factory.create_mail_db()
+		user_db = factory.create_user_db()
+
+		a, b = map(lambda _: self.generate_user_account(scope), range(2))
+
+		bodies = self.generate_set(100, self.generate_text)
+		subjects = self.generate_set(100, self.generate_text)
+
+		for i in range(100):
+			if i % 4 == 0:
+				db.push_user_mail(scope, subjects[i], bodies[i], a["id"])
+			elif i % 6 == 0:
+				db.push_mail(scope, subjects[i], bodies[i], b["email"])
+			elif i % 2 == 0:
+				db.push_mail(scope, subjects[i], bodies[i], a["email"])
+			else:
+				db.push_user_mail(scope, subjects[i], bodies[i], b["id"])
+
+		# get mails:
+		empty = db.get_unsent_messages(scope, 0)
+		self.assertEqual(len(empty), 0)
+
+		some = db.get_unsent_messages(scope, 10)
+		self.assertEqual(len(some), 10)
+
+		all = db.get_unsent_messages(scope, len(bodies) * 2)
+		self.assertEqual(len(all), 100)
+
+		for msg in all:
+			self.assertTrue(msg["body"] in bodies)
+			self.assertTrue(msg["subject"] in subjects)
+			self.assertTrue(msg["email"] in [a["email"], b["email"]])
+
+		# set mails sent:
+		sent = []
+
+		for i in range(0, 100, 2):
+			id = all[i]["id"]
+
+			sent.append(id)
+			db.mark_sent(scope, id)
+
+		all = db.get_unsent_messages(scope, len(bodies))
+		self.assertEqual(len(all), len(bodies) - len(bodies) / 2)
+
+		for msg in all:
+			self.assertFalse(msg["id"] in sent)
 
 def run_test_case(case):
 	suite = unittest.TestLoader().loadTestsFromTestCase(case)
 	unittest.TextTestRunner(verbosity = 2).run(suite)
 
 if __name__ == "__main__":
-	for case in [ TestUserDb, TestObjectDb, TestStreamDb, TestMailDb, TestRequestDb,
-	              TestApplication, TestAuthenticatedApplication, TestHttpServer, TestMailer ]:
+	for case in [TestUserDb, TestObjectDb, TestStreamDb, TestMailDb]:
 		run_test_case(case)
