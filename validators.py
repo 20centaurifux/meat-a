@@ -93,7 +93,7 @@ def validate_lastname(name):
 #  @param gender gender to validate
 #  @return True if the gender is valid
 def validate_gender(gender):
-	return gender is None or gender in ["male", "female", "trans male", "trans female"]
+	return gender is None or gender in ["male", "female", "trans man", "trans woman"]
 
 ## Validates a comment.
 #  @param text text to validate

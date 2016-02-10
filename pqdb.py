@@ -517,7 +517,7 @@ class PQMailDb(PQDb, database.MailDb):
 		query = "select mail.id, mail.subject, mail.body, mail.created_on, " + \
 		        "coalesce(mail.mail, \"user\".email) as email "              + \
 		        "from mail left join \"user\" on receiver_id=\"user\".id "   + \
-		        "where sent=false order by created_on desc limit %d" % (limit)
+		        "where sent=false order by created_on, id limit %d" % (limit)
 
 		mails = []
 		cur = scope.get_handle()

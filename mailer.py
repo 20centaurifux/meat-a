@@ -42,7 +42,7 @@ class MTA():
 
 	## Called when the Mailer starts a new session.
 	@abc.abstractmethod
-	def start_session(self): return
+	def start_session(self): pass
 
 	## Sends an mail to a receiver.
 	#  @param subject subject of the mail
@@ -51,11 +51,11 @@ class MTA():
 	#  @return if True the Mailer sets the "Sent" flag of the mail, otherwise it stays
 	#          in the queue
 	@abc.abstractmethod
-	def send(self, subject, body, receiver): return False
+	def send(self, subject, body, receiver): return None
 
 	## Called when a Mailer session ends.
 	@abc.abstractmethod
-	def end_session(self): return
+	def end_session(self): pass
 
 ## A service sending mails from the mail queue using an assigned MTA. It sends mails after an
 #  interval or when triggered over UDP.
@@ -124,7 +124,7 @@ class Mailer:
 	def __network_handler__(self):
 		while self.is_running():
 			try:
-				data, addr = self.socket.recvfrom(128) 
+				data, addr = self.socket.recvfrom(128)
 
 				if addr[0] in config.MAILER_ALLOWED_CLIENTS:
 					if data == "ping\n":
@@ -134,25 +134,30 @@ class Mailer:
 				pass
 
 	def __consumer__(self):
-		with factory.create_mail_db() as db:
-			while True:
-				self.__consumer_cond.acquire()
-				self.__consumer_cond.wait(config.MAIL_CHECK_INTERVAL)
-				self.__consumer_cond.release()
+		db = factory.create_mail_db()
 
-				if not self.is_running():
-					break
+		while True:
+			self.__consumer_cond.acquire()
+			self.__consumer_cond.wait(config.MAIL_CHECK_INTERVAL)
+			self.__consumer_cond.release()
 
-				# get & send mails:
-				mails = db.get_unsent_messages(100)
+			if not self.is_running():
+				break
+
+			# get & send mails:
+			with factory.create_db_connection() as conn:
+				with conn.enter_scope() as scope:
+					mails = db.get_unsent_messages(scope, 100)
 
 				if len(mails) > 0:
 					try:
 						self.__mta.start_session()
 
 						for m in mails:
-							if self.__mta.send(m["subject"], m["body"], m["receiver"]):
-								db.mark_sent(m["id"])
+							with conn.enter_scope() as scope:
+								if self.__mta.send(m["subject"], m["body"], m["email"]):
+									db.mark_sent(scope, m["id"])
+									scope.complete()
 
 							if not self.is_running():
 								break
@@ -162,8 +167,6 @@ class Mailer:
 					except Exception, ex:
 						logging.error(ex.message)
 						logging.error(traceback.print_exc())
-
-
 
 	def __notify__(self):
 		self.__consumer_cond.acquire()

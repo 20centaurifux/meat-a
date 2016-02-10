@@ -25,6 +25,11 @@
 	OTHER DEALINGS IN THE SOFTWARE.
 """
 
+# TODO: validate tags (length etc.)
+# TODO: don't generate base64 encoded ids & codes
+# TODO: rewrite url generation: use util.build_url()!
+# TODO: rewrite avatar filename generation
+
 ##
 #  @file app.py
 #  Domain layer.
@@ -32,7 +37,7 @@
 ## @package app
 #  Domain layer.
 
-import factory, exception, util, config, tempfile, os, template, mailer
+import factory, exception, util, config, tempfile, os, sys, template, mailer
 from validators import *
 from base64 import b64encode
 
@@ -443,7 +448,7 @@ class Application(UserTools, ObjectTools):
 				request = self.__user_db.get_password_request(scope, id)
 				username = request["user"]["username"]
 
-				self.__test_user_exists__(scope, username)
+				self.__test_active_user__(scope, username)
 
 				if request["request_code"] != code:
 					raise exception.InvalidRequestCodeException()
@@ -526,7 +531,7 @@ class Application(UserTools, ObjectTools):
 				self.__test_active_user__(scope, username)
 
 				# write temporary file:
-				with tempfile.NamedTemporaryFile(mode = "wb", dir = config.TMP_DIR, delete = False) as f:
+				with tempfile.NamedTemporaryFile(mode="wb", dir=config.TMP_DIR, delete=False) as f:
 					map(f.write, util.read_from_stream(stream, max_size = config.AVATAR_MAX_FILESIZE))
 
 				# validate image format:
@@ -534,9 +539,9 @@ class Application(UserTools, ObjectTools):
 					if not validate_image_file(f.name, config.AVATAR_MAX_FILESIZE, config.AVATAR_MAX_WIDTH, config.AVATAR_MAX_HEIGHT, config.AVATAR_FORMATS):
 						raise exception.InvalidImageFormatException()
 
-				except exception.Exception, ex:
+				except:
 					os.unlink(f.name)
-					raise ex
+					raise sys.exc_info()[1]
 
 				# move file to avatar folder:
 				try:
@@ -572,7 +577,7 @@ class Application(UserTools, ObjectTools):
 
 				user = {}
 
-				for k in ["username", "firstname", "lastname", "email", "gender", "created_on", "avatar", "protected", "blocked", "language"]:
+				for k in ["id", "username", "firstname", "lastname", "email", "gender", "created_on", "avatar", "protected", "blocked", "language"]:
 					user[k] = details[k]
 
 				user["following"] = self.__user_db.get_followed_usernames(scope, username)
@@ -609,16 +614,13 @@ class Application(UserTools, ObjectTools):
 			with conn.enter_scope() as scope:
 				self.__test_active_user__(scope, account)
 
-				# get details from requester:
-				requester = self.__user_db.get_user(scope, account)
-
 				# search users:
-				lusername = account.lower()
+				laccount = account.lower()
 				result = []
 
 				for username in self.__user_db.search(scope, query):
-					if lusername <> requester["username"].lower():
-						result.append(self.__get_user_details__(scope, db, requester, username))
+					if username.lower() <> laccount:
+						result.append(self.__get_user_details__(scope, account, username))
 
 				return result
 
@@ -667,7 +669,7 @@ class Application(UserTools, ObjectTools):
 				self.__test_active_user__(scope, user2)
 
 				following = db.is_following(scope, user1, user2)
-				followed = db.is_following(scope, user1, user1)
+				followed = db.is_following(scope, user2, user1)
 
 				return { "following": following, "followed": followed }
 
@@ -702,14 +704,13 @@ class Application(UserTools, ObjectTools):
 
 				scope.complete()
 
-	## Deleted an object.
+	## Delete an object.
 	#  @param guid guid of the object
-	#  @param deleted True to delete object
-	def delete_object(self, guid, deleted):
+	def delete_object(self, guid):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				self.__test_object_exists__(scope, guid)
-				self.__object_db.delete_object(scope, guid, deleted)
+				self.__object_db.delete_object(scope, guid, True)
 
 				scope.complete()
 
@@ -853,7 +854,7 @@ class Application(UserTools, ObjectTools):
 	#  @return a dictionary holding object details: { "guid": str, "source": str, "locked": bool,
 	#          "reported": bool, "tags": [ str, str, ... ], "score": { "up": int, "down": int, "fav": int },
 	#          "created_on": datetime, "comments_n": int, "reported": bool }
-	def get_favorites(self, username, page = 0, page_size = 10):
+	def get_favorites(self, username, page=0, page_size=10):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				self.__test_active_user__(scope, username)
@@ -956,7 +957,6 @@ class Application(UserTools, ObjectTools):
 
 				scope.complete()
 
-
 	## Gets objects recommended to a user.
 	#  @param username a user account
 	#  @param page page number
@@ -973,7 +973,7 @@ class Application(UserTools, ObjectTools):
 				recommendations = self.__user_db.get_recommendations(scope, username, page, page_size)
 
 				for r in recommendations:
-					r["from"] = cache.lookup(scope, username)
+					r["from"] = cache.lookup(scope, r["username"])
 					del r["username"]
 
 					r["object"] = self.get_object(r["guid"])
@@ -990,6 +990,8 @@ class Application(UserTools, ObjectTools):
 				self.__test_object_exists__(scope, guid)
 				self.__object_db.report_abuse(scope, guid)
 
+				scope.complete()
+
 	## Gets messages sent to a user account.
 	#  @param username a user account
 	#  @param limit number of messages to receive
@@ -1001,6 +1003,7 @@ class Application(UserTools, ObjectTools):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				self.__test_active_user__(scope, username)
+
 				messages = []
 				cache = UserCache(self.__user_db, username)
 
@@ -1019,6 +1022,8 @@ class Application(UserTools, ObjectTools):
 	def get_public_messages(self, username, limit=100, older_than=None):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
+				self.__test_active_user__(scope, username)
+
 				messages = []
 				cache = UserCache(self.__user_db, username)
 
@@ -1051,10 +1056,22 @@ class Application(UserTools, ObjectTools):
 			comment = self.__object_db.get_comment(scope, id)
 			self.__prepare_comment__(scope, comment, cache)
 
+			guid = comment["object-guid"]
+
+			comment["object"] = self.__object_db.get_object(scope, guid)
+
+			del comment["object-guid"]
+
 			msg["target"] = comment
 
 		elif m["type"] == "voted-object":
-			msg["vote"] = self.__object_db.get_vote(scope, m["target"], source["username"])
+			guid = m["target"]
+			self.__test_object_exists__(scope, guid)
+
+			obj = self.__object_db.get_object(scope, guid)
+			voting = self.__object_db.get_voting(scope, m["target"], source["username"])
+
+			msg["target"] = { "object": obj, "voting": voting }
 
 		return msg
 

@@ -65,6 +65,14 @@ def password_hash(plain, salt):
 
 	return m.hexdigest()
 
+def stream_hash(stream):
+	m = sha256()
+
+	map(lambda b: m.update(b), read_from_stream(stream))
+
+	return m.hexdigest()
+
+
 ## Generates a guid.
 def new_guid():
 	return str(uuid.uuid4())
@@ -142,7 +150,7 @@ def build_url(fmt, url, *params):
 #  @param max_size if the stream exceeds max_size an exception.StreamExceedsMaximumException
 #                  will be thrown
 #  @return read bytes
-def read_from_stream(stream, block_size = 81920, max_size = None):
+def read_from_stream(stream, block_size=81920, max_size=None):
 	bytes = stream.read(block_size)
 	total = len(bytes)
 
@@ -183,3 +191,9 @@ def split_strip_set(str, sep):
 		s.add(token)
 
 	return s
+
+## Gets a random element from an array.
+#  @param arr an array
+#  @return an array element
+def pick_one(arr):
+	return arr[random.randint(0, len(arr) - 1)]
