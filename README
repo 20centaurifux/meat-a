@@ -19,7 +19,7 @@ meta information.
 
 Objects have a guid and a source (e.g. a filename or an URL). meat-a lets
 users share meta information like tags or comments. The data is stored in a
-MongoDB database.
+PostgreSQL database.
 
 
 ################################################################
@@ -30,48 +30,33 @@ Objects are stored in the object database (database.ObjectDb). They are
 referenced by their guid and have a source. You can e.g. store a link
 or a filename.
 
-At the moment data is saved in a MongoDB database.
-
 Users can tag and rate objects. They can also add objects to their
 personal favorite list and recommend them to other users. It's possible to
 write comments too.
 
-Users can follow each other. If user A follows user B and user B also
-follows user A they are friends. Friends can recommend objects to each
-other. If a user profile is not protected every user can recommend objects
-to the user.
+If two users follow each other they are friends.  Friends can recommend
+objects. If a user profile is not protected everyone can recommend
+objects to him/her.
 
 Users are organized in a separate user store (database.UserDb).
 
-Several activities generate notifications. If a user adds an object to his/her
-favorite list friends will receive a notification for example. If the user profile
-is not protected every user following the account will get a notification. Like
-other items notifications are stored in separate data store (database.StreamDb).
+Several activities generate notifications. If a user writes a comment friends
+receive a notification, for instance. If the user profile is not protected
+a notification are stored in a global stream. Notifications are stored in
+separated data store too (database.StreamDb).
 
-Sometimes a user will receive an email. If you're going to create a new user
-profile a request code will be sent by email for example. Emails are stored
-in the database.MailDb data store.
+Sometimes a user might receive an email. If you're going to create a new user
+profile a request code is sent, for example. Emails are stored in the
+database.MailDb data store.
 
 A service (mailer.Mailer) sends emails in a user-defined interval. This process
-can also be triggered via an UDP request.
+can be triggered via an UDP request.
 
-The different data stores can be accessed through the app.Application class. The
-app.AuthenticatedApplication wraps the methods of this class and tests additionally
-if a request is authenticated.
+The different data stores can be accessed through the app.Application class.
 
-To authenticate a request three custom headers are required:
-
-  * X-meat-a-account: the user account
-  * X-meat-a-timestamp: current UNIX timestamp (UTC)
-  * X-meat-a-signature: HMAXC-SHA1 checksum of the URL and the first two headers. The
-    required secret is the SHA-256 checksum of the user password.
-
-There's also a full example client available in the client module: client.Client
-
-The wsgi module tries to map a received path to a controller function. Each
-controller returns a view.View object which will be used to generate the response.
-The controller functions use an app.AuthenticatedApplication instance to access
-the different data stores.
+The WSGI module tries to map a requested path to a corresponding
+controller.Controller class. Each controller returns a view.View instance used
+to generate the response.
 
 To test the available modules execute the test.py file.
 
@@ -80,7 +65,7 @@ To configure the service please have a look at the config module.
 You need the following additional packages to run the web interface:
   * PIL (image library)
   * Cheetah
-  * pymongo
+  * psycopg2
   * Rocket (optional)
 
 
@@ -95,26 +80,27 @@ start the rocket server:
 
 This will start a small HTTP test server on port 8000.
 
-Of course you're welcome to use any HTTP server with WSGI support you like. Just
-configure your preferred server and setup the index() method located in the
-wsgi.py file as handler.
+You're welcome to use any HTTP server with WSGI support you like, of course.
+Therfore Configure your preferred server and setup the index() method located in
+the wsgi.py file as handler.
 
 Without starting the mailer meat-a will not be able to send emails:
 
 # python mailer.py
 
-As mentioned before data is stored using MongoDB. Please ensure that the server
-is running.
+As mentioned before data is stored in a PostgreSQL database. Please ensure that
+the server is running.
 
 Configuration settings can be found in the config.py file. It's recommended to
 change a few settings:
 
 * WEBSITE_URL
-  meat-a will generate various URLs (e.g. for changing passwords). Define the
+  meat-a generates various URLs (e.g. for changing passwords). Define the
   base URL of the web application here.
 
-* MONGODB_HOST, MONGODB_PORT, MONGODB_DATABASE
-  Please specify the connection details and database name of your MongoDB server.
+* PQ_HOST, PQ_PORT, PQ_DB, PQ_USER, PQ_PWD
+  Please specify the connection details and database name of your PostgreSQL
+  server.
 
 * TMP_DIR
   Directory for temporary files. An absolute filename is highly recommended.
@@ -138,10 +124,8 @@ be found in the "tpl" directory.
 # 4. The Web Interface
 ################################################################
 
-As mentioned previously most functions of the meat-a web interface require an
-authenticated request. The util.sign_request() method is a good example how the
-checksum can be built. All strings have to be UTF-8 encoded when building
-the checksum. 
+Many functions of the meat-a web interface require an authenticated request.
+At the moment only HTTP basic authentication is supported.
 
 The following error codes are used:
 * 400 => at least one required parameter is missing
@@ -162,195 +146,186 @@ meat-a provides the following functions:
 ---------------------------------------
 - 1.1. Request a new user account
 ---------------------------------------
-URL         : /account/request
-METHOD      : POST
-PARAMETERS  : username, mail
-RESPONSE    : application/json
-STATUS CODES: 202
+URL        : /user/registration
+METHOD     : POST
+PARAMETERS : username, mail
+RESPONSE   : application/json
+STATUS CODE: 202
 
-Username and password have to be unique. If both parameters are valid an
-unique request-id and related activation-code is generated. An activation
-link is sent by mail and looks similar to the one found below:
+Username and password have to be unique. If both parameters are valid a
+request id and related activation code is generated.
+
+An activation link is sent by email and looks similar to the one found
+below:
 
 # Example activation link:
-http://example.org/account/request/Dkdga2jhL3tdgJ4dBn29asfXn0d0MjdkE
-?code=ldA09gj31geCEo39
+http://example.org/user/registration/cRJ0miyRgZKPnVz4tlZgnla7JKmJ26Ks?code=dETH8fPueOAaP9Q5p1z08WmJArC2spH7
 
 # Example response headers:
-Location: http://example.org/account/request/Dkdga2jhL3tdgJ4dBn29asfXn0d0MjdkE
-ETag: f6d3b7d3b9b0a2341169833f0d5423f7aa64fc28
+Location: http://example.org/user/registration/cRJ0miyRgZKPnVz4tlZgnla7JKmJ26Ks
+ETag: 274542b393fb3dfd63844f231bc4727dd288559df6ed66eaaa10fc050b786b2f
 
 # Example response body:
-{ "url": "http://example.org/account/request/Dkdga2jhL3tdgJ4dBn29asfXn0d0MjdkE" }
+{"Location": "http://example.org/user/registration/cRJ0miyRgZKPnVz4tlZgnla7JKmJ26Ks"}
 
 
 ---------------------------------------
 - 1.2. Activation form
 ---------------------------------------
-URL         : /account/request/$request-id
-METHOD      : GET
-PARAMETERS  : code (optional)
-RESPONSE    : text/html
-STATUS CODES: 200
+URL        : /user/registration/$request-id
+METHOD     : GET
+PARAMETERS : code (optional)
+RESPONSE   : text/html
+STATUS CODE: 200
 
-# Response:
-A HTML page providing a form to activate the requested user account. It has
-four fields:
+# Response body:
+An HTML page providing a form to activate the requested user account. It has
+a field to enter the related request code.
 
-* mail: mail address of the user
-* code: activation code related to the request id
-* password1, password2: password to set
-
-If the code parameter is specified in the URL the related input
-field is filled.
+If the code parameter is specified in the URL the related input field is
+filled.
 
 
 ---------------------------------------
 - 1.3. Activate a user account
 ---------------------------------------
-URL         : /account/request/$request-id
-METHOD      : POST
-PARAMETERS  : mail, code, password1, password2
-RESPONSE    : application/json
-STATUS CODES: 201
+URL        : /user/registration/$request-id
+METHOD     : POST
+PARAMETERS : code
+RESPONSE   : application/json
+STATUS CODE: 201
 
-If the request id and the activation code exist and also the password and
-mail address are valid the account is activated.
+If the request id and activation code are valid the account is
+activated. An auto-generated password is sent by email.
 
 # Example response headers:
 Location: http://example.org/user/john.doe
-ETag: 8e454de32e514b6a8643ac9d644583c040753b4d
+ETag: d7ea94e8a3e4f9bd58d75b7fe1857f487ef8514effe7909a9d762bc53c3c44f4
 
 # Example response body:
-{ "url": "http://example.org/user/john.doe" }
+{"Location": "http://example.org/user/john.doe"}
 
 
 ---------------------------------------
 - 1.4. View user details
 ---------------------------------------
-URL         : /user/$username
-METHOD      : GET
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URL        : /user/$username
+METHOD     : GET
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
-Only friends can see the "email" and "following" fields if the account is protected.
-
-# Example headers:
-ETag: 1369143791561
+Only friends can see the "email", "following" and "avatar" fields
+if the account is protected.
 
 # Example response body:
-{ "email": "john.doe@example.org", "firstname": "john", "lastname": "doe",
-  "following": [ "sarah.connor" ], "gender": "male", "language": "de", "protected": false,
-  "timestamp": 1369143791561 }
+{"avatar": null, "blocked": false, "created_on": {"$date": 1455608163842},
+ "email": "john@example.org", "firstname": "John", "following": ["mark smith"],
+ "gender": "male", "id": 158724, "language": null, "lastname": null,
+ "protected": true, "username": "john.doe"}
 
 
 ---------------------------------------
 - 1.5. Update user details:
 ---------------------------------------
-URL         : /user/$username
-METHOD      : POST
-PARAMETERS  : firstname, lastname, email, gender, language, protected
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URL        : /user/$username
+METHOD     : POST
+PARAMETERS : firstname, lastname, email, gender, language, protected
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
-# Example response body:
-{ "email": "john.doe@example.org", "firstname": "john", "lastname": "doe",
-  "following": [ "sarah.connor" ], "gender": "male", "language": "de", "protected": false,
-  "timestamp": 1369143791561 }
+# Response body:
+A dictionary providing user details (see 1.4).
 
 
 ---------------------------------------
-- 1.6. Get avatar
+- 1.6. Delete user account:
 ---------------------------------------
-URL       : /user/$username/avatar
+URL        : /user/$username
+METHOD     : DELETE
+HEADERS    : Authorization
+RESPONSE   : text/plain
+STATUS CODE: 204
+
+Only users can delete themselves.
+
+
+---------------------------------------
+- 1.6. Get avatar @TODO
+---------------------------------------
+URL       : /avatars/$username/avatar
 METHOD    : GET
-HEADERS   : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
+HEADERS   : Authorization
 RESPONSE  : image/*
-STATUS CODES: 200
+STATUS CODE: 200
 
 Only friends can download the avatar if the account is protected.
 
-# Example response headers:
-ETag: 29c26282f1e53b9598f8c5523579bd9ae3bf2a95
-
-# Example response body:
-{ "url": "http://example.org/user/john.doe" }
-
 
 ---------------------------------------
-- 1.7. Update avatar
+- 1.7. Update avatar @TODO
 ---------------------------------------
-URL       : /user/$username/avatar
-METHOD    : POST (multipart)
-PARAMETERS: filename, file
-HEADERS   : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE  : application/json
-STATUS CODES: 201
+URL        : /user/$username/avatar
+METHOD     : POST (multipart)
+PARAMETERS : filename, file
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
 This function expects a multipart form.
-
-# Example response headers:
-Location: http://example.org/user/$username/avatar
-ETag: 434b0ee698a66ddff95622302c00e659798de778
-
-# Example response body:
-{ "url": "http://example.org/user/john.doe/avatar" }
 
 
 ---------------------------------------
 - 1.8. Update password
 ---------------------------------------
-URL         : /user/$username/password
-METHOD      : POST
-PARAMETERS  : old_password, new_password1, new_password2
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URL        : /user/$username/password
+METHOD     : POST
+PARAMETERS : old_password, new_password1, new_password2
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
 # Example response:
-{ "password-hash": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae" }
+{"password": "my secret"}
 
 
 ---------------------------------------
 - 1.9. Request new password
 ---------------------------------------
-URL         : /user/$username/password/request
-METHOD      : POST
-PARAMETERS  : username, email
-RESPONSE    : application/json
-STATUS CODES: 201
+URL        : /user/$username/password/change
+METHOD     : POST
+PARAMETERS : email
+RESPONSE   : application/json
+STATUS CODE: 201
 
 To change a password without knowing the current one a change request can
 be created. A request id and code is sent by mail to the user. 
 
-# Example link:
-http://example.org/user/john.doe/password/request/c5aac592460a9ac7845e341090f6f9c8
-?code=0d3429164142
+# Example password change link sent by email:
+http://example.org/user/john.doe/password/change/8IlWH0aFitqAge7kqCskBuHbtbD5FpJu&code=nw8b0Veu1jYUaaLHfmXCCykH1J7xol23
 
 # Example response headers:
-Location: http://example.org/user/john.doe/password/request/c5aac592460a9ac7845e341090f6f9c8
-ETag: 987072ac3931
+Location: http://example.org/user/john.doe/password/change/8IlWH0aFitqAge7kqCskBuHbtbD5FpJu
+ETag: 93426807d9ebdb79d1276be519de4b97c4618c6b4ba39b5e5748243d85115e06
 
 # Example response body:
-{ "url": "http://example.org/user/john.doe/password/request/c5aac592460a9ac7845e341090f6f9c8" }
+{"Location": "http://example.org/user/john.doe/password/change/8IlWH0aFitqAge7kqCskBuHbtbD5FpJu"}
 
 
 ---------------------------------------
 - 1.10. Password change form
 ---------------------------------------
-URL         : /user/$username/password/request/$request-id
-METHOD      : GET
-PARAMETERS  : code (optional)
-RESPONSE    : text/html
-STATUS CODES: 200
+URL        : /user/$username/password/request/$request-id
+METHOD     : GET
+PARAMETERS : code (optional)
+RESPONSE   : text/html
+STATUS CODE: 200
 
-# Response:
-A HTML page providing a form to change the password of a user account. It
-has four fields:
+# Response body:
+An HTML page providing a form to change the password of a user account. It
+has three fields:
 
-* mail: mail address of the user
 * code: request code related to the request id
 * password1, password2: password to set
 
@@ -359,131 +334,106 @@ field is filled.
 
 
 ---------------------------------------
-- 11. Set new password
+- 1.11. Set new password
 ---------------------------------------
-URL         : /user/$username/password/request/$request-id
-METHOD      : POST
-PARAMETERS  : request-id, password1, password2
-RESPONSE    : text/html
-STATUS CODES: 200
+URL        : /user/$username/password/change/$request-id
+METHOD     : POST
+PARAMETERS : code, new_password1, new_password2
+RESPONSE   : application/json
+STATUS CODE: 200
 
 # Example response:
-{ "password-hash": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae" }
+{"password": "my secret"}
 
 
 ---------------------------------------
 - 1.12. Search users
 ---------------------------------------
-URL       : /user/search
-METHOD    : GET
-PARAMETERS: query
-HEADERS   : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE  : application/json
-STATUS CODES: 200
+URL        : /user/search/$username
+METHOD     : GET
+PARAMETERS : query
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
-This function searches the user store. Only friends can see the "email" and "following" fields
-when the found account is protected.
+This function searches the user store. Only friends can see the "email", "following" and
+"avatar" fields when the found account is protected.
 
-Example response:  [ { "avatar": null, "firstname": null, "gender": null, "lastname": null,
-                       "name": "user_c", "protected": true, "timestamp": 1369144005129 }
-		     { "avatar": null, "firstname": null, "gender": null, "lastname": null,
-		       "name": "user_b", "protected": true, "timestamp": 1369144005088 } ]
+# Response body:
+A vector with dictionaries providing user details (see 1.4).
 
 
 ---------------------------------------
-- 1.13. Add/remove friend
+- 1.13. Add/remove/get friendship
 ---------------------------------------
-URL         : /user/$username/friendship
-METHOD      : PUT, DELETE
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URL        : /user/$username/friendship
+METHOD     : PUT, DELETE, GET
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
-# example response body:
-{ "friend?": "true" }
+# Example response body:
+{"followed": false, "following": true}
 
 
 ---------------------------------------
 - 1.14. Get favorites
 ---------------------------------------
-URL         : /user/$username/favorites
-METHOD      : GET
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URL        : /favorites
+METHOD     : PUT, DELETE, GET
+PARAMETERS : guid (only PUT & GET)
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
-"comments_n" holds the number of related comments.
-
-# example response body:
-[ { "guid": "abcde", "source": "foo.png", "locked": False, "tags": [ "foo", "bar" ],
-    "score": { "up": 5, "down": 2, "fav": 8, "total": 11 }, "timestamp": 1369143414627,
-    "comments_n": 2 } ]
-
-
----------------------------------------
-- 1.15. Add/remove favorite
----------------------------------------
-URL         : /user/$username/favorite/$oid
-METHOD      : POST, DELETE
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
-
-# example response body:
-{ "favorite?": "true" }
+# Example response body:
+[{"comments_n": 0, "created_on": {"$date": 1455720684068},
+  "guid": "914423ec-d585-11e5-bedf-50d719563991", "locked": false, "reported": false,
+  "score": {"down": 0, "fav": 1, "up": 0}, "source": "foo", "tags": []},
+  {"comments_n": 0, "created_on": {"$date": 1455720667357},
+  "guid": "8eb02b44-d585-11e5-bdfe-50d719563991", "locked": false, "reported": false,
+  "score": {"down": 0, "fav": 1, "up": 0}, "source": "bar", "tags": []}]
 
 
 ---------------------------------------
-- 1.16. Get recommendations
+- 1.15. Get messages
 ---------------------------------------
-URL         : /user/$username/recommended
-METHOD      : GET
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-PARAMETERS  : username, page, page_size, timestamp, signature
-RESPONS  E  : application/json
-STATUS CODES: 200
+URL        : /messages
+METHOD     : GET
+HEADERS    : Authorization
+PARAMETERS : limit (optional, maximum number of messages)
+RESPONSE   : application/json
+STATUS CODE: 200
 
-# example response body:
-[ { "guid": "abcde", "source": "foo.png", "locked": False, "tags": [ "foo", "bar" ],
-    "score": { "up": 5, "down": 2, "fav": 8, "total": 11 }, "timestamp": 1369143414627.0,
-    "comments_n": 2 } ]
+A message can have one of the following types:
 
+* "following"
+* "unfollowing"
+* "recommendation"
+* "wrote-comment"
+* "voted-object"
 
----------------------------------------
-- 1.17. Get messages
----------------------------------------
-URL         : /user/$username/messages
-METHOD      : GET
-PARAMETERS  : username, older_than, page_size, timestamp, signature
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
-
-At the moment there are 6 message types. The fields of each message depend on this type.
-
-0 => the sender recommended an object to the receiver, additional fields: guid, comment
-1 => the sender added a comment to an object, additional fields: guid, comment
-2 => the sender favored an object, additional fields: guid
-3 => the sender rated an object, additional fields: guid
-4 => the sender follows the receiver
-5 => the sender has stopped following the receiver
-
-# example response body:
-[ { "receiver": "user_a", "sender": { "avatar": null, "blocked": false, "firstname": null,
-    "gender": null, "lastname": null, "name": "user_b" }, "timestamp": 1369144270364.0, "type_id": 4 } ]
+Each message has a type field, a source (the sender) and a target (e.g. a voted
+or recommended object).
 
 
 ---------------------------------------
-- 1.18. Mark message read
+- 1.16. Get public messages
 ---------------------------------------
-URL         : /user/$username/message/$id/read
-METHOD      : POST
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URL        : /public/messages
+METHOD     : GET
+HEADERS    : Authorization
+PARAMETERS : limit (optional, maximum number of messages)
+RESPONSE   : application/json
+STATUS CODE: 200
 
-# example response body:
-{ "read?": true }
+A message can have one of the following types:
+
+* "wrote-comment"
+* "voted-object"
+
+Each message has a type field, a source (the sender) and a target (e.g. a voted
+object).
 
 
 #################################################
@@ -493,186 +443,195 @@ STATUS CODES: 200
 ---------------------------------------
 - 2.1. Get a single object
 ---------------------------------------
-URL         : /object/$oid
-METHOD      : GET
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URL        : /object/$guid
+METHOD     : GET
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
-# example response body:
-{ "comments_n": 0, "guid": "vdMtoMdJZg1Wf0p7sLV3R1YAFAsFDYjw", "locked": false,
-  "score": { "down": 0, "fav": 0, "total": 0, "up": 0 }, "source": "foo.png",
-  "tags": [ "foo", "bar" ], "timestamp": 1369145033933.0 }
+# Example response body:
+{"comments_n": 0, "created_on": {"$date": 1455720684068},
+ "guid": "914423ec-d585-11e5-bedf-50d719563991", "locked": false,
+ "reported": false, "score": {"down": 0, "fav": 1, "up": 0},
+ "source": "foo", "tags": []}
 
 
 ---------------------------------------
 - 2.2. Get multiple objects
 ---------------------------------------
-URL         : /objects/$page
-METHOD      : GET
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URLS       : /objects
+             /objects/page/$page
+METHOD     : GET
+HEADERS    : Authorization
+PARAMETERS : page_size (optional)
+RESPONSE   : application/json
+STATUS CODE: 200
 
-The objects are sorted by "timestamp" in descending order.
-
-# example request body:
-[ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE", "locked": false,
-    "score": { "down": 0, "fav": 0, "total": 0, "up": 0 }, "source": "foo.png", "tags": [],
-    "timestamp": 1369145184233.0 },
-  { "comments_n": 0, "guid": "BA30Ne3Zl2B723E3NICYFTv7EnR4ghFE", "locked": false,
-    "score": { "down": 0, "fav": 0, "total": 0, "up": 0 }, source: "bar.png", "tags": [],
-    "timestamp": 1369145184213.0 } ]
+# Response body:
+An array holding objects (see 2.1).
 
 
 ---------------------------------------
 - 2.3. Get objects (filtered by tag)
 ---------------------------------------
-URL         : /objects/tag/$tag/$page
-METHOD      : GET
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URLS       : /objects/tag/$tag
+             /objects/tag/$tag/page/$page
+METHOD     : GET
+HEADERS    : Authorization
+PARAMETERS : page_size (optional)
+RESPONSE   : application/json
+STATUS CODE: 200
 
-The objects are sorted by "timestamp" in descending order.
+# Response body:
+An array holding objects (see 2.1).
 
-# example response body:
-[ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE", "locked": false,
-    "score": { "down": 0, "fav": 0, "total": 0, "up": 0 }, "source": "foo.png", "tags": [ "1", "2" ],
-    "timestamp": 1369145184233.0 },
-  { "comments_n": 0, "guid": "BA30Ne3Zl2B723E3NICYFTv7EnR4ghFE", "locked": false,
-     "score": { "down": 0, "fav": 0, "total": 0, "up": 0 }, source: "bar.png", "tags": [ "1" ],
-     "timestamp": 1369145184213.0 } ]
+
+---------------------------------------
+- 2.4. Get tag cloud
+---------------------------------------
+URL        : /objects/tags
+METHOD     : GET
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
+
+# Example response body:
+[{"count": 23, "tag": "foo"}, {"count": 42, "tag": "bar"}]
+
+
+---------------------------------------
+- 2.5. Get/set object tags
+---------------------------------------
+URL        : /object/$guid/tags
+METHOD     : PUT, GET
+PARAMETERS : tags (comma-separated list, PUT only)
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
+
+# Example response body:
+["foo", "bar", "23"]
 
 
 ---------------------------------------
 - 2.4. Get popular objects
 ---------------------------------------
-URL         : /objects/popular/$page
-METHOD      : GET
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URLS       : /objects/popular
+             /objects/popular/page/$page
+METHOD     : GET
+HEADERS    : Authorization
+PARAMETERS : page_size (optional)
+RESPONSE   : application/json
+STATUS CODE: 200
 
-The objects are sorted by the "score.total" field in descending order.
-
-# example response body:
-[ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE", "locked": false,
-    "score": { "down": 1, "fav": 2, "total": 200, "up": 201 }, "source": "foo.png", "tags": [],
-    "timestamp": 1369145184233.0 },
-  { "comments_n": 0, "guid": "BA30Ne3Zl2B723E3NICYFTv7EnR4ghFE", "locked": false,
-    "score": { "down": 0, "fav": 0, "total": 100, "up": 100 }, source: "bar.png", "tags": [],
-    "timestamp": 1369145184213.0 } ]
+# Response body:
+An array holding objects (see 2.1).
 
 
 ---------------------------------------
 - 2.5. Get random objects
 ---------------------------------------
-URL         : /objects/random
-METHOD      : GET
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URL        : /objects/random
+METHOD     : GET
+HEADERS    : Authorization
+PARAMETERS : page_size (optional)
+RESPONSE   : application/json
+STATUS CODE: 200
 
-# example response body:
-[ { "comments_n": 0, "guid": "NA50NeKZl2B7Hl73NICYOTv7EnR4ghFE", "locked": false,
-    "score": { "down": 0, "fav": 0, "total": 0, "up": 0 }, "source": "foo.png", "tags": [],
-    "timestamp": 1369145184233.0 },
-  { "comments_n": 0, "guid": "BA30Ne3Zl2B723E3NICYFTv7EnR4ghFE", "locked": false,
-    "score": { "down": 0, "fav": 0, "total": 0, "up": 0 }, source: "bar.png", "tags": [],
-    "timestamp": 1369145184213.0 } ]
+# Response body:
+An array holding objects (see 2.1).
 
 
 ---------------------------------------
-- 2.6. Tag an object
+- 2.6. Rate an object
 ---------------------------------------
-URL         : /object/$oid/tag/$tag
-METHOD      : PUT
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
-
-# example response body:
-{ "tag": "misc" }
-
-
----------------------------------------
-- 2.7. Rate an object
----------------------------------------
-URL         : /object/$oid/rate
-METHOD      : POST
-PARAMETERS  : up
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URL        : /object/$guid/vote
+METHOD     : POST, GET
+PARAMETERS : up (POST only)
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
 Use the "up" parameter to upvote/downvote an object (e.g. true to upvote
 an object).
 
 # Example response body:
-{ "upvote": false }
+{"up":true}
 
 
 ---------------------------------------
-- 2.8. Create/delete a comment
+- 2.7. Create/get comment(s)
 ---------------------------------------
-URL         : /object/$oid/comments
-METHOD      : POST, DELETE
-PARAMETERS  : text, parent-comment (optional)
-HEADERS     : X-meat-a-username, X-meat-a-timestamp, X-meat-a-signature
-RESPONSE    : application/json
-STATUS CODES: 200
+URLS       : /object/$guid/comments
+             /object/$guid/comments/page/$page
+METHOD     : POST, GET
+PARAMETERS : text (POST only); page, page_size (GET only)
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
 # Example response body:
-[ { "text": "foo", "timestamp": 1369145893148,
-    "user": { "blocked": false, "firstname": null, "gender": null,
-              "lastname": null, "name": "john.doe" } } ]
+[{"created_on": {"$date": 1455726032630}, "deleted": false, "id": 1324558,
+  "text": "foo", "user": {"avatar": null, "blocked": false,
+  "created_on": {"$date": 1455719502808}, "email": "john@example.org",
+  "firstname": null, "following": ["fnord"], "gender": null,
+  "id": 158726, "lastname": null, "protected": true, "username": "john.doe"}}]
 
 
 ---------------------------------------
-- 2.9. Get comments
+- 2.8. Get comment
 ---------------------------------------
-URL       : /object/$oid/comments/$page
-METHOD    : GET
-RESPONSE  : application/json
-STATUS CODES: 200
-
-Comments are sorted by "timestamp" in ascending order.
+URL        : /comment/$id
+METHOD     : GET
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
 # Example response body:
-[ { "text": "foo", "timestamp": 1369145893148.0,
-    "user": { "blocked": false, "firstname": null, "gender": null,
-              "lastname": null, "name": "user_b" } },
-   { "text": "bar", "timestamp": 1369145893161.0,
-     "user": { "blocked": false, "firstname": null, "gender": null, 
-               "lastname": null, "name": "user_a" } } ]
+{"created_on": {"$date": 1455726032630}, "deleted": false, "id": 1324558,
+ "text": "foo", "user": {"avatar": null, "blocked": false,
+ "created_on": {"$date": 1455719502808}, "email": "john@example.org",
+ "firstname": null, "following": ["fnord"], "gender": null,
+ "id": 158726, "lastname": null, "protected": true, "username": "john.doe"}}
+
+^
+---------------------------------------
+- 2.9. Get recommendations
+---------------------------------------
+URLS       : /recommendations
+             /recommendations/page/$page
+METHOD     : GET
+HEADERS    : Authorization
+PARAMETERS : page_size (optional)
+RESPONSE   : application/json
+STATUS CODE: 200
+
+# Response body:
+An array holding objects (see 2.1).
 
 
 ---------------------------------------
-- 2.10. Recommend an object
+- 2.11. Recommend object
 ---------------------------------------
-URL       : /object/$oid/recommend
-METHOD    : POST
-PARAMETERS: receivers
-RESPONSE  : application/json
-STATUS CODES: 200
+URL        : /object/$guid/recommend
+METHOD     : PUT
+HEADERS    : Authorization
+PARAMETERS : receivers (comma-separated list of usernames)
+RESPONSE   : application/json
+STATUS CODE: 200
 
-The "receivers" parameter has to be a JSON array containing usernames
-(e.g. [ "foo", "bar" ]).
-
-# example response body:
-{ "receivers": [ "john.doe", "sarah.connor" ] }
+# Example response body:
+{"guid": "914423EC-D585-11E5-BEDF-50D719563991", "receivers": ["john.doe", "mark smith"]}
 
 
 ---------------------------------------
-- 2.11. Report abuse
+- 2.12. Report abuse
 ---------------------------------------
-URL       : /object/$oid/abuse
-METHOD    : PUT
-RESPONSE  : application/json
-STATUS CODES: 200
+URL        : /object/$guid/abuse
+METHOD     : PUT
+HEADERS    : Authorization
+RESPONSE   : application/json
+STATUS CODE: 200
 
-Reports abuse. Administrators will receive an mail.
-
-# example response body:
-Example response: { "reported": true }
+# Example response body:
+{"guid": "914423EC-D585-11E5-BEDF-50D719563991", "reported": true}
