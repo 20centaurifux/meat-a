@@ -100,47 +100,43 @@
 #
 #  <p>Have fun!</p>
 
-import urlparse, config, exception, controller, httpcode, logging, traceback
-from app import AuthenticatedApplication
-from cgi import FieldStorage
+import controller, re, urlparse, urllib
+from app import Application
 
 ## An app.AuthenticatedApplication instance.
-application = AuthenticatedApplication()
+application = Application()
 
-## Dictionary defining urls, their related controllers, required parameters & the allowed request method ("POST" or "GET").
-routing = { "/account/new": { "controller": controller.request_account, "method": "POST", "params": [ "username", "email" ] },
-            "/account/activate": { "controller": controller.activate_account, "method": "GET", "params": [ "code" ] },
-            "/account/disable": { "controller": controller.disable_account, "method": "POST", "params": [ "username", "timestamp", "signature", "email" ] },
-            "/account/password/update": { "controller": controller.update_password, "method": "POST", "params": [ "username", "timestamp", "signature", "old_password", "new_password" ] },
-            "/account/password/request": { "controller": controller.request_password, "method": "GET", "params": [ "username", "email" ] },
-            "/account/password/reset": { "controller": controller.password_reset, "method": "GET", "params": [ "code" ] },
-            "/account/authentication/test": { "controller": controller.authentication_test, "method": "POST", "params": [ "username", "timestamp", "signature" ] },
-            "/account/update": { "controller": controller.update_user_details,
-	                         "method": "POST",
-	                         "params": [ "username", "timestamp", "signature", "email", "firstname", "lastname", "gender", "language", "protected" ] },
-            "/account/avatar/update": { "controller": controller.update_avatar,
-	                         "method": "POST",
-	                         "multipart": True,
-	                         "params": [ "username", "timestamp", "signature", "filename", "file" ],
-	                         "file_param": "file" },
-            "/account/favorites": { "controller": controller.get_favorites, "method": "POST", "params": [ "username", "timestamp", "signature", "page", "page_size" ] },
-            "/account/details": { "controller": controller.get_user_details, "method": "POST", "params": [ "username", "timestamp", "signature", "name" ] },
-            "/account/follow": { "controller": controller.follow, "method": "POST", "params": [ "username", "timestamp", "signature", "user", "follow" ] },
-            "/account/search": { "controller": controller.search_user, "method": "POST", "params": [ "username", "timestamp", "signature", "query" ] },
-            "/account/recommendations": { "controller": controller.get_recommendations, "method": "POST", "params": [ "username", "timestamp", "signature", "page", "page_size" ] },
-            "/account/messages": { "controller": controller.get_messages, "method": "POST", "params": [ "username", "timestamp", "signature", "limit", "older_than" ] },
-            "/objects": { "controller": controller.get_objects, "method": "POST", "params": [ "username", "timestamp", "signature", "page", "page_size" ] },
-            "/objects/tag": { "controller": controller.get_tagged_objects, "method": "POST", "params": [ "username", "timestamp", "signature", "tag", "page", "page_size" ] },
-            "/objects/popular": { "controller": controller.get_popular_objects, "method": "POST", "params": [ "username", "timestamp", "signature", "page", "page_size" ] },
-            "/objects/random": { "controller": controller.get_random_objects, "method": "POST", "params": [ "username", "timestamp", "signature", "page_size" ] },
-            "/object/details": { "controller": controller.get_object, "method": "POST", "params": [ "username", "timestamp", "signature", "guid" ] },
-            "/object/tags/add": { "controller": controller.add_tags, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "tags" ] },
-            "/object/rate": { "controller": controller.rate, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "up" ] },
-            "/object/favor": { "controller": controller.favor, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "favor" ] },
-            "/object/comments/add": { "controller": controller.add_comment, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "text" ] },
-            "/object/comments": { "controller": controller.get_comments, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "page", "page_size" ] },
-            "/object/recommend": { "controller": controller.recommend, "method": "POST", "params": [ "username", "timestamp", "signature", "guid", "receivers" ] },
-            "/object/abuse": { "controller": controller.report_abuse, "method": "POST", "params": [ "username", "timestamp", "signature", "guid" ] } }
+## Dictionary defining urls, their related controllers, required parameters & the allowed request methods ("POST" or "GET").
+routing = [{"path": re.compile("^/user/registration$"), "controller": controller.AccountRequest},
+           {"path": re.compile("^/user/registration/(?P<id>[^/]+)$"), "controller": controller.AccountActivation},
+           {"path": re.compile("^/user/(?P<username>[^/]+)$"), "controller": controller.UserAccount},
+           {"path": re.compile("^/user/(?P<username>[^/]+)/password/change$"), "controller": controller.PasswordRequest},
+           {"path": re.compile("^/user/(?P<username>[^/]+)/password/change/(?P<id>[^/]+)$"), "controller": controller.PasswordChange},
+           {"path": re.compile("^/user/(?P<username>[^/]+)/password$"), "controller": controller.UserPassword},
+           {"path": re.compile("^/user/search/(?P<query>[^/]+)$"), "controller": controller.Search},
+           {"path": re.compile("^/user/(?P<username>[^/]+)/friendship$"), "controller": controller.Friendship},
+           {"path": re.compile("^/favorites$"), "controller": controller.Favorites},
+           {"path": re.compile("^/messages$"), "controller": controller.Messages},
+           {"path": re.compile("^/public/messages$"), "controller": controller.PublicMessages},
+           {"path": re.compile("^/object/(?P<guid>[^/]+)$"), "controller": controller.Object},
+           {"path": re.compile("^/object/(?P<guid>[^/]+)/tags$"), "controller": controller.ObjectTags},
+           {"path": re.compile("^/object/(?P<guid>[^/]+)/vote$"), "controller": controller.Voting},
+           {"path": re.compile("^/object/(?P<guid>[^/]+)/comments$"), "controller": controller.Comments},
+           {"path": re.compile("^/object/(?P<guid>[^/]+)/comments/page/((?P<page>[\d]+))$"), "controller": controller.Comments},
+           {"path": re.compile("^/object/(?P<guid>[^/]+)/abuse$"), "controller": controller.ReportAbuse},
+           {"path": re.compile("^/comment/(?P<id>[\d]+)$"), "controller": controller.Comment},
+           {"path": re.compile("^/object/(?P<guid>[^/]+)/recommend$"), "controller": controller.Recommendations},
+           {"path": re.compile("^/objects$"), "controller": controller.Objects},
+           {"path": re.compile("^/objects/page/(?P<page>[\d]+)$"), "controller": controller.Objects},
+           {"path": re.compile("^/objects/tag/(?P<tag>[^/]+)/page/(?P<page>[\d]+)$"), "controller": controller.TaggedObjects},
+           {"path": re.compile("^/objects/tag/(?P<tag>[^/]+)$"), "controller": controller.TaggedObjects},
+           {"path": re.compile("^/objects/tags$"), "controller": controller.TagCloud},
+           {"path": re.compile("^/objects/popular/page/(?P<page>[\d]+)$"), "controller": controller.PopularObjects},
+           {"path": re.compile("^/objects/popular$"), "controller": controller.PopularObjects},
+           {"path": re.compile("^/objects/random$"), "controller": controller.RandomObjects},
+           {"path": re.compile("^/recommendations$"), "controller": controller.Recommendations}
+           {"path": re.compile("^/recommendations/page/(?P<page>[\d+])$"), "controller": controller.Recommendations}
+	   ]
 
 ## The WSGI callback function.
 #  @param env WSGI environment
@@ -157,101 +153,49 @@ def index(env, start_response):
 	global application
 	global routing
 
-	data = None
-	form = None
-
-	status = 200
-	response = ""
-	content_type = "text/plain"
-	view = None
+	url = env["PATH_INFO"]
+	parameters = {}
+	controller = None
 
 	try:
-		# try to map path to controller:
-		handler = routing.get(env["PATH_INFO"], None)
+		# find route:
+		f = lambda route: [route, route["path"].match(url)]
+		route, m = next(pair for pair in map(f, routing) if pair[1] is not None)
 
-		if handler is None:
-			raise exception.HttpException(404, "Document Not Found")
-
-		# validate method:
-		if env["REQUEST_METHOD"] != handler["method"]:
-			raise exception.HttpException(405, "Method Not Allowed")
-
-		# get received parameters:
-		if handler["method"] == "POST":
-			# validate response length:
-			if not env.has_key("CONTENT_LENGTH"):
-				raise exception.HttpException(411, "Length Required")
-
-			request_length = int(env["CONTENT_LENGTH"])
-
-			if request_length > config.WSGI_MAX_REQUEST_LENGTH:
-				raise exception.HttpException(413, "Request Entity Too Large")
-
-			# get data from post request:
-			if handler.get("multipart", False):
-				form = FieldStorage(fp = env['wsgi.input'], environ = env)
-			else:
-				data = urlparse.parse_qs(env["wsgi.input"].read(request_length).decode(), True)
-		else:
-			data = urlparse.parse_qs(env["QUERY_STRING"], True)
-
-		# validate parameters:
-		args = []
-		args_append = args.append
-
-		if data is None:
-			# handle multipart:
-			file_key = handler.get("file_param", None)
-
-			if not validate_parameters(handler["params"], form.keys()):
-				raise exception.HttpException(400, "Bad Request")
-
-			for p in handler["params"]:
-				if not file_key is None and p == file_key:
-					args_append(form[p].file)
-				else:
-					args_append(form.getvalue(p))
-
-		else:
-			# handle x-www-form-urlencoded:
-			if not validate_parameters(handler["params"], data):
-				raise exception.HttpException(400, "Bad Request")
-
-			for p in handler["params"]:
-				if form is None:
-					args_append(data[p][0])
-
-		view = handler["controller"](application, env, *args)
-
-	except exception.HttpException, ex:
-		status = ex.http_status
-		response = ex.message
-
-	except exception.Exception, ex:
-		status = 500
-		response = ex.message
-
-		logging.error(ex.message)
-		logging.error(traceback.print_exc())
-
-	except Exception, ex:
-		status = 500
-		response = str(ex)
-
-		logging.error(str(ex))
-		logging.error(traceback.print_exc())
-
-	finally:
+		# get parameters from query string:
 		try:
-			if not view is None:
-				status = view.status
-				content_type = view.content_type
-				response = view.render()
+			size = int(env.get('CONTENT_LENGTH', 0))
+			# TODO check length
+			qs = env['wsgi.input'].read(size)
 
-		except Exception, ex:
-			logging.error(str(ex))
-			logging.error(traceback.print_exc())
+		except KeyError:
+			qs = env.get("QUERY_STRING", "")
 
-		start_response("%d %s" % (status, httpcode.codes[status][0]), [ ("Content-type", content_type), ("Content-length", str(len(response))) ])
+ 		qs = urlparse.parse_qs(qs, True)
 
-		return [ response ]
+		params = {k: urllib.unquote(v[0]) for k, v in qs.items()}
+
+		# merge found parameters with parameters specified in path:
+		params.update({k: urllib.unquote(m.group(k)) for k, v in route["path"].groupindex.items()})
+
+		# execute controller:
+		c = route["controller"]()
+		v = c.handle_request(env["REQUEST_METHOD"], env, **params)
+
+		print v.status
+		print v.headers
+		print v.render()
+
+	except StopIteration:
+		# TODO: 404
+		print "404"
+
+from base64 import b64encode
+
+env = {}
+env["Authorization"] = "Basic %s" % b64encode(b"fnord:MegaFnord667").decode("ascii")
+env["PATH_INFO"] = "/object/914423EC-D585-11E5-BEDF-50D719563991/abuse"
+#env["QUERY_STRING"] = "text=fuck\nyou\nand\ndie"
+env["REQUEST_METHOD"] = "put"
+
+index(env, None)

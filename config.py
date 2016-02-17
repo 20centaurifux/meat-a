@@ -38,13 +38,6 @@ REALM                     = "meat-a"
 ## URL of the website.
 WEBSITE_URL               = "http://localhost:8000"
 
-## URL for activating user account.
-USER_ACTIVATION_URL_WITH_CODE      = "http://localhost:8000/activation/%s?code=%s"
-USER_ACTIVATION_URL_WITHOUT_CODE   = "http://localhost:8000/activation/%s"
-
-## URL for resetting password.
-PASSWORD_RESET_URL        = "http://localhost:8000/password/reset/%s?code=%s"
-
 ## Array containing email addresses of the administrators.
 ADMIN_MAIL_ADDRESSES      = []
 ## Language of administrator accounts.
@@ -53,17 +46,15 @@ ADMIN_LANGUAGE            = "en"
 ## Directory where to find template files.
 TEMPLATE_DIR              = "tpl"
 
-## Hostname of the MongoDB server.
-MONGODB_HOST              = "127.0.0.1"
-## Port of the MongoDB server.
-MONGODB_PORT              = 27017
-## Name of the MongoDB database.
-MONGODB_DATABASE          = "meata"
-
+## Hostname of the PSQL server.
 PQ_HOST = "127.0.0.1"
+## PSQL port.
 PQ_PORT = 5432
+## PSQL database name.
 PQ_DB   = "meat-a"
+## PSQL user account.
 PQ_USER = "meat-a"
+## PSQL password.
 PQ_PWD  = "123456"
 
 ## Languages supported by the application.
@@ -83,9 +74,9 @@ PASSWORD_RESET_TIMEOUT    = 600
 ## Specifies the default lifetime of emails in the mail queue (in seconds).
 DEFAULT_EMAIL_LIFETIME    = 7200
 ## Length of generated request ids.
-REQUEST_ID_LENGTH         = 4
+REQUEST_ID_LENGTH         = 32
 ## Length of generated request codes.
-REQUEST_CODE_LENGTH       = 4
+REQUEST_CODE_LENGTH       = 32
 ## Length of generated passwords.
 DEFAULT_PASSWORD_LENGTH   = 8
 ## Length of generated passwords.

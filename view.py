@@ -71,3 +71,15 @@ class JSONView(View):
 			return "null"
 		else:
 			return to_json(self.model)
+
+## An empty view.
+class EmptyView(View):
+	## The constructor.
+	#  @param status an HTTP status code
+	def __init__(self, status):
+		View.__init__(self, "plain/text", status)
+
+	## Returns an empty string.
+	#  @return an empty string
+	def render(self):
+		return ""

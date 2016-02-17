@@ -54,7 +54,7 @@ class Controller:
 	def __init__(self):
 		self.app = app.Application()
 
-	def __process__(self, method, env, **kwargs):
+	def handle_request(self, method, env, **kwargs):
 		try:
 			m = { "post": self.__post__, "get": self.__get__, "put": self.__put__, "delete": self.__delete__ }
 
@@ -97,16 +97,16 @@ class Controller:
 		pass
 
 	def post(self, env, **kwargs):
-		return self.__process__("post", env, **kwargs)
+		return self.handle_request("post", env, **kwargs)
 
 	def get(self, env, **kwargs):
-		return self.__process__("get", env, **kwargs)
+		return self.handle_request("get", env, **kwargs)
 
 	def put(self, env, **kwargs):
-		return self.__process__("put", env, **kwargs)
+		return self.handle_request("put", env, **kwargs)
 
 	def delete(self, env, **kwargs):
-		return self.__process__("delete", env, **kwargs)
+		return self.handle_request("delete", env, **kwargs)
 
 	def __post__(self, env, *args):
 		return self.__method_not_supported__()
@@ -172,11 +172,12 @@ class AccountRequest(Controller):
 	def __post__(self, env, username, email):
 		id, code = self.app.request_account(username, email)
 
-		url = util.build_url("/account/request/%s", config.WEBSITE_URL, id)
+		url = util.build_url("/user/registration/%s", config.WEBSITE_URL, id)
 
 		v = view.JSONView(201)
 		v.headers["Location"] = url
-		m = { "Location": url }
+		v.headers["ETag"] = util.hash(url)
+		m = {"Location": url}
 		v.bind(m)
 
 		return v
@@ -194,7 +195,8 @@ class AccountActivation(Controller):
 
 		v = view.JSONView(201)
 		v.headers["Location"] = url
-		m = { "Location": url }
+		v.headers["ETag"] = util.hash(url)
+		m = {"Location": url}
 		v.bind(m)
 
 		return v
@@ -207,7 +209,7 @@ class UserPassword(AuthorizedController):
 		self.app.change_password(self.username, old_password, new_password1, new_password2)
 
 		v = view.JSONView(200)
-		m = { "password": new_password1 }
+		m = {"password": new_password1}
 		v.bind(m)
 
 		return v
@@ -222,11 +224,12 @@ class PasswordRequest(Controller):
 	def __post__(self, env, username, email):
 		id, code = self.app.request_new_password(username, email)
 
-		url = util.build_url("/account/%s/change-password", config.WEBSITE_URL, id)
+		url = util.build_url("/user/%s/password/change/%s", config.WEBSITE_URL, username, id)
 
 		v = view.JSONView(201)
 		v.headers["Location"] = url
-		m = { "Location": url }
+		v.headers["ETag"] = util.hash(url)
+		m = {"Location": url}
 		v.bind(m)
 
 		return v
@@ -239,7 +242,7 @@ class PasswordChange(Controller):
 		self.app.reset_password(id, code, new_password1, new_password2)
 
 		v = view.JSONView(200)
-		m = { "password": new_password1 }
+		m = {"password": new_password1}
 		v.bind(m)
 
 		return v
@@ -254,8 +257,7 @@ class UserAccount(AuthorizedController):
 		url = util.build_url("/account/%s", config.WEBSITE_URL, self.username)
 
 		v = view.JSONView(200)
-		v.headers["Location"] = url
-		m = { "Location": url }
+		m = self.app.get_full_user_details(self.username)
 		v.bind(m)
 
 		return v
@@ -277,9 +279,7 @@ class UserAccount(AuthorizedController):
 
 		self.app.disable_user(username)
 
-		v = view.JSONView(204)
-
-		return v
+		return view.EmptyView(204)
 
 class Avatar(AuthorizedController): # TODO
 	def __init__(self):
@@ -310,14 +310,21 @@ class Friendship(AuthorizedController):
 	def __get__(self, env, username):
 		return self.__get_friendship__(username)
 
-	def __post__(self, env, username):
+	def __put__(self, env, username):
 		return self.__change_friendship__(username, True)
 
 	def __delete__(self, env, username):
 		return self.__change_friendship__(username, False)
 
 	def __change_friendship__(self, username, friendship):
-		self.app.follow(self.username, username, friendship)
+		try:
+			self.app.follow(self.username, username, friendship)
+
+		except exception.ConflictException:
+			pass
+
+		except exception.NotFoundException:
+			pass
 
 		return self.__get_friendship__(username)
 
@@ -334,7 +341,7 @@ class Messages(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, limit=50, timestamp=None):
-		m = self.app.get_messages(self.username, limit, timestamp)
+		m = self.app.get_messages(self.username, int(limit), timestamp)
 
 		v = view.JSONView(200)
 		v.bind(m)
@@ -346,7 +353,7 @@ class PublicMessages(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, limit=50, timestamp=None):
-		m = self.app.get_public_messages(self.username, limit, timestamp)
+		m = self.app.get_public_messages(self.username, int(limit), timestamp)
 
 		v = view.JSONView(200)
 		v.bind(m)
@@ -358,7 +365,7 @@ class Objects(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, page=0, page_size=10):
-		m = self.app.get_objects(page, page_size)
+		m = self.app.get_objects(int(page), int(page_size))
 
 		v = view.JSONView(200)
 		v.bind(m)
@@ -370,7 +377,7 @@ class RandomObjects(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, page_size=10):
-		m = self.app.get_random_objects(page_size)
+		m = self.app.get_random_objects(int(page_size))
 
 		v = view.JSONView(200)
 		v.bind(m)
@@ -382,7 +389,7 @@ class PopularObjects(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, page=0, page_size=10):
-		m = self.app.get_popular_objects(page, page_size)
+		m = self.app.get_popular_objects(int(page), int(page_size))
 
 		v = view.JSONView(200)
 		v.bind(m)
@@ -394,7 +401,7 @@ class TaggedObjects(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, tag, page=0, page_size=10):
-		m = self.app.get_tagged_objects(tag, page, page_size)
+		m = self.app.get_tagged_objects(tag, int(page), int(page_size))
 
 		v = view.JSONView(200)
 		v.bind(m)
@@ -433,7 +440,7 @@ class ObjectTags(AuthorizedController):
 		return self.__get_tags__(guid)
 
 	def __put__(self, env, guid, tags):
-		tags = list(util.split_strip_set(receivers, ","))
+		tags = list(util.split_strip_set(tags, ","))
 
 		if len(tags) == 0:
 			raise exception.HTTPException(400, "tag list cannot be empty.")
@@ -459,7 +466,7 @@ class Voting(AuthorizedController):
 		return self.__get_voting__(guid)
 
 	def __post__(self, env, guid, up):
-		self.app.vote(self.username, guid, up)
+		self.app.vote(self.username, guid, util.to_bool(up))
 
 		return self.__get_voting__(guid)
 
@@ -498,7 +505,7 @@ class Comment(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, id):
-		m = self.app.get_comment(id, self.username)
+		m = self.app.get_comment(int(id), self.username)
 
 		v = view.JSONView(200)
 		v.bind(m)
@@ -512,14 +519,21 @@ class Favorites(AuthorizedController):
 	def __get__(self, env):
 		return self.__get_favorites__()
 
-	def __post__(self, env, guid):
+	def __put__(self, env, guid):
 		return self.__change_favorite__(guid, True)
 
 	def __delete__(self, env, guid):
 		return self.__change_favorite__(guid, False)
 
 	def __change_favorite__(self, guid, favorite):
-		self.app.favor(self.username, guid, favorite)
+		try:
+			self.app.favor(self.username, guid, favorite)
+
+		except exception.ConflictException:
+			pass
+
+		except exception.NotFoundException:
+			pass
 
 		return self.__get_favorites__()
 

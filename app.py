@@ -221,18 +221,18 @@ class Application(UserTools, ObjectTools):
 					raise exception.ConflictException("Username or email already assigned.")
 
 				# generate request id & code:
-				id = b64encode(util.generate_junk(config.REQUEST_ID_LENGTH))
+				id = util.generate_junk(config.REQUEST_ID_LENGTH)
 
 				while self.__user_db.user_request_id_exists(scope, id):
-					id = b64encode(util.generate_junk(config.REQUEST_ID_LENGTH))
+					id = util.generate_junk(config.REQUEST_ID_LENGTH)
 
-				code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
+				code = util.generate_junk(config.REQUEST_CODE_LENGTH)
 
 				# save user request:
 				self.__user_db.create_user_request(scope, id, code, username, email)
 
 				# generate mail:
-				url = config.USER_ACTIVATION_URL_WITH_CODE % (id, code)
+				url = util.build_url("/user/registration/%s?code=%s", config.WEBSITE_URL, id, code)
 
 				tpl = template.AccountRequestMail(config.DEFAULT_LANGUAGE)
 				tpl.bind(username=username, url=url)
@@ -401,13 +401,13 @@ class Application(UserTools, ObjectTools):
 				self.__user_db.remove_password_requests_by_user_id(scope, user["id"])
 
 				# create request id & code:
-				id = b64encode(util.generate_junk(config.REQUEST_ID_LENGTH))
+				id = util.generate_junk(config.REQUEST_ID_LENGTH)
 
 				while self.__user_db.password_request_id_exists(scope, id):
-					id = b64encode(util.generate_junk(config.REQUEST_ID_LENGTH))
+					id = util.generate_junk(config.REQUEST_ID_LENGTH)
 
-				code = b64encode(util.generate_junk(config.REQUEST_CODE_LENGTH))
-				url = config.PASSWORD_RESET_URL % (id, code)
+				code = util.generate_junk(config.REQUEST_CODE_LENGTH)
+				url = util.build_url("/user/%s/password/change/%s&code=%s", config.WEBSITE_URL, username, id, code)
 
 				# save password request:
 				self.__user_db.create_password_request(scope, id, code, user["id"])
@@ -497,8 +497,11 @@ class Application(UserTools, ObjectTools):
 		if not validate_language(language):
 			raise exception.InvalidParameterException("language")
 
-		if protected is None or (protected != True and protected != False):
-			raise exception.InvalidParameterException("protected")
+		if not isinstance(protected, bool):
+			if isinstance(protected, str) and (protected.lower() in ["true", "false"]):
+				protected = util.to_bool(protected)
+			else:
+				raise exception.InvalidParameterException("protected")
 
 		# update user details:
 		with self.__create_db_connection__() as conn:
@@ -774,7 +777,7 @@ class Application(UserTools, ObjectTools):
 	#  @param guid guid of an object
 	#  @param username user who wants to add tags
 	#  @param tags array containing tags to add
-	def add_tags(self, guid, username, tags):
+	def add_tags(self, guid, username, tags, ignore_conflicts=True):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				self.__test_active_user__(scope, username)
@@ -783,7 +786,12 @@ class Application(UserTools, ObjectTools):
 				user = self.__user_db.get_user(scope, username)
 
 				for tag in tags:
-					self.__object_db.add_tag(scope, guid, user["id"], tag)
+					try:
+						self.__object_db.add_tag(scope, guid, user["id"], tag)
+
+					except exception.ConflictException as e:
+						if not ignore_conflicts:
+							raise e
 
 				scope.complete()
 
@@ -915,6 +923,10 @@ class Application(UserTools, ObjectTools):
 				self.__test_active_user__(scope, username)
 
 				comment = self.__object_db.get_comment(scope, id)
+
+				if comment is None or len(comment) == 0:
+					raise exception.NotFoundException("Comment not found.")
+
 				self.__prepare_comment_no_cache__(scope, comment, username)
 
 				return comment
