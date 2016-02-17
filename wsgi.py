@@ -33,74 +33,10 @@
 #  The WSGI application.
 
 ## @mainpage
-#  <p>meat-a is a WSGI based webservice for the organization of objects and
-#  related meta data.</p>
-#
-#  <p>Objects are stored in the object database (database.ObjectDb). They are
-#  referenced by their guid and have a source. You can e.g. store a link
-#  or a filename.
-#
-#  <p>Users can tag and rate objects. They can also add objects to their
-#  personal favorite list and recommend them to other users. It's possible
-#  to write comments too.</p>
-#
-#  <p>Users can follow each other. If user A follows user B and user B also
-#  follows user A they are friends. Friends can recommend objects to each
-#  other. If a user profile is not protected every user can recommend objects
-#  to the user.</p>
-#
-#  <p>Users are organized in a separate user store (database.UserDb).</p>
-#
-#  <p>Several activities generate notifications. If a user adds an object to
-#  his/her favorite  list friends will receive a notification for example. If the
-#  user profile is not protected every user following the account will get a
-#  notification. Like other items notifications are stored in separate data store
-#  (database.StreamDb).</p>
-#
-#  <p>Sometimes a user will receive an email. If you're going to create a new user
-#  profile a request code will be sent by email for example. Emails are stored
-#  in the database.MailDb data store.</p>
-#
-#  <p>A service (mailer.Mailer) sends emails in a user-defined interval. This
-#  process can also be triggered via an UDP request.</p>
-#
-#  <p>The different data stores can be accessed through the app.Application class.
-#  The app.AuthenticatedApplication wraps the methods of this class and tests
-#  additionally if a request is authenticated.</p>
-#
-#  <p>The authentication mechanism is quite simple. A request must contain at
-#  least the username of a valid account and the current UNIX timestamp (UTC).
-#  All parameters need to be sorted alphabetically. Then the HMAC-SHA1 checksum
-#  has to be calculated. The required secret is the SHA-256 checksum of the
-#  user password. You can find an example here: util.sign_message()</p>
-#
-#  <p>There's also a full example client available in the client module:
-#  client.Client</p>
-#
-#  <p>The wsgi module tries to map a received path to a controller function.
-#  Each controller returns a view.View object which will be used to generate
-#  the response. The controller functions use an app.AuthenticatedApplication
-#  instance to access the different data stores.</p>
-#
-#  <p>Data is stored with a MongoDB server but it's simple to use a different
-#  backend.</p>
-#
-#  <p>To test the available modules execute the test.py file.</p>
-#
-#  <p>To configure the service please have a look at the config module.</p>
-#
-#  <p>You need the following additional packages to run the web interface:
-#    <ul>
-#      <li>PIL</li>
-#      <li>Cheetah</li>
-#      <li>pymongo</li>
-#      <li>Rocket (optional)</li>
-#    </ul>
-#  </p>
-#
-#  <p>Have fun!</p>
+#  meat-a is a WSGI based webservice for the organization of objects and
+#  related meta data.
 
-import controller, re, urlparse, urllib
+import controller, re, urlparse, urllib, sys, httpcode
 from app import Application
 
 ## An app.AuthenticatedApplication instance.
@@ -134,9 +70,8 @@ routing = [{"path": re.compile("^/user/registration$"), "controller": controller
            {"path": re.compile("^/objects/popular/page/(?P<page>[\d]+)$"), "controller": controller.PopularObjects},
            {"path": re.compile("^/objects/popular$"), "controller": controller.PopularObjects},
            {"path": re.compile("^/objects/random$"), "controller": controller.RandomObjects},
-           {"path": re.compile("^/recommendations$"), "controller": controller.Recommendations}
-           {"path": re.compile("^/recommendations/page/(?P<page>[\d+])$"), "controller": controller.Recommendations}
-	   ]
+           {"path": re.compile("^/recommendations$"), "controller": controller.Recommendations},
+           {"path": re.compile("^/recommendations/page/(?P<page>[\d+])$"), "controller": controller.Recommendations}]
 
 ## The WSGI callback function.
 #  @param env WSGI environment
@@ -182,20 +117,21 @@ def index(env, start_response):
 		c = route["controller"]()
 		v = c.handle_request(env["REQUEST_METHOD"], env, **params)
 
-		print v.status
-		print v.headers
-		print v.render()
+		status = v.status
+		headers = v.headers
+		response = v.render()
 
 	except StopIteration:
-		# TODO: 404
-		print "404"
+		status, headers = 404, {"Content-Type": "text/plain"}
+		response = "Not Found"
 
-from base64 import b64encode
+	except:
+		status, headers = 500, {"Content-Type", "text/plain"}
+		response = sys.exc_info()[1]
 
-env = {}
-env["Authorization"] = "Basic %s" % b64encode(b"fnord:MegaFnord667").decode("ascii")
-env["PATH_INFO"] = "/object/914423EC-D585-11E5-BEDF-50D719563991/abuse"
-#env["QUERY_STRING"] = "text=fuck\nyou\nand\ndie"
-env["REQUEST_METHOD"] = "put"
+	# add content length header, start response & return body:
+	headers["Content-Length"] = str(len(response))
 
-index(env, None)
+	start_response("%d %s" % (status, httpcode.codes[status][0]), headers.items())
+
+	return [response]
