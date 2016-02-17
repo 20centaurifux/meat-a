@@ -96,18 +96,6 @@ class Controller:
 	def __start_process__(self, env, **kwargs):
 		pass
 
-	def post(self, env, **kwargs):
-		return self.handle_request("post", env, **kwargs)
-
-	def get(self, env, **kwargs):
-		return self.handle_request("get", env, **kwargs)
-
-	def put(self, env, **kwargs):
-		return self.handle_request("put", env, **kwargs)
-
-	def delete(self, env, **kwargs):
-		return self.handle_request("delete", env, **kwargs)
-
 	def __post__(self, env, *args):
 		return self.__method_not_supported__()
 
