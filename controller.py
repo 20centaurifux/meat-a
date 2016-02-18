@@ -108,6 +108,11 @@ class Controller:
 	def __delete__(self, env, *args):
 		return self.__method_not_supported__()
 
+	def __test_required_parameters__(self, *params):
+		for p in params:
+			if p is None:
+				raise exception.MissingParameterException()
+
 class AuthorizedController(Controller):
 	def __init__(self ):
 		Controller.__init__(self)
@@ -158,6 +163,8 @@ class AccountRequest(Controller):
 		Controller.__init__(self)
 
 	def __post__(self, env, username, email):
+		self.__test_required_parameters__(username, email)
+
 		id, code = self.app.request_account(username, email)
 
 		url = util.build_url("/user/registration/%s", config.WEBSITE_URL, id)
@@ -178,6 +185,8 @@ class AccountActivation(Controller):
 		pass # TODO
 
 	def __post__(self, env, id, code):
+		self.__test_required_parameters__(id, code)
+
 		username, email, password = self.app.activate_user(id, code)
 		url = util.build_url("/user/%s", config.WEBSITE_URL, username)
 
@@ -194,6 +203,8 @@ class UserPassword(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __post__(self, env, old_password, new_password1, new_password2):
+		self.__test_required_parameters__(old_password, new_password1, new_password2)
+
 		self.app.change_password(self.username, old_password, new_password1, new_password2)
 
 		v = view.JSONView(200)
@@ -207,9 +218,13 @@ class PasswordRequest(Controller):
 		Controller.__init__(self)
 
 	def __get__(self, env, id, code):
+		self.__test_required_parameters__(id)
+
 		pass # TODO
 
 	def __post__(self, env, username, email):
+		self.__test_required_parameters__(username, email)
+
 		id, code = self.app.request_new_password(username, email)
 
 		url = util.build_url("/user/%s/password/change/%s", config.WEBSITE_URL, username, id)
@@ -227,6 +242,8 @@ class PasswordChange(Controller):
 		Controller.__init__(self)
 
 	def __post__(self, env, id, code, new_password1, new_password2):
+		self.__test_required_parameters__(id, code, new_password1, new_password2)
+
 		self.app.reset_password(id, code, new_password1, new_password2)
 
 		v = view.JSONView(200)
@@ -240,7 +257,9 @@ class UserAccount(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __post__(self, env, email, firstname, lastname, gender, language, protected):
-		self.app.update_user_details(self.username, email, firstname, lastname, gender, language, protected)
+		self.__test_required_parameters__(email)
+
+		self.app.update_user_details(self.username, email, firstname, lastname, gender, language, bool(protected))
 
 		url = util.build_url("/account/%s", config.WEBSITE_URL, self.username)
 
@@ -251,6 +270,8 @@ class UserAccount(AuthorizedController):
 		return v
 
 	def __get__(self, env, username):
+		self.__test_required_parameters__(username)
+
 		if username.lower() == self.username.lower():
 			m = self.app.get_full_user_details(username)
 		else:
@@ -262,6 +283,8 @@ class UserAccount(AuthorizedController):
 		return v
 
 	def __delete__(self, env, username):
+		self.__test_required_parameters__(username)
+
 		if not username.lower() == username:
 			raise exception.NotAuthorizedException()
 
@@ -296,12 +319,18 @@ class Friendship(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, username):
+		self.__test_required_parameters__(username)
+
 		return self.__get_friendship__(username)
 
 	def __put__(self, env, username):
+		self.__test_required_parameters__(username)
+
 		return self.__change_friendship__(username, True)
 
 	def __delete__(self, env, username):
+		self.__test_required_parameters__(username)
+
 		return self.__change_friendship__(username, False)
 
 	def __change_friendship__(self, username, friendship):
@@ -413,6 +442,8 @@ class Object(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, guid):
+		self.__test_required_parameters__(guid)
+
 		m = self.app.get_object(guid)
 
 		v = view.JSONView(200)
@@ -425,9 +456,13 @@ class ObjectTags(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, guid):
+		self.__test_required_parameters__(guid)
+
 		return self.__get_tags__(guid)
 
 	def __put__(self, env, guid, tags):
+		self.__test_required_parameters__(guid, tags)
+
 		tags = list(util.split_strip_set(tags, ","))
 
 		if len(tags) == 0:
@@ -451,10 +486,14 @@ class Voting(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, guid):
+		self.__test_required_parameters__(guid)
+
 		return self.__get_voting__(guid)
 
 	def __post__(self, env, guid, up):
-		self.app.vote(self.username, guid, util.to_bool(up))
+		self.__test_required_parameters__(guid, up)
+
+		self.app.vote(self.username, guid, bool(up))
 
 		return self.__get_voting__(guid)
 
@@ -473,14 +512,20 @@ class Comments(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, guid, page=0, page_size=50):
+		self.__test_required_parameters__(guid)
+
 		return self.__get_comments__(guid, page, page_size)
 
 	def __post__(self, env, guid, text):
+		self.__test_required_parameters__(guid, text)
+
 		self.app.add_comment(guid, self.username, text)
 
 		return self.__get_comments__(guid)
 
 	def __get_comments__(self, guid, page=0, page_size=50):
+		self.__test_required_parameters__(guid)
+
 		m = self.app.get_comments(guid, self.username, page, page_size)
 
 		v = view.JSONView(200)
@@ -493,6 +538,8 @@ class Comment(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __get__(self, env, id):
+		self.__test_required_parameters__(id)
+
 		m = self.app.get_comment(int(id), self.username)
 
 		v = view.JSONView(200)
@@ -508,6 +555,8 @@ class Favorites(AuthorizedController):
 		return self.__get_favorites__()
 
 	def __put__(self, env, guid):
+		self.__test_required_parameters__(guid)
+
 		return self.__change_favorite__(guid, True)
 
 	def __delete__(self, env, guid):
@@ -550,6 +599,8 @@ class Recommendation(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __put__(self, env, guid, receivers):
+		self.__test_required_parameters__(guid, receivers)
+
 		receivers = list(util.split_strip_set(receivers, ","))
 
 		if len(receivers) == 0:
@@ -569,6 +620,8 @@ class ReportAbuse(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __put__(self, env, guid):
+		self.__test_required_parameters__(guid)
+
 		self.app.report_abuse(guid)
 
 		m = { "guid": guid, "reported": True }
