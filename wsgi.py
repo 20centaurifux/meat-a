@@ -42,7 +42,7 @@ from app import Application
 ## An app.AuthenticatedApplication instance.
 application = Application()
 
-## Dictionary defining urls, their related controllers, required parameters & the allowed request methods ("POST" or "GET").
+## Dictionary defining urls and their related controller.
 routing = [{"path": re.compile("^/registration$"), "controller": controller.AccountRequest},
            {"path": re.compile("^/registration/(?P<id>[^/]+)$"), "controller": controller.AccountActivation},
            {"path": re.compile("^/user/(?P<username>[^/]+)$"), "controller": controller.UserAccount},
@@ -76,15 +76,8 @@ routing = [{"path": re.compile("^/registration$"), "controller": controller.Acco
 ## The WSGI callback function.
 #  @param env WSGI environment
 #  @param start_response function to start response
-#  @return response text
+#  @return response body
 def index(env, start_response):
-	def validate_parameters(required, available):
-		for p in required:
-			if not p in available:
-				return False
-
-		return True
-
 	global application
 	global routing
 
@@ -117,8 +110,7 @@ def index(env, start_response):
 		c = route["controller"]()
 		v = c.handle_request(env["REQUEST_METHOD"], env, **params)
 
-		status = v.status
-		headers = v.headers
+		status, headers = v.status, v.headers
 		response = v.render()
 
 	except StopIteration:
