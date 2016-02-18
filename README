@@ -146,7 +146,7 @@ meat-a provides the following functions:
 ---------------------------------------
 - 1.1. Request a new user account
 ---------------------------------------
-URL        : /user/registration
+URL        : /registration
 METHOD     : POST
 PARAMETERS : username, mail
 RESPONSE   : application/json
@@ -172,7 +172,7 @@ ETag: 274542b393fb3dfd63844f231bc4727dd288559df6ed66eaaa10fc050b786b2f
 ---------------------------------------
 - 1.2. Activation form
 ---------------------------------------
-URL        : /user/registration/$request-id
+URL        : /registration/$request-id
 METHOD     : GET
 PARAMETERS : code (optional)
 RESPONSE   : text/html
@@ -189,7 +189,7 @@ filled.
 ---------------------------------------
 - 1.3. Activate a user account
 ---------------------------------------
-URL        : /user/registration/$request-id
+URL        : /registration/$request-id
 METHOD     : POST
 PARAMETERS : code
 RESPONSE   : application/json
@@ -420,7 +420,7 @@ or recommended object).
 ---------------------------------------
 - 1.16. Get public messages
 ---------------------------------------
-URL        : /public/messages
+URL        : /public
 METHOD     : GET
 HEADERS    : Authorization
 PARAMETERS : limit (optional, maximum number of messages)
