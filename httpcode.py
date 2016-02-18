@@ -90,7 +90,12 @@ codes = {
           'Cannot satisfy request range.'),
     417: ('Expectation Failed',
           'Expect condition could not be satisfied.'),
-    418: ("I'm a teapot", 'The HTCPCP server is a teapot'),
+    422: ('Unprocessable Entity',
+	  'The server was not able to process the instructions.'),
+    423: ('Locked',
+	  'The destination resouce is locked.'),
+    424: ('Failed dependency.',
+	  'Dependeny failed.'),
 
     500: ('Internal Server Error', 'Server got itself in trouble'),
     501: ('Not Implemented',
