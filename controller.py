@@ -32,10 +32,10 @@
 ## @package controller
 #  Controller functions. Each function is assigned to a URL and returns a view.View instance.
 
-import config, app, view, exception, util, re, sys, inspect
+import config, app, view, exception, util, template, factory, re, sys, inspect
 from base64 import b64decode, b64encode
 
-def exception_to_view(e):
+def exception_to_json_view(e):
 	if not isinstance(e, exception.BaseException):
 		e = exception.InternalFailureException(str(e))
 
@@ -50,9 +50,22 @@ def exception_to_view(e):
 
 	return v
 
+def exception_to_html_view(e):
+	if not isinstance(e, exception.BaseException):
+		e = exception.InternalFailureException(str(e))
+
+	v = view.HTMLTemplateView(e.http_status, template.MessagePage, config.DEFAULT_LANGUAGE)
+	v.bind({"title": "Exception", "message": e.message})
+
+	if e.http_status == 401:
+		v.headers["WWW-Authenticate"] = "Basic realm=\"%s\"" % (b64encode(config.REALM))
+
+	return v
+
 class Controller:
-	def __init__(self):
+	def __init__(self, exception_handler=exception_to_json_view):
 		self.app = app.Application()
+		self.__exception_handler = exception_handler
 
 	def handle_request(self, method, env, **kwargs):
 		try:
@@ -86,12 +99,12 @@ class Controller:
 			v = apply(f, args)
 
 		except:
-			v = exception_to_view(sys.exc_info()[1])
+			v = self.__exception_handler(sys.exc_info()[1])
 
 		return v
 
 	def __method_not_supported__(self):
-		return exception_to_view(exception.MethodNotSupportedException())
+		return self.__exception_handler(exception.MethodNotSupportedException())
 
 	def __start_process__(self, env, **kwargs):
 		pass
@@ -167,7 +180,7 @@ class AccountRequest(Controller):
 
 		id, code = self.app.request_account(username, email)
 
-		url = util.build_url("/registration/%s", config.WEBSITE_URL, id)
+		url = util.build_url("/html/registration/%s", config.WEBSITE_URL, id)
 
 		v = view.JSONView(201)
 		v.headers["Location"] = url
@@ -179,22 +192,43 @@ class AccountRequest(Controller):
 
 class AccountActivation(Controller):
 	def __init__(self):
-		Controller.__init__(self)
+		Controller.__init__(self, exception_to_html_view)
 
 	def __get__(self, env, id, code):
-		pass # TODO
+		self.__test_required_parameters__(id)
+
+		with factory.create_db_connection() as connection:
+			db = factory.create_user_db()
+
+			with connection.enter_scope() as scope:
+				if not db.user_request_id_exists(scope, id):
+					raise exception.NotFoundException("Request id not found.")
+
+		v = view.HTMLTemplateView(200, template.AccountActivationPage, config.DEFAULT_LANGUAGE)
+		v.bind({"id": id, "code": code})
+
+		return v
 
 	def __post__(self, env, id, code):
 		self.__test_required_parameters__(id, code)
 
-		username, email, password = self.app.activate_user(id, code)
-		url = util.build_url("/user/%s", config.WEBSITE_URL, username)
+		v = None
 
-		v = view.JSONView(201)
-		v.headers["Location"] = url
-		v.headers["ETag"] = util.hash(url)
-		m = {"Location": url}
-		v.bind(m)
+		try:
+			username, email, _ = self.app.activate_user(id, code)
+
+			v = view.HTMLTemplateView(200, template.AccountActivatedPage, config.DEFAULT_LANGUAGE)
+			v.bind({"username": username})
+
+		except exception.BaseException as e:
+			status = e.http_status
+
+		except:
+			status = 500
+
+		if v is None:
+			v = view.HTMLTemplateView(status, template.MessagePage, config.DEFAULT_LANGUAGE)
+			v.bind({"title": "Activation failed", "message": "User activation failed."})
 
 		return v
 
@@ -227,7 +261,7 @@ class PasswordRequest(Controller):
 
 		id, code = self.app.request_new_password(username, email)
 
-		url = util.build_url("/user/%s/password/reset/%s", config.WEBSITE_URL, username, id)
+		url = util.build_url("/html/user/%s/password/reset/%s", config.WEBSITE_URL, username, id)
 
 		v = view.JSONView(201)
 		v.headers["Location"] = url

@@ -232,7 +232,7 @@ class Application(UserTools, ObjectTools):
 				self.__user_db.create_user_request(scope, id, code, username, email)
 
 				# generate mail:
-				url = util.build_url("/registration/%s?code=%s", config.WEBSITE_URL, id, code)
+				url = util.build_url("/html/registration/%s?code=%s", config.WEBSITE_URL, id, code)
 
 				tpl = template.AccountRequestMail(config.DEFAULT_LANGUAGE)
 				tpl.bind(username=username, url=url)
@@ -407,7 +407,7 @@ class Application(UserTools, ObjectTools):
 					id = util.generate_junk(config.REQUEST_ID_LENGTH)
 
 				code = util.generate_junk(config.REQUEST_CODE_LENGTH)
-				url = util.build_url("/user/%s/password/reset/%s&code=%s", config.WEBSITE_URL, username, id, code)
+				url = util.build_url("/html/user/%s/password/reset/%s&code=%s", config.WEBSITE_URL, username, id, code)
 
 				# save password request:
 				self.__user_db.create_password_request(scope, id, code, user["id"])

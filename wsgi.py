@@ -43,35 +43,36 @@ from app import Application
 application = Application()
 
 ## Dictionary defining urls and their related controller.
-routing = [{"path": re.compile("^/registration$"), "controller": controller.AccountRequest},
-           {"path": re.compile("^/registration/(?P<id>[^/]+)$"), "controller": controller.AccountActivation},
-           {"path": re.compile("^/user/(?P<username>[^/]+)$"), "controller": controller.UserAccount},
-           {"path": re.compile("^/user/(?P<username>[^/]+)/password/reset$"), "controller": controller.PasswordRequest},
-           {"path": re.compile("^/user/(?P<username>[^/]+)/password/reset/(?P<id>[^/]+)$"), "controller": controller.PasswordChange},
-           {"path": re.compile("^/user/(?P<username>[^/]+)/password$"), "controller": controller.UserPassword},
-           {"path": re.compile("^/user/search/(?P<query>[^/]+)$"), "controller": controller.Search},
-           {"path": re.compile("^/user/(?P<username>[^/]+)/friendship$"), "controller": controller.Friendship},
-           {"path": re.compile("^/favorites$"), "controller": controller.Favorites},
-           {"path": re.compile("^/messages$"), "controller": controller.Messages},
-           {"path": re.compile("^/public$"), "controller": controller.PublicMessages},
-           {"path": re.compile("^/object/(?P<guid>[^/]+)$"), "controller": controller.Object},
-           {"path": re.compile("^/object/(?P<guid>[^/]+)/tags$"), "controller": controller.ObjectTags},
-           {"path": re.compile("^/object/(?P<guid>[^/]+)/vote$"), "controller": controller.Voting},
-           {"path": re.compile("^/object/(?P<guid>[^/]+)/comments$"), "controller": controller.Comments},
-           {"path": re.compile("^/object/(?P<guid>[^/]+)/comments/page/((?P<page>[\d]+))$"), "controller": controller.Comments},
-           {"path": re.compile("^/object/(?P<guid>[^/]+)/abuse$"), "controller": controller.ReportAbuse},
-           {"path": re.compile("^/comment/(?P<id>[\d]+)$"), "controller": controller.Comment},
-           {"path": re.compile("^/object/(?P<guid>[^/]+)/recommend$"), "controller": controller.Recommendations},
-           {"path": re.compile("^/objects$"), "controller": controller.Objects},
-           {"path": re.compile("^/objects/page/(?P<page>[\d]+)$"), "controller": controller.Objects},
-           {"path": re.compile("^/objects/tag/(?P<tag>[^/]+)/page/(?P<page>[\d]+)$"), "controller": controller.TaggedObjects},
-           {"path": re.compile("^/objects/tag/(?P<tag>[^/]+)$"), "controller": controller.TaggedObjects},
-           {"path": re.compile("^/objects/tags$"), "controller": controller.TagCloud},
-           {"path": re.compile("^/objects/popular/page/(?P<page>[\d]+)$"), "controller": controller.PopularObjects},
-           {"path": re.compile("^/objects/popular$"), "controller": controller.PopularObjects},
-           {"path": re.compile("^/objects/random$"), "controller": controller.RandomObjects},
-           {"path": re.compile("^/recommendations$"), "controller": controller.Recommendations},
-           {"path": re.compile("^/recommendations/page/(?P<page>[\d+])$"), "controller": controller.Recommendations}]
+routing = [{"path": re.compile("^/json/registration$"), "controller": controller.AccountRequest},
+           {"path": re.compile("^/html/registration/(?P<id>[^/]+)$"), "controller": controller.AccountActivation},
+           {"path": re.compile("^/html/registration/(?P<id>[^/]+)$"), "controller": controller.AccountActivation},
+           {"path": re.compile("^/json/user/(?P<username>[^/]+)$"), "controller": controller.UserAccount},
+           {"path": re.compile("^/json/user/(?P<username>[^/]+)/password/reset$"), "controller": controller.PasswordRequest},
+           {"path": re.compile("^/json/user/(?P<username>[^/]+)/password/reset/(?P<id>[^/]+)$"), "controller": controller.PasswordChange},
+           {"path": re.compile("^/json/user/(?P<username>[^/]+)/password$"), "controller": controller.UserPassword},
+           {"path": re.compile("^/json/user/search/(?P<query>[^/]+)$"), "controller": controller.Search},
+           {"path": re.compile("^/json/user/(?P<username>[^/]+)/friendship$"), "controller": controller.Friendship},
+           {"path": re.compile("^/json/favorites$"), "controller": controller.Favorites},
+           {"path": re.compile("^/json/messages$"), "controller": controller.Messages},
+           {"path": re.compile("^/json/public$"), "controller": controller.PublicMessages},
+           {"path": re.compile("^/json/object/(?P<guid>[^/]+)$"), "controller": controller.Object},
+           {"path": re.compile("^/json/object/(?P<guid>[^/]+)/tags$"), "controller": controller.ObjectTags},
+           {"path": re.compile("^/json/object/(?P<guid>[^/]+)/vote$"), "controller": controller.Voting},
+           {"path": re.compile("^/json/object/(?P<guid>[^/]+)/comments$"), "controller": controller.Comments},
+           {"path": re.compile("^/json/object/(?P<guid>[^/]+)/comments/page/((?P<page>[\d]+))$"), "controller": controller.Comments},
+           {"path": re.compile("^/json/object/(?P<guid>[^/]+)/abuse$"), "controller": controller.ReportAbuse},
+           {"path": re.compile("^/json/comment/(?P<id>[\d]+)$"), "controller": controller.Comment},
+           {"path": re.compile("^/json/object/(?P<guid>[^/]+)/recommend$"), "controller": controller.Recommendations},
+           {"path": re.compile("^/json/objects$"), "controller": controller.Objects},
+           {"path": re.compile("^/json/objects/page/(?P<page>[\d]+)$"), "controller": controller.Objects},
+           {"path": re.compile("^/json/objects/tag/(?P<tag>[^/]+)/page/(?P<page>[\d]+)$"), "controller": controller.TaggedObjects},
+           {"path": re.compile("^/json/objects/tag/(?P<tag>[^/]+)$"), "controller": controller.TaggedObjects},
+           {"path": re.compile("^/json/objects/tags$"), "controller": controller.TagCloud},
+           {"path": re.compile("^/json/objects/popular/page/(?P<page>[\d]+)$"), "controller": controller.PopularObjects},
+           {"path": re.compile("^/json/objects/popular$"), "controller": controller.PopularObjects},
+           {"path": re.compile("^/json/objects/random$"), "controller": controller.RandomObjects},
+           {"path": re.compile("^/json/recommendations$"), "controller": controller.Recommendations},
+           {"path": re.compile("^/json/recommendations/page/(?P<page>[\d+])$"), "controller": controller.Recommendations}]
 
 ## The WSGI callback function.
 #  @param env WSGI environment
@@ -90,18 +91,19 @@ def index(env, start_response):
 		f = lambda route: [route, route["path"].match(url)]
 		route, m = next(pair for pair in map(f, routing) if pair[1] is not None)
 
-		# get parameters from query string:
-		try:
-			size = int(env.get('CONTENT_LENGTH', 0))
-			# TODO check length
-			qs = env['wsgi.input'].read(size)
-
-		except KeyError:
-			qs = env.get("QUERY_STRING", "")
-
- 		qs = urlparse.parse_qs(qs, True)
+		# get parameters from query string & body:
+		qs = urlparse.parse_qs(env.get("QUERY_STRING", ""))
 
 		params = {k: urllib.unquote(v[0]) for k, v in qs.items()}
+
+		try:
+			size = int(env.get('CONTENT_LENGTH', 0)) # TODO check length
+			qs = urlparse.parse_qs(env['wsgi.input'].read(size))
+
+			params.update({k: urllib.unquote(v[0]) for k, v in qs.items()})
+
+		except KeyError:
+			pass
 
 		# merge found parameters with parameters specified in path:
 		params.update({k: urllib.unquote(m.group(k)) for k, v in route["path"].groupindex.items()})

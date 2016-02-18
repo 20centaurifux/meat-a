@@ -33,6 +33,7 @@
 #  Base class for views and implementations.
 
 from util import to_json
+import template
 
 ## A base class for views. A view can be exported to a string which contains binded data.
 class View(object):
@@ -45,7 +46,7 @@ class View(object):
 		## Data stored in the view.
 		self.model = None
 		## Optional headers.
-		self.headers = { "Content-Type": content_type }
+		self.headers = {"Content-Type": content_type}
 
 	## Binds data.
 	#  @param model data to bind
@@ -71,6 +72,24 @@ class JSONView(View):
 			return "null"
 		else:
 			return to_json(self.model)
+
+## A view generating an HTML page.
+class HTMLTemplateView(View):
+	## The constructor.
+	#  @param status an HTTP status code
+	def __init__(self, status, template, language):
+		View.__init__(self, "text/html", status)
+		self.__template = template
+		self.__language = language
+
+	## Converts the assigned model to a JSON string.
+	#  @return a JSON string
+	def render(self):
+		tpl = self.__template(self.__language)
+
+		tpl.bind(**self.model)
+
+		return tpl.render()
 
 ## An empty view.
 class EmptyView(View):
