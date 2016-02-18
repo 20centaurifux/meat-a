@@ -130,6 +130,21 @@ class AccountRequestMail(CheetahMailTemplate):
 	def __init__(self, language):
 		CheetahMailTemplate.__init__(self, language, "account_request.subject.tpl", "account_request.body.tpl")
 
+## Account activation page.
+class AccountActivationPage(CheetahTemplate):
+	def __init__(self, language):
+		CheetahTemplate.__init__(self, language, "account_activation_page.tpl")
+
+## A page displaying successful account activation details.
+class AccountActivatedPage(CheetahTemplate):
+	def __init__(self, language):
+		CheetahTemplate.__init__(self, language, "account_activated_page.tpl")
+
+## A simple HTML page showing a message.
+class MessagePage(CheetahTemplate):
+	def __init__(self, language):
+		CheetahTemplate.__init__(self, language, "message_page.tpl")
+
 ## A Template implementation used to welcome new users.
 class AccountActivatedMail(CheetahMailTemplate):
 	def __init__(self, language):
