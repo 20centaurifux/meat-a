@@ -43,17 +43,17 @@ from app import Application
 application = Application()
 
 ## Dictionary defining urls, their related controllers, required parameters & the allowed request methods ("POST" or "GET").
-routing = [{"path": re.compile("^/user/registration$"), "controller": controller.AccountRequest},
-           {"path": re.compile("^/user/registration/(?P<id>[^/]+)$"), "controller": controller.AccountActivation},
+routing = [{"path": re.compile("^/registration$"), "controller": controller.AccountRequest},
+           {"path": re.compile("^/registration/(?P<id>[^/]+)$"), "controller": controller.AccountActivation},
            {"path": re.compile("^/user/(?P<username>[^/]+)$"), "controller": controller.UserAccount},
-           {"path": re.compile("^/user/(?P<username>[^/]+)/password/change$"), "controller": controller.PasswordRequest},
-           {"path": re.compile("^/user/(?P<username>[^/]+)/password/change/(?P<id>[^/]+)$"), "controller": controller.PasswordChange},
+           {"path": re.compile("^/user/(?P<username>[^/]+)/password/reset$"), "controller": controller.PasswordRequest},
+           {"path": re.compile("^/user/(?P<username>[^/]+)/password/reset/(?P<id>[^/]+)$"), "controller": controller.PasswordChange},
            {"path": re.compile("^/user/(?P<username>[^/]+)/password$"), "controller": controller.UserPassword},
            {"path": re.compile("^/user/search/(?P<query>[^/]+)$"), "controller": controller.Search},
            {"path": re.compile("^/user/(?P<username>[^/]+)/friendship$"), "controller": controller.Friendship},
            {"path": re.compile("^/favorites$"), "controller": controller.Favorites},
            {"path": re.compile("^/messages$"), "controller": controller.Messages},
-           {"path": re.compile("^/public/messages$"), "controller": controller.PublicMessages},
+           {"path": re.compile("^/public$"), "controller": controller.PublicMessages},
            {"path": re.compile("^/object/(?P<guid>[^/]+)$"), "controller": controller.Object},
            {"path": re.compile("^/object/(?P<guid>[^/]+)/tags$"), "controller": controller.ObjectTags},
            {"path": re.compile("^/object/(?P<guid>[^/]+)/vote$"), "controller": controller.Voting},

@@ -56,11 +56,11 @@ class Controller:
 
 	def handle_request(self, method, env, **kwargs):
 		try:
-			m = { "post": self.__post__, "get": self.__get__, "put": self.__put__, "delete": self.__delete__ }
+			m = {"post": self.__post__, "get": self.__get__, "put": self.__put__, "delete": self.__delete__}
 
 			self.__start_process__(env, **kwargs)
 
-			f = m[method]
+			f = m[method.lower()]
 
 			# get function argument names:
 			spec = inspect.getargspec(f)
@@ -122,7 +122,7 @@ class AuthorizedController(Controller):
 	def __start_process__(self, env, **kwargs):
 		# get & decode Authorization header:
 		try:
-			header = env["Authorization"]
+			header = env["HTTP_AUTHORIZATION"]
 
 			m = re.match("^Basic ([a-zA-Z0-9=/_\-]+)$", header)
 			auth = b64decode(m.group(1))
@@ -167,7 +167,7 @@ class AccountRequest(Controller):
 
 		id, code = self.app.request_account(username, email)
 
-		url = util.build_url("/user/registration/%s", config.WEBSITE_URL, id)
+		url = util.build_url("/registration/%s", config.WEBSITE_URL, id)
 
 		v = view.JSONView(201)
 		v.headers["Location"] = url
@@ -227,7 +227,7 @@ class PasswordRequest(Controller):
 
 		id, code = self.app.request_new_password(username, email)
 
-		url = util.build_url("/user/%s/password/change/%s", config.WEBSITE_URL, username, id)
+		url = util.build_url("/user/%s/password/reset/%s", config.WEBSITE_URL, username, id)
 
 		v = view.JSONView(201)
 		v.headers["Location"] = url
@@ -259,7 +259,7 @@ class UserAccount(AuthorizedController):
 	def __post__(self, env, email, firstname, lastname, gender, language, protected):
 		self.__test_required_parameters__(email)
 
-		self.app.update_user_details(self.username, email, firstname, lastname, gender, language, bool(protected))
+		self.app.update_user_details(self.username, email, firstname, lastname, gender, language, util.to_bool(protected))
 
 		url = util.build_url("/account/%s", config.WEBSITE_URL, self.username)
 
@@ -493,7 +493,7 @@ class Voting(AuthorizedController):
 	def __post__(self, env, guid, up):
 		self.__test_required_parameters__(guid, up)
 
-		self.app.vote(self.username, guid, bool(up))
+		self.app.vote(self.username, guid, util.to_bool(up))
 
 		return self.__get_voting__(guid)
 
