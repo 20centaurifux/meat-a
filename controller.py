@@ -205,30 +205,27 @@ class AccountActivation(Controller):
 					raise exception.NotFoundException("Request id not found.")
 
 		v = view.HTMLTemplateView(200, template.AccountActivationPage, config.DEFAULT_LANGUAGE)
-		v.bind({"id": id, "code": code})
+		v.bind({"id": id, "code": code, "error_field": None})
 
 		return v
 
-	def __post__(self, env, id, code):
+	def __post__(self, env, id, code, new_password1, new_password2):
 		self.__test_required_parameters__(id, code)
 
-		v = None
+		tpl = template.AccountActivatedPage
+		status = 200
 
 		try:
 			username, email, _ = self.app.activate_user(id, code)
+			m = {"username": username}
 
-			v = view.HTMLTemplateView(200, template.AccountActivatedPage, config.DEFAULT_LANGUAGE)
-			v.bind({"username": username})
-
-		except exception.BaseException as e:
+		except exception.InvalidRequestCodeException as e:
+			tpl = template.AccountActivationPage
 			status = e.http_status
+			m = {"id": id, "code": code, "error_field": "code"}
 
-		except:
-			status = 500
-
-		if v is None:
-			v = view.HTMLTemplateView(status, template.MessagePage, config.DEFAULT_LANGUAGE)
-			v.bind({"title": "Activation failed", "message": "User activation failed."})
+		v = view.HTMLTemplateView(status, tpl, config.DEFAULT_LANGUAGE)
+		v.bind(m)
 
 		return v
 
