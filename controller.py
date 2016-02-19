@@ -251,11 +251,6 @@ class PasswordRequest(Controller):
 	def __init__(self):
 		Controller.__init__(self)
 
-	def __get__(self, env, id, code):
-		self.__test_required_parameters__(id)
-
-		pass # TODO
-
 	def __post__(self, env, username, email):
 		self.__test_required_parameters__(username, email)
 
@@ -273,15 +268,46 @@ class PasswordRequest(Controller):
 
 class PasswordChange(Controller):
 	def __init__(self):
-		Controller.__init__(self)
+		Controller.__init__(self, exception_to_html_view)
+
+	def __get__(self, env, id, code):
+		self.__test_required_parameters__(id)
+
+		with factory.create_db_connection() as connection:
+			db = factory.create_user_db()
+
+			with connection.enter_scope() as scope:
+				if not db.password_request_id_exists(scope, id):
+					raise exception.NotFoundException("Request id not found.")
+
+		v = view.HTMLTemplateView(200, template.ChangePasswordPage, config.DEFAULT_LANGUAGE)
+		v.bind({"id": id, "code": code, "error_field": None})
+
+		return v
 
 	def __post__(self, env, id, code, new_password1, new_password2):
-		self.__test_required_parameters__(id, code, new_password1, new_password2)
+		self.__test_required_parameters__(id, code)
 
-		self.app.reset_password(id, code, new_password1, new_password2)
+		tpl = template.PasswordChangedPage
+		status = 200
 
-		v = view.JSONView(200)
-		m = {"password": new_password1}
+		try:
+			username, _ = self.app.reset_password(id, code, new_password1, new_password2)
+			m = {"username": username}
+
+		except exception.BaseException as e:
+			tpl = template.ChangePasswordPage
+			status = e.http_status
+			m = {"id": id, "code": code}
+
+			if isinstance(e, exception.InvalidRequestCodeException):
+				m["error_field"] = "code"
+			elif isinstance(e, exception.InvalidParameterException):
+				m["error_field"] = e.parameter
+			else:
+				raise e
+
+		v = view.HTMLTemplateView(status, tpl, config.DEFAULT_LANGUAGE)
 		v.bind(m)
 
 		return v

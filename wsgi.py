@@ -48,7 +48,7 @@ routing = [{"path": re.compile("^/json/registration$"), "controller": controller
            {"path": re.compile("^/html/registration/(?P<id>[^/]+)$"), "controller": controller.AccountActivation},
            {"path": re.compile("^/json/user/(?P<username>[^/]+)$"), "controller": controller.UserAccount},
            {"path": re.compile("^/json/user/(?P<username>[^/]+)/password/reset$"), "controller": controller.PasswordRequest},
-           {"path": re.compile("^/json/user/(?P<username>[^/]+)/password/reset/(?P<id>[^/]+)$"), "controller": controller.PasswordChange},
+           {"path": re.compile("^/html/user/(?P<username>[^/]+)/password/reset/(?P<id>[^/]+)$"), "controller": controller.PasswordChange},
            {"path": re.compile("^/json/user/(?P<username>[^/]+)/password$"), "controller": controller.UserPassword},
            {"path": re.compile("^/json/user/search/(?P<query>[^/]+)$"), "controller": controller.Search},
            {"path": re.compile("^/json/user/(?P<username>[^/]+)/friendship$"), "controller": controller.Friendship},

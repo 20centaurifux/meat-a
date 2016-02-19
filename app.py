@@ -430,6 +430,7 @@ class Application(UserTools, ObjectTools):
 	#  @param code a related request code
 	#  @param new_password1 a new password (plaintext)
 	#  @param new_password2 repeated new password (plaintext)
+	#  @return username and new password
 	def reset_password(self, id, code, new_password1, new_password2):
 		# validate passwords:
 		if not validate_password(new_password1):
@@ -471,6 +472,8 @@ class Application(UserTools, ObjectTools):
 				mailer.ping(config.MAILER_HOST, config.MAILER_PORT)
 
 				scope.complete()
+
+				return username, new_password1
 
 	## Updates the details of a user account.
 	#  @param username a user account

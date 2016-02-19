@@ -172,6 +172,16 @@ class PasswordRequestedMail(CheetahMailTemplate):
 	def __init__(self, language):
 		CheetahMailTemplate.__init__(self, language, "password_requested.subject.tpl", "password_requested.body.tpl")
 
+## Account activation page.
+class ChangePasswordPage(CheetahTemplate):
+	def __init__(self, language):
+		CheetahTemplate.__init__(self, language, "password_change_page.tpl")
+
+## A simple HTML page showing a changed password notification.
+class PasswordChangedPage(CheetahTemplate):
+	def __init__(self, language):
+		CheetahTemplate.__init__(self, language, "password_changed_page.tpl")
+
 ## A Template implementation used to send a new generated password to users.
 class PasswordChangedMail(CheetahMailTemplate):
 	def __init__(self, language):
