@@ -1,1 +1,0 @@
-$username - Herzlich Willkommen!
