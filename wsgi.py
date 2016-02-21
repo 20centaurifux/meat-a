@@ -36,7 +36,7 @@
 #  meat-a is a WSGI based webservice for the organization of objects and
 #  related meta data.
 
-import controller, re, urlparse, urllib, sys, httpcode
+import controller, re, urlparse, urllib, sys, httpcode, config, exception
 from app import Application
 
 ## An app.AuthenticatedApplication instance.
@@ -91,15 +91,18 @@ def index(env, start_response):
 		f = lambda route: [route, route["path"].match(url)]
 		route, m = next(pair for pair in map(f, routing) if pair[1] is not None)
 
+		# test request length:
+		size = int(env.get('CONTENT_LENGTH', 0))
+
+		if size > config.WSGI_MAX_REQUEST_LENGTH:
+			raise exception.StreamExceedsMaximumException()
+
 		# get parameters from query string & body:
 		qs = urlparse.parse_qs(env.get("QUERY_STRING", ""))
-
 		params = {k: urllib.unquote(v[0]) for k, v in qs.items()}
 
 		try:
-			size = int(env.get('CONTENT_LENGTH', 0)) # TODO check length
 			qs = urlparse.parse_qs(env['wsgi.input'].read(size))
-
 			params.update({k: urllib.unquote(v[0]) for k, v in qs.items()})
 
 		except KeyError:
@@ -118,6 +121,10 @@ def index(env, start_response):
 	except StopIteration:
 		status, headers = 404, {"Content-Type": "text/plain"}
 		response = "Not Found"
+
+	except exception.BaseException as e:
+		status, headers = e.http_status, {"Content-Type": "text/plain"}
+		response = e.message
 
 	except:
 		status, headers = 500, {"Content-Type", "text/plain"}
