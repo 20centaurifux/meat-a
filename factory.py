@@ -34,7 +34,7 @@
 
 import config, mongodb, pqdb, pymongo, smtp
 
-# Creates a database.Connection instance.
+## Creates a database.Connection instance.
 def create_db_connection():
 	return pqdb.PQConnection(config.PQ_DB, host=config.PQ_HOST, port=config.PQ_PORT, username=config.PQ_USER, password=config.PQ_PWD)
 

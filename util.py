@@ -65,13 +65,14 @@ def password_hash(plain, salt):
 
 	return m.hexdigest()
 
+## Reads data from a stream and computes its hash.
+#  @param stream a stream to read data from
 def stream_hash(stream):
 	m = sha256()
 
 	map(lambda b: m.update(b), read_from_stream(stream))
 
 	return m.hexdigest()
-
 
 ## Generates a guid.
 def new_guid():

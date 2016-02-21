@@ -100,7 +100,7 @@ class UserTools:
 
 	## Gets the user of of a user.
 	#  @param scope a transaction scope
-	#  @param username user to get the id from
+	#  @param user_id id of the user to map
 	#  @return an id
 	def __map_user_id__(self, scope, user_id):
 		return self.__db.map_user_id(scope, user_id)
@@ -116,7 +116,6 @@ class UserTools:
 		return util.password_hash(password, salt) == current_password
 
 	## Returns the language selected by the user.
-	#  @param scope a transaction scope
 	#  @param user user details (dictionary)
 	#  @return the language selected by the user or config.DEFAULT_LANGUAGE if undefined
 	def __get_language__(self, user):
@@ -662,7 +661,7 @@ class Application(UserTools, ObjectTools):
 	## Tests if two users are friends.
 	#  @param user1 a username
 	#  @param user2 a username
-	#  @param a dictionary holding friendship details: { "following": bool, "followed": bool }
+	#  @return a dictionary holding friendship details: { "following": bool, "followed": bool }
 	def get_friendship(self, user1, user2):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
@@ -780,6 +779,7 @@ class Application(UserTools, ObjectTools):
 	#  @param guid guid of an object
 	#  @param username user who wants to add tags
 	#  @param tags array containing tags to add
+	#  @param ignore_conflicts don't raise an exception if a conflict occurs
 	def add_tags(self, guid, username, tags, ignore_conflicts=True):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
@@ -826,8 +826,8 @@ class Application(UserTools, ObjectTools):
 
 	## Gets the voting of a user for an object.
 	#  @param username a username
-	#  @param username a username
-	#  @param up True, False or None
+	#  @param guid guid of an object
+	#  @return True, False or None
 	def get_voting(self, username, guid):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:

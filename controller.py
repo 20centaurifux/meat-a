@@ -27,14 +27,17 @@
 
 ##
 #  @file controller.py
-#  Controller functions. Each function is assigned to a URL and returns a view.View instance.
+#  Controller classes.
 
 ## @package controller
-#  Controller functions. Each function is assigned to a URL and returns a view.View instance.
+#  Controller classes.
 
 import config, app, view, exception, util, template, factory, re, sys, inspect
 from base64 import b64decode, b64encode
 
+## Converts an exception to a view.JSONView.
+#  @param e an exception
+#  @return a view.JSONView instance
 def exception_to_json_view(e):
 	if not isinstance(e, exception.BaseException):
 		e = exception.InternalFailureException(str(e))
@@ -50,6 +53,9 @@ def exception_to_json_view(e):
 
 	return v
 
+## Converts an exception to a view.HTMLTemplateView.
+#  @param e an exception
+#  @return a view.HTMLTemplateView instance
 def exception_to_html_view(e):
 	if not isinstance(e, exception.BaseException):
 		e = exception.InternalFailureException(str(e))
@@ -62,11 +68,19 @@ def exception_to_html_view(e):
 
 	return v
 
+## Controller base class.
 class Controller:
 	def __init__(self, exception_handler=exception_to_json_view):
+		## An app.Application instance.
 		self.app = app.Application()
+		## Function to convert exceptions to a view.View instance.
 		self.__exception_handler = exception_handler
 
+	## Handles an HTTP request.
+	#  @param method the HTTP method (post, get, put or delete)
+	#  @param env a dictionary providing environment details
+	#  @param kwargs received parameters
+	#  @return a view.View instance with a binded model
 	def handle_request(self, method, env, **kwargs):
 		try:
 			m = {"post": self.__post__, "get": self.__get__, "put": self.__put__, "delete": self.__delete__}
@@ -126,6 +140,7 @@ class Controller:
 			if p is None:
 				raise exception.MissingParameterException()
 
+## A controller with HTTP basic authentication support.
 class AuthorizedController(Controller):
 	def __init__(self ):
 		Controller.__init__(self)
@@ -171,10 +186,16 @@ class AuthorizedController(Controller):
 		if not authenticated:
 			raise exception.NotAuthorizedException()
 
+## Requests new user accounts.
 class AccountRequest(Controller):
 	def __init__(self):
 		Controller.__init__(self)
 
+	## Requests a user account.
+	#  @param env environment data
+	#  @param username name of the requested user account
+	#  @param email email address of the requested user account
+	#  @return URL if the registration website
 	def __post__(self, env, username, email):
 		self.__test_required_parameters__(username, email)
 
@@ -190,10 +211,16 @@ class AccountRequest(Controller):
 
 		return v
 
+## Activates requested user account with corresponding id & code.
 class AccountActivation(Controller):
 	def __init__(self):
 		Controller.__init__(self, exception_to_html_view)
 
+	## User activation website.
+	#  @param env environment data
+	#  @param id request id
+	#  @param code activation code (optional)
+	#  @return a website
 	def __get__(self, env, id, code):
 		self.__test_required_parameters__(id)
 
@@ -209,6 +236,13 @@ class AccountActivation(Controller):
 
 		return v
 
+	## Activates a user account.
+	#  @param env environment data
+	#  @param id request id
+	#  @param code activation code
+	#  @param new_password1 new password to set
+	#  @param new_password2 repeated password
+	#  @return a website displaying a success message or a website for entering the request code
 	def __post__(self, env, id, code, new_password1, new_password2):
 		self.__test_required_parameters__(id, code)
 
@@ -229,10 +263,17 @@ class AccountActivation(Controller):
 
 		return v
 
+## Updates user password.
 class UserPassword(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Updates the user password.
+	#  @param env environment data
+	#  @param old_password the current password
+	#  @param new_password1 new password to set
+	#  @param new_password2 repeated new password
+	#  @return the new password (on success)
 	def __post__(self, env, old_password, new_password1, new_password2):
 		self.__test_required_parameters__(old_password, new_password1, new_password2)
 
@@ -244,10 +285,16 @@ class UserPassword(AuthorizedController):
 
 		return v
 
+## Requests a new password.
 class PasswordRequest(Controller):
 	def __init__(self):
 		Controller.__init__(self)
 
+	## Requests a new password.
+	#  @param env environment data
+	#  @param username name of the user who wants to set a new password
+	#  @param email the user's email address
+	#  @return location of the generated resource to change the password
 	def __post__(self, env, username, email):
 		self.__test_required_parameters__(username, email)
 
@@ -263,10 +310,16 @@ class PasswordRequest(Controller):
 
 		return v
 
+## Resets a password using a corresponding code & id.
 class PasswordChange(Controller):
 	def __init__(self):
 		Controller.__init__(self, exception_to_html_view)
 
+	## A website to change the user's password.
+	#  @param env environment data
+	#  @param id password change request id
+	#  @param code a related code (optional)
+	#  @return a website
 	def __get__(self, env, id, code):
 		self.__test_required_parameters__(id)
 
@@ -282,6 +335,13 @@ class PasswordChange(Controller):
 
 		return v
 
+	## Sets a new password.
+	#  @param env environment data
+	#  @param id password change request id
+	#  @param code a related code
+	#  @param new_password1 new password to set
+	#  @param new_password2 repeated password
+	#  @return a website displaying a success message or a website for entering the new password and request code
 	def __post__(self, env, id, code, new_password1, new_password2):
 		self.__test_required_parameters__(id, code)
 
@@ -309,10 +369,20 @@ class PasswordChange(Controller):
 
 		return v
 
+## Updates, gets or deletes a user account.
 class UserAccount(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Changes user details.
+	#  @param env environment data
+	#  @param email email address to set
+	#  @param firstname firstname to set
+	#  @param lastname lastname to set
+	#  @param gender gender to set
+	#  @param language language to set
+	#  @param protected protected status to set
+	#  @return new user details
 	def __post__(self, env, email, firstname, lastname, gender, language, protected):
 		self.__test_required_parameters__(email)
 
@@ -326,6 +396,10 @@ class UserAccount(AuthorizedController):
 
 		return v
 
+	## Gets user details.
+	#  @param env environment data
+	#  @param username name of the user to get details from
+	#  @return user details
 	def __get__(self, env, username):
 		self.__test_required_parameters__(username)
 
@@ -339,6 +413,10 @@ class UserAccount(AuthorizedController):
 
 		return v
 
+	## Disables a user account.
+	#  @param env environment data
+	#  @param username name of the user to deactivate
+	#  @return no content (status 204)
 	def __delete__(self, env, username):
 		self.__test_required_parameters__(username)
 
@@ -349,7 +427,9 @@ class UserAccount(AuthorizedController):
 
 		return view.EmptyView(204)
 
-class Avatar(AuthorizedController): # TODO
+## Updates or downloads an avatar.
+#  @todo not implemented yet
+class Avatar(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
@@ -359,10 +439,15 @@ class Avatar(AuthorizedController): # TODO
 	def __get__(self, env, *args):
 		username = args
 
+## Searches the user database.
 class Search(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Searches the user database.
+	#  @param env environment data
+	#  @param query search query
+	#  @return a list with found usernames
 	def __get__(self, env, query):
 		m = self.app.find_user(self.username, query)
 
@@ -371,20 +456,33 @@ class Search(AuthorizedController):
 
 		return v
 
+## Updates or gets friendship details.
 class Friendship(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets friendship details.
+	#  @param env environment data
+	#  @param username user to get friendship status from
+	#  @return friendship details
 	def __get__(self, env, username):
 		self.__test_required_parameters__(username)
 
 		return self.__get_friendship__(username)
 
+	## Follows a user.
+	#  @param env environment data
+	#  @param username user to follow
+	#  @return friendship details
 	def __put__(self, env, username):
 		self.__test_required_parameters__(username)
 
 		return self.__change_friendship__(username, True)
 
+	## Unfollows a user.
+	#  @param env environment data
+	#  @param username user to unfollow
+	#  @return friendship details
 	def __delete__(self, env, username):
 		self.__test_required_parameters__(username)
 
@@ -410,10 +508,16 @@ class Friendship(AuthorizedController):
 
 		return v
 
+## Gets messages.
 class Messages(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets messages.
+	#  @param env environment data
+	#  @param limit maximum number of received messages
+	#  @param timestamp only get messages older than timestamp
+	#  @return messages sent to the user account
 	def __get__(self, env, limit=50, timestamp=None):
 		m = self.app.get_messages(self.username, int(limit), timestamp)
 
@@ -422,10 +526,16 @@ class Messages(AuthorizedController):
 
 		return v
 
+## Gets public messages.
 class PublicMessages(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets public messages.
+	#  @param env environment data
+	#  @param limit maximum number of messages to receive
+	#  @param timestamp only get messages older than timestamp
+	#  @return public messages
 	def __get__(self, env, limit=50, timestamp=None):
 		m = self.app.get_public_messages(self.username, int(limit), timestamp)
 
@@ -434,10 +544,16 @@ class PublicMessages(AuthorizedController):
 
 		return v
 
+## Gets objects (ordered by timestamp).
 class Objects(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets objects.
+	#  @param env environment data
+	#  @param page page index
+	#  @param page_size page size
+	#  @return objects ordered by timestamp (descending)
 	def __get__(self, env, page=0, page_size=10):
 		m = self.app.get_objects(int(page), int(page_size))
 
@@ -446,10 +562,15 @@ class Objects(AuthorizedController):
 
 		return v
 
+## Gets random objects.
 class RandomObjects(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets random objects.
+	#  @param env environment data
+	#  @param page_size page size
+	#  @return random objects
 	def __get__(self, env, page_size=10):
 		m = self.app.get_random_objects(int(page_size))
 
@@ -458,10 +579,16 @@ class RandomObjects(AuthorizedController):
 
 		return v
 
+## Gets popular objects.
 class PopularObjects(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets popular objects.
+	#  @param env environment data
+	#  @param page page index
+	#  @param page_size page size
+	#  @return objects ordered by popularity
 	def __get__(self, env, page=0, page_size=10):
 		m = self.app.get_popular_objects(int(page), int(page_size))
 
@@ -470,10 +597,17 @@ class PopularObjects(AuthorizedController):
 
 		return v
 
+## Gets objects filtered by tag.
 class TaggedObjects(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets objects assigned to a tag.
+	#  @param env environment data
+	#  @param tag a tag
+	#  @param page page index
+	#  @param page_size page size
+	#  @return objects assigned to a tag
 	def __get__(self, env, tag, page=0, page_size=10):
 		m = self.app.get_tagged_objects(tag, int(page), int(page_size))
 
@@ -482,10 +616,14 @@ class TaggedObjects(AuthorizedController):
 
 		return v
 
+## Gets tag cloud.
 class TagCloud(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets a tag cloud.
+	#  @param env environment data
+	#  @return a tag cloud
 	def __get__(self, env):
 		m = self.app.get_tag_cloud()
 
@@ -494,10 +632,15 @@ class TagCloud(AuthorizedController):
 
 		return v
 
+## Gets object details.
 class Object(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets object details.
+	#  @param env environment data
+	#  @param guid guid of the object to get details from
+	#  @return object details
 	def __get__(self, env, guid):
 		self.__test_required_parameters__(guid)
 
@@ -508,15 +651,25 @@ class Object(AuthorizedController):
 
 		return v
 
+## Gets or sets object tag(s).
 class ObjectTags(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets the tags assigned to an object.
+	#  @param env environment data
+	#  @param guid guid of the object to get tags from
+	#  @return a tag list
 	def __get__(self, env, guid):
 		self.__test_required_parameters__(guid)
 
 		return self.__get_tags__(guid)
 
+	## Assigns tags to an object.
+	#  @param env environment data
+	#  @param guid guid of the object to tag
+	#  @param tags comma-separated list of tags
+	#  @return a tag list
 	def __put__(self, env, guid, tags):
 		self.__test_required_parameters__(guid, tags)
 
@@ -538,15 +691,25 @@ class ObjectTags(AuthorizedController):
 
 		return v
 
+## Votes object.
 class Voting(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets the user's vote.
+	#  @param env environment data
+	#  @param guid object guid
+	#  @return the vote
 	def __get__(self, env, guid):
 		self.__test_required_parameters__(guid)
 
 		return self.__get_voting__(guid)
 
+	## Votes an object.
+	#  @param env environment data
+	#  @param guid object guid
+	#  @param up up or downvote flag
+	#  @return the vote
 	def __post__(self, env, guid, up):
 		self.__test_required_parameters__(guid, up)
 
@@ -564,15 +727,27 @@ class Voting(AuthorizedController):
 
 		return v
 
+## Gets or adds comment(s).
 class Comments(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets object comments.
+	#  @param env environment data
+	#  @param guid guid of an object
+	#  @param page page index
+	#  @param page_size page size
+	#  @return object comments
 	def __get__(self, env, guid, page=0, page_size=50):
 		self.__test_required_parameters__(guid)
 
 		return self.__get_comments__(guid, page, page_size)
 
+	## Adds a comment to an object.
+	#  @param env environment data
+	#  @param guid guid of an object
+	#  @param text the comment
+	#  @return object comments
 	def __post__(self, env, guid, text):
 		self.__test_required_parameters__(guid, text)
 
@@ -590,10 +765,15 @@ class Comments(AuthorizedController):
 
 		return v
 
+## Gets a single comment.
 class Comment(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets a single comment.
+	#  @param env environment data
+	#  @param id id of the comment to get
+	#  @return a comment
 	def __get__(self, env, id):
 		self.__test_required_parameters__(id)
 
@@ -604,18 +784,30 @@ class Comment(AuthorizedController):
 
 		return v
 
+## Gets or updates favorites.
 class Favorites(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets the favorites of the user.
+	#  @param env environment data
+	#  @return the user's favorite list
 	def __get__(self, env):
 		return self.__get_favorites__()
 
+	## Adds an object to the user's favorite list.
+	#  @param env environment data
+	#  @param guid guid of the object to add
+	#  @return the user's favorite list
 	def __put__(self, env, guid):
 		self.__test_required_parameters__(guid)
 
 		return self.__change_favorite__(guid, True)
 
+	## Removes an object from the user's favorite list.
+	#  @param env environment data
+	#  @param guid guid of the object to remove
+	#  @return the user's favorite list
 	def __delete__(self, env, guid):
 		return self.__change_favorite__(guid, False)
 
@@ -639,10 +831,16 @@ class Favorites(AuthorizedController):
 
 		return v
 
+## Gets recommendations.
 class Recommendations(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Gets objects recommended to the user.
+	#  @param env environment data
+	#  @param page page index
+	#  @param page_size page size
+	#  @return recommended objects
 	def __get__(self, env, page=0, page_size=10):
 		m = self.app.get_recommendations(self.username, page, page_size)
 
@@ -651,10 +849,16 @@ class Recommendations(AuthorizedController):
 
 		return v
 
+## Recommends an object.
 class Recommendation(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Recommends an object to other users.
+	#  @param env environment data
+	#  @param guid guid of the object to recommend
+	#  @param receivers comma-separated list of users to recommend the object to
+	#  @return users the object has been recommended to
 	def __put__(self, env, guid, receivers):
 		self.__test_required_parameters__(guid, receivers)
 
@@ -672,10 +876,15 @@ class Recommendation(AuthorizedController):
 
 		return v
 
+## Flags object abused.
 class ReportAbuse(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
+	## Flags an object abused.
+	#  @param env environment data
+	#  @param guid of the object to flag
+	#  @return abuse status
 	def __put__(self, env, guid):
 		self.__test_required_parameters__(guid)
 

@@ -38,11 +38,6 @@ REALM                     = "meat-a"
 ## URL of the website.
 WEBSITE_URL               = "http://localhost:8000"
 
-## Array containing email addresses of the administrators.
-ADMIN_MAIL_ADDRESSES      = []
-## Language of administrator accounts.
-ADMIN_LANGUAGE            = "en"
-
 ## Directory where to find template files.
 TEMPLATE_DIR              = "tpl"
 
@@ -58,7 +53,7 @@ PQ_USER = "meat-a"
 PQ_PWD  = "123456"
 
 ## Languages supported by the application.
-LANGUAGES                 = [ "en", "de" ]
+LANGUAGES                 = ["en"]
 ## Default language.
 DEFAULT_LANGUAGE          = "en"
 
@@ -92,9 +87,9 @@ AVATAR_MAX_WIDTH          = 180
 ## Maximum height allowed for avatar images.
 AVATAR_MAX_HEIGHT         = 180
 ## Allowed avatar image formats.
-AVATAR_FORMATS            = [ "JPEG", "PNG", "GIF" ]
+AVATAR_FORMATS            = ["JPEG", "PNG", "GIF"]
 ## Allowed avatar file extensions (always use lower case).
-AVATAR_EXTENSIONS         = [ ".jpg", ".jpeg", ".png", ".gif" ]
+AVATAR_EXTENSIONS         = [".jpg", ".jpeg", ".png", ".gif"]
 ## Location for uploaded images.
 AVATAR_DIR                = "images/users"
 
@@ -115,7 +110,7 @@ MAILER_HOST               = "127.0.0.1"
 ## Port of the mailer.
 MAILER_PORT               = 9797
 ## Array storing IP addresses of clients which are allowed to send PING requests to the mailer.
-MAILER_ALLOWED_CLIENTS    = [ "127.0.0.1" ]
+MAILER_ALLOWED_CLIENTS    = ["127.0.0.1"]
 ## The UDP timeout.
 MAILER_UDP_TIMEOUT        = 5
 ## Defines when the mailer checks for new mails automatically (in seconds).

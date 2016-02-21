@@ -77,6 +77,8 @@ class JSONView(View):
 class HTMLTemplateView(View):
 	## The constructor.
 	#  @param status an HTTP status code
+	#  @param template template to use
+	#  @param language the user's language
 	def __init__(self, status, template, language):
 		View.__init__(self, "text/html", status)
 		self.__template = template

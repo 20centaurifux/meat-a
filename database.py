@@ -184,6 +184,7 @@ class UserDb(object):
 	def user_exists(self, scope, username): return None
 
 	## Maps a user id to the associated username.
+	#  @param scope a transaction scope
 	#  @param user_id id to map
 	#  @return a username
 	@abc.abstractmethod
@@ -199,14 +200,14 @@ class UserDb(object):
 	## Blocks or unblocks a user account.
 	#  @param scope a transaction scope
 	#  @param username name of the user to block
-	#  @param True to block the account
+	#  @param blocked True to block the account
 	@abc.abstractmethod
 	def block_user(self, scope, username, blocked=True): pass
 
 	## Deletes or restores a user account.
 	#  @param scope a transaction scope
 	#  @param username name of the user to delete
-	#  @param True to delete the account
+	#  @param deleted True to delete the account
 	@abc.abstractmethod
 	def delete_user(self, scope, username, deleted=True): pass
 
@@ -308,7 +309,6 @@ class UserDb(object):
 
 	## Searches the database.
 	#  @param scope a transaction scope
-	#  @param username a username
 	#  @param query a search quey
 	#  @return an array containing usernames
 	@abc.abstractmethod
@@ -335,7 +335,7 @@ class UserDb(object):
 	#  @param guid guid of an object
 	#  @param favor True to add the object to the list of favorites
 	@abc.abstractmethod
-	def favor(self, scope, user_id, guid, follow=True): return
+	def favor(self, scope, user_id, guid, favor=True): return
 
 	## Tests if an object is on the list of favorites.
 	#  @param scope a transaction scope
@@ -503,7 +503,7 @@ class ObjectDb(object):
 	## Upvotes/downvotes an object.
 	#  @param scope a transaction scope
 	#  @param guid guid of an object
-	#  @param username user who votes
+	#  @param user_id user who votes
 	#  @param up True to upvote
 	@abc.abstractmethod
 	def vote(self, scope, guid, user_id, up=True): pass
@@ -564,6 +564,7 @@ class ObjectDb(object):
 ## This class provides access to the stream store.
 class StreamDb(object):
 	## Gets messages assigned to a user.
+#  @param scope a transaction scope
 	#  @param user name of a user account
 	#  @param limit maximum number of messages to receive
 	#  @param older_than filter to get only messages older than the given timeframe
@@ -573,6 +574,7 @@ class StreamDb(object):
 	def get_messages(self, scope, user, limit=100, older_than=None): return None
 
 	## Gets public messages.
+	#  @param scope a transaction scope
 	#  @param limit maximum number of messages to receive
 	#  @param older_than filter to get only messages older than the given timeframe
 	#  @return an array, each element is a dictionary holding a message: { "id": int,

@@ -169,6 +169,7 @@ class ObjectIsLockedException(BaseException):
 ## Exception used for general HTTP expceptions.
 class HTTPException(BaseException):
 	## The constructor.
+	#  @param http_status HTTP status
 	#  @param message message describing the exception
 	def __init__(self, http_status, message):
 		BaseException.__init__(self, ErrorCode.HTTP_FAILURE, http_status, message)

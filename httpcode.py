@@ -36,6 +36,7 @@
 # by Ruslan Spivak <ruslan.spivak@gmail.com>:
 # https://pypi.python.org/pypi/httpcode
 
+## HTTP status codes and their description.
 codes = {
     100: ('Continue', 'Request received, please continue'),
     101: ('Switching Protocols',
