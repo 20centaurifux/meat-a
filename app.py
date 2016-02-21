@@ -25,11 +25,6 @@
 	OTHER DEALINGS IN THE SOFTWARE.
 """
 
-# TODO: validate tags (length etc.)
-# TODO: don't generate base64 encoded ids & codes
-# TODO: rewrite url generation: use util.build_url()!
-# TODO: rewrite avatar filename generation
-
 ##
 #  @file app.py
 #  Domain layer.
@@ -789,6 +784,9 @@ class Application(UserTools, ObjectTools):
 				user = self.__user_db.get_user(scope, username)
 
 				for tag in tags:
+					if not validate_tag(tag):
+						raise InvalidParameterException("tag")
+
 					try:
 						self.__object_db.add_tag(scope, guid, user["id"], tag)
 

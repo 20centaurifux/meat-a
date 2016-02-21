@@ -37,15 +37,15 @@ from PIL import Image
 from config import LANGUAGES
 
 ## Regex used to validate usernames.
-username_regex = re.compile("^\w[\w\-\.]{1,15}$", re.IGNORECASE | re.UNICODE)
+username_regex = re.compile("^\w[\w\-\.]{1,15}$", re.IGNORECASE|re.UNICODE)
 ## Regex used to validate email addresses.
-email_regex = re.compile("^[\w\-][\w\-\.]+@[\w\-][\w\-\.]+[a-zA-Z]{2,4}$", re.IGNORECASE | re.UNICODE)
+email_regex = re.compile("^[\w\-][\w\-\.]+@[\w\-][\w\-\.]+[a-zA-Z]{2,4}$", re.IGNORECASE|re.UNICODE)
 ## Regex used to validate passwords.
-password_regex = re.compile("^[\w%s]{8,32}$" % re.escape("!\"§$%&/()=?`´'*#+-_,.;:<>|"), re.IGNORECASE | re.UNICODE)
+password_regex = re.compile("^[\w%s]{8,32}$" % re.escape("!\"§$%&/()=?`´'*#+-_,.;:<>|"), re.IGNORECASE|re.UNICODE)
 ## Regex used to validate names (e.g. firstname or lastname).
-name_regex = re.compile("^.{0,32}$", re.IGNORECASE | re.UNICODE)
+name_regex = re.compile("^.{0,32}$", re.IGNORECASE|re.UNICODE)
 ## Regex used to validate tags.
-tag_regex = re.compile("^\w[\w\-\.]{2,15}$", re.IGNORECASE | re.UNICODE)
+tag_regex = re.compile("^\w[\w\-\.]{2,31}$", re.IGNORECASE|re.UNICODE)
 
 ## Validates a string using a given regex.
 #  @param regex a regular expression
