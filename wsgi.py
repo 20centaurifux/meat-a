@@ -37,10 +37,57 @@
 #  related meta data.
 
 import controller, re, urlparse, urllib, sys, httpcode, config, exception
+from cgi import FieldStorage
 from app import Application
 
 ## An app.AuthenticatedApplication instance.
 application = Application()
+
+## Default form handler. It receives parameters from the query string and body, when
+#  the Content-Type is application/x-www-form-urlencoded.
+#  @param env WSGI environment
+def default_form_handler(env):
+	qs = urlparse.parse_qs(env.get("QUERY_STRING", ""))
+	params = {k: urllib.unquote(v[0]) for k, v in qs.items()}
+
+	size = int(env.get('CONTENT_LENGTH', 0))
+
+	method = env["REQUEST_METHOD"].upper()
+
+	if method in ["POST", "PUT"]:
+		content_type = env.get("CONTENT_TYPE", "application/x-www-form-urlencoded")
+
+		if content_type == "application/x-www-form-urlencoded":
+			qs = urlparse.parse_qs(env['wsgi.input'].read(size))
+			params.update({k: urllib.unquote(v[0]) for k, v in qs.items()})
+		else:
+			raise exception.HTTPException(400, "Bad Request: Content-Type not supported")
+
+	return params
+
+## Receive avatar from multipart form.
+#  @param env WSGI environment
+def avatar_form_handler(env):
+	params = {}
+
+	try:
+		content_type = env.get("CONTENT_TYPE", "multipart/form-data")
+
+		if not content_type.startswith("multipart/form-data"):
+			raise exception.HTTPException(400, "Bad Request")
+
+		form = FieldStorage(fp=env['wsgi.input'], environ=env)
+
+		params["file"] = form["file"].file
+		params["filename"] = form.getvalue("filename")
+
+		return params
+
+	except exception.HTTPException as e:
+		raise e
+
+	except Exception as e:
+		raise exception.HTTPException(400, "Bad Request")
 
 ## Dictionary defining urls and their related controller.
 routing = [{"path": re.compile("^/json/registration$"), "controller": controller.AccountRequest},
@@ -52,6 +99,7 @@ routing = [{"path": re.compile("^/json/registration$"), "controller": controller
            {"path": re.compile("^/json/user/(?P<username>[^/]+)/password$"), "controller": controller.UserPassword},
            {"path": re.compile("^/json/user/search/(?P<query>[^/]+)$"), "controller": controller.Search},
            {"path": re.compile("^/json/user/(?P<username>[^/]+)/friendship$"), "controller": controller.Friendship},
+	   {"path": re.compile("^/json/user/(?P<username>[^/]+)/avatar$"), "controller": controller.Avatar, "form-handler": avatar_form_handler},
            {"path": re.compile("^/json/favorites$"), "controller": controller.Favorites},
            {"path": re.compile("^/json/messages$"), "controller": controller.Messages},
            {"path": re.compile("^/json/public$"), "controller": controller.PublicMessages},
@@ -97,16 +145,9 @@ def index(env, start_response):
 		if size > config.WSGI_MAX_REQUEST_LENGTH:
 			raise exception.StreamExceedsMaximumException()
 
-		# get parameters from query string & body:
-		qs = urlparse.parse_qs(env.get("QUERY_STRING", ""))
-		params = {k: urllib.unquote(v[0]) for k, v in qs.items()}
-
-		try:
-			qs = urlparse.parse_qs(env['wsgi.input'].read(size))
-			params.update({k: urllib.unquote(v[0]) for k, v in qs.items()})
-
-		except KeyError:
-			pass
+		# get parameters from query string/body:
+		handler = route.get("form-handler", default_form_handler)
+		params = handler(env)
 
 		# merge found parameters with parameters specified in path:
 		params.update({k: urllib.unquote(m.group(k)) for k, v in route["path"].groupindex.items()})
