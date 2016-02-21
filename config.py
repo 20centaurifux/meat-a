@@ -42,15 +42,15 @@ WEBSITE_URL               = "http://localhost:8000"
 TEMPLATE_DIR              = "tpl"
 
 ## Hostname of the PSQL server.
-PQ_HOST = "127.0.0.1"
+PG_HOST = "127.0.0.1"
 ## PSQL port.
-PQ_PORT = 5432
+PG_PORT = 5432
 ## PSQL database name.
-PQ_DB   = "meat-a"
+PG_DB   = "meat-a"
 ## PSQL user account.
-PQ_USER = "meat-a"
+PG_USER = "meat-a"
 ## PSQL password.
-PQ_PWD  = "123456"
+PG_PWD  = "123456"
 
 ## Languages supported by the application.
 LANGUAGES                 = ["en"]

@@ -1,7 +1,6 @@
-import database, psycopg2, psycopg2.extras, re, util, exception
-from random import random
+import database, psycopg2, psycopg2.extras, util, exception
 
-class PQTransactionScope(database.TransactionScope):
+class PGTransactionScope(database.TransactionScope):
 	def __init__(self, db):
 		database.TransactionScope.__init__(self, db)
 		self.__db = db
@@ -53,7 +52,7 @@ def to_dict(row):
 
 	return m
 
-class PQConnection(database.Connection):
+class PGConnection(database.Connection):
 	def __init__(self, db, **kwargs):
 		database.Connection.__init__(self)
 
@@ -71,7 +70,7 @@ class PQConnection(database.Connection):
 
 	def __create_transaction_scope__(self):
 		self.__connect__()
-		return PQTransactionScope(self)
+		return PGTransactionScope(self)
 
 	def cursor(self, factory=psycopg2.extras.DictCursor):
 		return self.__conn.cursor(cursor_factory=factory)
@@ -86,7 +85,7 @@ class PQConnection(database.Connection):
 		if self.__conn is not None:
 			self.__conn.close()
 
-class PQDb:
+class PGDb:
 	def __init__(self): pass
 
 	def __build_object__(self, row):
@@ -121,10 +120,10 @@ class PQDb:
 
 		return objs
 
-class TestDb(PQDb, database.TestDb):
+class TestDb(PGDb, database.TestDb):
 	def __init__(self):
 		database.TestDb.__init__(self)
-		PQDb.__init__(self)
+		PGDb.__init__(self)
 
 	def clear(self, scope):
 		cur = scope.get_handle()
@@ -143,10 +142,10 @@ class TestDb(PQDb, database.TestDb):
 		cur.execute("delete from message")
 		cur.execute("delete from \"user\"")
 
-class PQUserDb(PQDb, database.UserDb):
+class PGUserDb(PGDb, database.UserDb):
 	def __init__(self):
 		database.UserDb.__init__(self)
-		PQDb.__init__(self)
+		PGDb.__init__(self)
 
 	def user_request_id_exists(self, scope, id):
 		cur = scope.get_handle()
@@ -359,10 +358,10 @@ class PQUserDb(PQDb, database.UserDb):
 
 		return recommendations
 
-class PQObjectDb(PQDb, database.ObjectDb):
+class PGObjectDb(PGDb, database.ObjectDb):
 	def __init__(self):
 		database.UserDb.__init__(self)
-		PQDb.__init__(self)
+		PGDb.__init__(self)
 
 	def create_object(self, scope, guid, source):
 		cur = scope.get_handle()
@@ -469,10 +468,10 @@ class PQObjectDb(PQDb, database.ObjectDb):
 		cur = scope.get_handle()
 		cur.execute("update object set reported=true where guid=%s", (guid,))
 
-class PQStreamDb(PQDb, database.StreamDb):
+class PGStreamDb(PGDb, database.StreamDb):
 	def __init__(self):
 		database.StreamDb.__init__(self)
-		PQDb.__init__(self)
+		PGDb.__init__(self)
 
 	def get_messages(self, scope, user, limit=100, older_than=None):
 		query = "select message.id, target, source, message.created_on, type from message "                + \
@@ -500,10 +499,10 @@ class PQStreamDb(PQDb, database.StreamDb):
 
 		return messages
 
-class PQMailDb(PQDb, database.MailDb):
+class PGMailDb(PGDb, database.MailDb):
 	def __init__(self):
 		database.MailDb.__init__(self)
-		PQDb.__init__(self)
+		PGDb.__init__(self)
 
 	def push_user_mail(self, scope, subject, body, user_id):
 		cur = scope.get_handle()

@@ -32,28 +32,28 @@
 ## @package factory
 #  Various factory functions.
 
-import config, pqdb, smtp
+import config, pgdb, smtp
 
 ## Creates a database.Connection instance.
 def create_db_connection():
-	return pqdb.PQConnection(config.PQ_DB, host=config.PQ_HOST, port=config.PQ_PORT, username=config.PQ_USER, password=config.PQ_PWD)
+	return pgdb.PGConnection(config.PG_DB, host=config.PG_HOST, port=config.PG_PORT, username=config.PG_USER, password=config.PG_PWD)
 
 ## Creates a database.TestDb instance.
 def create_test_db():
-	return pqdb.TestDb()
+	return pgdb.TestDb()
 
 ## Creates a database.UserDb instance.
 def create_user_db():
-	return pqdb.PQUserDb()
+	return pgdb.PGUserDb()
 
 ## Creates a database.ObjectDb instance.
 def create_object_db():
-	return pqdb.PQObjectDb()
+	return pgdb.PGObjectDb()
 
 ## Creates a database.StreamDb instance.
 def create_stream_db():
-	return pqdb.PQStreamDb()
+	return pgdb.PGStreamDb()
 
 ## Creates a database.MailDb instance.
 def create_mail_db():
-	return pqdb.PQMailDb()
+	return pgdb.PGMailDb()
