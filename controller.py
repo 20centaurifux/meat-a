@@ -195,7 +195,7 @@ class AccountRequest(Controller):
 	#  @param env environment data
 	#  @param username name of the requested user account
 	#  @param email email address of the requested user account
-	#  @return URL if the registration website
+	#  @return URL of the registration website
 	def __post__(self, env, username, email):
 		self.__test_required_parameters__(username, email)
 
