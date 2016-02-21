@@ -25,10 +25,10 @@
 	OTHER DEALINGS IN THE SOFTWARE.
 """
 
-# TODO: test paging, mail generation and object/message dictionaries in TestApp, test invalid paramaters
-# TODO: delete test avatars
-# TODO: test templates
-# TODO: test controllers
+## @TODO: test paging, mail generation and object/message dictionaries in TestApp, test invalid paramaters
+## @TODO: test templates
+## @TODO: test controllers
+## @TODO: test WSGI
 
 import unittest, factory, app, mailer, util, exception, config, string, random, re, itertools, datetime, time, os
 
@@ -1355,9 +1355,11 @@ class TestApp(unittest.TestCase, TestBase):
 	def setUp(self):
 		self.app = app.Application()
 		self.__clear_database__()
+		self.__delete_files__()
 
 	def tearDown(self):
 		self.__clear_database__()
+		self.__delete_files__()
 
 	def test_00_create_user(self):
 		username = self.generate_username()
@@ -2230,6 +2232,10 @@ class TestApp(unittest.TestCase, TestBase):
 				self.clear(scope)
 
 				scope.complete()
+
+	def __delete_files__(self):
+		for file in [os.path.join(config.AVATAR_DIR, f) for f in os.listdir(config.AVATAR_DIR)]:
+			os.remove(file)
 
 def run_test_case(case):
 	suite = unittest.TestLoader().loadTestsFromTestCase(case)
