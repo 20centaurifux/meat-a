@@ -32,7 +32,7 @@
 ## @package factory
 #  Various factory functions.
 
-import config, mongodb, pqdb, pymongo, smtp
+import config, pqdb, smtp
 
 ## Creates a database.Connection instance.
 def create_db_connection():
