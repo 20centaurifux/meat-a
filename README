@@ -66,6 +66,7 @@ You need the following additional packages to run the web interface:
   * PIL (image library)
   * Cheetah
   * psycopg2
+  * bson (shipped with pymongo)
   * Rocket (optional)
 
 
