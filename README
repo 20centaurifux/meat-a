@@ -42,7 +42,7 @@ Users are organized in a separate user store (database.UserDb).
 
 Several activities generate notifications. If a user writes a comment friends
 receive a notification, for instance. If the user profile is not protected
-a notification are stored in a global stream. Notifications are stored in
+a notification is stored in a global stream. Notifications are stored in
 separated data store too (database.StreamDb).
 
 Sometimes a user might receive an email. If you're going to create a new user
@@ -82,7 +82,7 @@ start the rocket server:
 This will start a small HTTP test server on port 8000.
 
 You're welcome to use any HTTP server with WSGI support you like, of course.
-Therfore Configure your preferred server and setup the index() method located in
+Therefore configure your preferred server and setup the index() method located in
 the wsgi.py file as handler.
 
 Without starting the mailer meat-a will not be able to send emails:
@@ -99,7 +99,7 @@ change a few settings:
   meat-a generates various URLs (e.g. for changing passwords). Define the
   base URL of the web application here.
 
-* PQ_HOST, PQ_PORT, PQ_DB, PQ_USER, PQ_PWD
+* PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PWD
   Please specify the connection details and database name of your PostgreSQL
   server.
 
