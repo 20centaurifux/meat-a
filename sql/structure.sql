@@ -2,16 +2,28 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 9.5.0
--- Dumped by pg_dump version 9.5.0
-
 SET statement_timeout = 0;
 SET lock_timeout = 0;
-SET client_encoding = 'LATIN1';
+SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
-SET row_security = off;
+
+--
+-- Name: meat-a; Type: DATABASE; Schema: -; Owner: -
+--
+
+CREATE DATABASE "meat-a" WITH TEMPLATE = template0 ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C';
+
+
+\connect "meat-a"
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SET check_function_bodies = false;
+SET client_min_messages = warning;
 
 --
 -- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: -
@@ -100,14 +112,14 @@ end; $$;
 
 CREATE FUNCTION trg_fn_check_if_email_can_be_changed() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
-    BEGIN
-	if not user_can_change_email(NEW.username, NEW.email) then
-		raise unique_violation using MESSAGE = 'Duplicate email: ' || NEW.email;
-	end if;
-        
-        RETURN NEW;
-    END;
+    AS $$
+    BEGIN
+	if not user_can_change_email(NEW.username, NEW.email, 600) then
+		raise unique_violation using MESSAGE = 'Duplicate email: ' || NEW.email;
+	end if;
+        
+        RETURN NEW;
+    END;
 $$;
 
 
@@ -117,14 +129,14 @@ $$;
 
 CREATE FUNCTION trg_fn_check_if_username_and_email_are_unique() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
-    BEGIN
-	if user_name_or_email_assigned(NEW.username, NEW.email) then
-		raise unique_violation using MESSAGE = 'Duplicate user name or email: ' || NEW.username || ', ' || NEW.email;
-	end if;
-        
-        RETURN NEW;
-    END;
+    AS $$
+    BEGIN
+	if user_name_or_email_assigned(NEW.username, NEW.email, 600) then
+		raise unique_violation using MESSAGE = 'Duplicate user name or email: ' || NEW.username || ', ' || NEW.email;
+	end if;
+        
+        RETURN NEW;
+    END;
 $$;
 
 
@@ -306,10 +318,10 @@ $$;
 
 
 --
--- Name: user_activate(character varying, character varying, character varying, character varying); Type: FUNCTION; Schema: public; Owner: -
+-- Name: user_activate(character varying, character varying, character varying, character varying, bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION user_activate(id character varying, code character varying, password character varying, salt character varying) RETURNS bigint
+CREATE FUNCTION user_activate(id character varying, code character varying, password character varying, salt character varying, timeout bigint) RETURNS bigint
     LANGUAGE plpgsql
     AS $$
 declare
@@ -321,7 +333,8 @@ begin
 	select
 		"username", "email"
 		into found_username, found_email
-		from "user_request" where "request_id"=id and "request_code"=code and date_part('hours', created_on - timezone('utc'::text, now())) <= 1;
+		from "v_user_requests"
+		where "request_id"=id and "request_code"=code and datediff<=timeout;
 
 	if found_username is not null and found_email is not null then
 		pk := nextval('seq_user_id');
@@ -334,10 +347,10 @@ end; $$;
 
 
 --
--- Name: user_can_change_email(character varying, character varying); Type: FUNCTION; Schema: public; Owner: -
+-- Name: user_can_change_email(character varying, character varying, bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION user_can_change_email(account_name character varying, new_email character varying) RETURNS boolean
+CREATE FUNCTION user_can_change_email(account_name character varying, new_email character varying, timeout bigint) RETURNS boolean
     LANGUAGE plpgsql
     AS $$
 declare
@@ -348,7 +361,8 @@ begin
 	select
 		count(request_id)
 		into request_count
-		from "user_request" where "iemail"=lower(new_email) and date_part('hours', created_on - timezone('utc'::text, now())) <= 1;
+		from "v_user_requests"
+		where "iemail"=lower(new_email) and datediff<=timeout;
 
 	select
 		count(id)
@@ -376,10 +390,10 @@ end; $$;
 
 
 --
--- Name: user_name_or_email_assigned(character varying, character varying); Type: FUNCTION; Schema: public; Owner: -
+-- Name: user_name_or_email_assigned(character varying, character varying, bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION user_name_or_email_assigned(user_to_test character varying, email_to_test character varying) RETURNS boolean
+CREATE FUNCTION user_name_or_email_assigned(user_to_test character varying, email_to_test character varying, timeout bigint) RETURNS boolean
     LANGUAGE plpgsql
     AS $$
 declare
@@ -390,7 +404,8 @@ begin
 	select
 		count(request_id)
 		into request_count
-		from "user_request" where ("iusername"=lower(user_to_test) or "iemail"=lower(email_to_test)) and date_part('hours', created_on - timezone('utc'::text, now())) <= 1;
+		from "v_user_requests"
+		where ("iusername"=lower(user_to_test) or "iemail"=lower(email_to_test)) and datediff<=timeout;
 	select
 		count(id)
 		into user_count
@@ -401,10 +416,10 @@ end; $$;
 
 
 --
--- Name: user_reset_password(character varying, character varying, character varying, character varying); Type: FUNCTION; Schema: public; Owner: -
+-- Name: user_reset_password(character varying, character varying, character varying, character varying, bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION user_reset_password(req_id character varying, req_code character varying, new_password character varying, new_salt character varying) RETURNS boolean
+CREATE FUNCTION user_reset_password(req_id character varying, req_code character varying, new_password character varying, new_salt character varying, timeout bigint) RETURNS boolean
     LANGUAGE plpgsql
     AS $$
 declare
@@ -415,7 +430,8 @@ begin
 	select
 		"user_id"
 		into found_user_id
-		from "password_request" where "request_id"=req_id and "request_code"=req_code and date_part('hours', created_on - timezone('utc'::text, now())) <= 1;
+		from "v_password_requests"
+		where "request_id"=req_id and "request_code"=req_code and datediff<=datediff;
 
 	if found_user_id is not null then
 		update "user" set "password"=new_password, "salt"=new_salt where "id"=found_user_id;
@@ -444,7 +460,7 @@ SET default_tablespace = '';
 SET default_with_oids = false;
 
 --
--- Name: mail; Type: TABLE; Schema: public; Owner: -
+-- Name: mail; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE mail (
@@ -472,7 +488,7 @@ CREATE SEQUENCE seq_message_id
 
 
 --
--- Name: message; Type: TABLE; Schema: public; Owner: -
+-- Name: message; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE message (
@@ -488,7 +504,7 @@ CREATE TABLE message (
 
 
 --
--- Name: object; Type: TABLE; Schema: public; Owner: -
+-- Name: object; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE object (
@@ -517,7 +533,7 @@ CREATE SEQUENCE seq_comment_id
 
 
 --
--- Name: object_comment; Type: TABLE; Schema: public; Owner: -
+-- Name: object_comment; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE object_comment (
@@ -532,7 +548,7 @@ CREATE TABLE object_comment (
 
 
 --
--- Name: object_score; Type: TABLE; Schema: public; Owner: -
+-- Name: object_score; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE object_score (
@@ -543,7 +559,7 @@ CREATE TABLE object_score (
 
 
 --
--- Name: object_tag; Type: TABLE; Schema: public; Owner: -
+-- Name: object_tag; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE object_tag (
@@ -554,7 +570,7 @@ CREATE TABLE object_tag (
 
 
 --
--- Name: password_request; Type: TABLE; Schema: public; Owner: -
+-- Name: password_request; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE password_request (
@@ -578,7 +594,7 @@ CREATE SEQUENCE seq_public_message_id
 
 
 --
--- Name: public_message; Type: TABLE; Schema: public; Owner: -
+-- Name: public_message; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE public_message (
@@ -587,6 +603,15 @@ CREATE TABLE public_message (
     target character varying(64),
     type message_type NOT NULL,
     source character varying(64) NOT NULL
+);
+
+
+--
+-- Name: request_count; Type: TABLE; Schema: public; Owner: -; Tablespace: 
+--
+
+CREATE TABLE request_count (
+    count bigint
 );
 
 
@@ -603,7 +628,7 @@ CREATE SEQUENCE seq_user_id
 
 
 --
--- Name: user; Type: TABLE; Schema: public; Owner: -
+-- Name: user; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE "user" (
@@ -629,7 +654,7 @@ CREATE TABLE "user" (
 
 
 --
--- Name: user_favorite; Type: TABLE; Schema: public; Owner: -
+-- Name: user_favorite; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE user_favorite (
@@ -640,7 +665,7 @@ CREATE TABLE user_favorite (
 
 
 --
--- Name: user_friendship; Type: TABLE; Schema: public; Owner: -
+-- Name: user_friendship; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE user_friendship (
@@ -650,7 +675,7 @@ CREATE TABLE user_friendship (
 
 
 --
--- Name: user_recommendation; Type: TABLE; Schema: public; Owner: -
+-- Name: user_recommendation; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE user_recommendation (
@@ -662,7 +687,7 @@ CREATE TABLE user_recommendation (
 
 
 --
--- Name: user_request; Type: TABLE; Schema: public; Owner: -
+-- Name: user_request; Type: TABLE; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE TABLE user_request (
@@ -704,6 +729,19 @@ CREATE VIEW v_objects AS
 
 
 --
+-- Name: v_password_requests; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_password_requests AS
+ SELECT password_request.request_id,
+    password_request.request_code,
+    password_request.user_id,
+    password_request.created_on,
+    date_part('epoch'::text, age(timezone('utc'::text, now()), password_request.created_on)) AS datediff
+   FROM password_request;
+
+
+--
 -- Name: v_popular_objects; Type: VIEW; Schema: public; Owner: -
 --
 
@@ -736,7 +774,7 @@ CREATE VIEW v_random_objects AS
     v_objects.favorites,
     v_objects.comments
    FROM v_objects
-  ORDER BY (random());
+  ORDER BY random();
 
 
 --
@@ -772,11 +810,27 @@ CREATE VIEW v_tags AS
    FROM (object_tag
      JOIN v_objects ON ((object_tag.object_guid = v_objects.guid)))
   GROUP BY object_tag.tag
-  ORDER BY (count(v_objects.guid)) DESC;
+  ORDER BY count(v_objects.guid) DESC;
 
 
 --
--- Name: password_request_unique_request_id; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: v_user_requests; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_user_requests AS
+ SELECT user_request.request_id,
+    user_request.request_code,
+    user_request.username,
+    user_request.email,
+    user_request.created_on,
+    user_request.iusername,
+    user_request.iemail,
+    date_part('epoch'::text, age(timezone('utc'::text, now()), user_request.created_on)) AS datediff
+   FROM user_request;
+
+
+--
+-- Name: password_request_unique_request_id; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY password_request
@@ -784,7 +838,7 @@ ALTER TABLE ONLY password_request
 
 
 --
--- Name: pk_message; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_message; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY message
@@ -792,7 +846,7 @@ ALTER TABLE ONLY message
 
 
 --
--- Name: pk_object; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_object; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY object
@@ -800,7 +854,7 @@ ALTER TABLE ONLY object
 
 
 --
--- Name: pk_object_comment; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_object_comment; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY object_comment
@@ -808,7 +862,7 @@ ALTER TABLE ONLY object_comment
 
 
 --
--- Name: pk_object_score; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_object_score; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY object_score
@@ -816,7 +870,7 @@ ALTER TABLE ONLY object_score
 
 
 --
--- Name: pk_object_tag; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_object_tag; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY object_tag
@@ -824,7 +878,7 @@ ALTER TABLE ONLY object_tag
 
 
 --
--- Name: pk_password_request_id; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_password_request_id; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY password_request
@@ -832,7 +886,7 @@ ALTER TABLE ONLY password_request
 
 
 --
--- Name: pk_public_message; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_public_message; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY public_message
@@ -840,7 +894,7 @@ ALTER TABLE ONLY public_message
 
 
 --
--- Name: pk_request; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_request; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY user_request
@@ -848,7 +902,7 @@ ALTER TABLE ONLY user_request
 
 
 --
--- Name: pk_user_favorite; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_user_favorite; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY user_favorite
@@ -856,7 +910,7 @@ ALTER TABLE ONLY user_favorite
 
 
 --
--- Name: pk_user_friendship; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_user_friendship; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY user_friendship
@@ -864,7 +918,7 @@ ALTER TABLE ONLY user_friendship
 
 
 --
--- Name: pk_user_id; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_user_id; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY "user"
@@ -872,7 +926,7 @@ ALTER TABLE ONLY "user"
 
 
 --
--- Name: pk_user_recommendation; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pk_user_recommendation; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY user_recommendation
@@ -880,7 +934,7 @@ ALTER TABLE ONLY user_recommendation
 
 
 --
--- Name: user_request_unique_request_id; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: user_request_unique_request_id; Type: CONSTRAINT; Schema: public; Owner: -; Tablespace: 
 --
 
 ALTER TABLE ONLY user_request
@@ -888,63 +942,63 @@ ALTER TABLE ONLY user_request
 
 
 --
--- Name: fk_object_guid; Type: INDEX; Schema: public; Owner: -
+-- Name: fk_object_guid; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE INDEX fk_object_guid ON object_comment USING btree (object_guid);
 
 
 --
--- Name: fk_user_id; Type: INDEX; Schema: public; Owner: -
+-- Name: fk_user_id; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE INDEX fk_user_id ON object_comment USING btree (user_id);
 
 
 --
--- Name: fki_favorite_user_id; Type: INDEX; Schema: public; Owner: -
+-- Name: fki_favorite_user_id; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE INDEX fki_favorite_user_id ON user_favorite USING btree (user_id);
 
 
 --
--- Name: fki_mail_receiver_id; Type: INDEX; Schema: public; Owner: -
+-- Name: fki_mail_receiver_id; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE INDEX fki_mail_receiver_id ON mail USING btree (receiver_id);
 
 
 --
--- Name: fki_object_recommendation_receiver_id; Type: INDEX; Schema: public; Owner: -
+-- Name: fki_object_recommendation_receiver_id; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE INDEX fki_object_recommendation_receiver_id ON user_recommendation USING btree (receiver_id);
 
 
 --
--- Name: fki_object_recommendation_user_id; Type: INDEX; Schema: public; Owner: -
+-- Name: fki_object_recommendation_user_id; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE INDEX fki_object_recommendation_user_id ON user_recommendation USING btree (user_id);
 
 
 --
--- Name: fki_object_tag_object_guid; Type: INDEX; Schema: public; Owner: -
+-- Name: fki_object_tag_object_guid; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE INDEX fki_object_tag_object_guid ON object_tag USING btree (object_guid);
 
 
 --
--- Name: fki_receiver_id; Type: INDEX; Schema: public; Owner: -
+-- Name: fki_receiver_id; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE INDEX fki_receiver_id ON message USING btree (receiver_id);
 
 
 --
--- Name: fki_user_friendship_friendship_id; Type: INDEX; Schema: public; Owner: -
+-- Name: fki_user_friendship_friendship_id; Type: INDEX; Schema: public; Owner: -; Tablespace: 
 --
 
 CREATE INDEX fki_user_friendship_friendship_id ON user_friendship USING btree (friend_id);
@@ -1137,6 +1191,16 @@ ALTER TABLE ONLY user_recommendation
 
 ALTER TABLE ONLY mail
     ADD CONSTRAINT mail_receiver_id FOREIGN KEY (receiver_id) REFERENCES "user"(id);
+
+
+--
+-- Name: public; Type: ACL; Schema: -; Owner: -
+--
+
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+REVOKE ALL ON SCHEMA public FROM postgres;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO PUBLIC;
 
 
 --
