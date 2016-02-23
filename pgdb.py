@@ -190,6 +190,11 @@ class PGUserDb(PGDb, database.UserDb):
 
 		return execute_scalar(cur, "select username from \"user\" where id=%s", user_id)
 
+	def map_username(self, scope, username):
+		cur = scope.get_handle()
+
+		return execute_scalar(cur, "select id from \"user\" where iusername=lower(%s)", username)
+
 	def user_is_blocked(self, scope, username):
 		cur = scope.get_handle()
 
@@ -531,3 +536,24 @@ class PGMailDb(PGDb, database.MailDb):
 	def mark_sent(self, scope, id):
 		cur = scope.get_handle()
 		cur.execute("update mail set sent=true where id=%s" % (id,))
+
+class PGRequestDb(PGDb, database.RequestDb):
+	def __init__(self):
+		database.RequestDb.__init__(self)
+		PGDb.__init__(self)
+
+	def add_request(self, scope, ip, user_id=None):
+		cur = scope.get_handle()
+		cur.execute("insert into request (address, user_id) values (%s, %s)", (ip, user_id))
+
+	def count_requests_by_ip(self, scope, ip, seconds):
+		cur = scope.get_handle()
+		query = "select count(id) from request where address=%s and date_part('epoch'::text, age(timezone('utc'::text, now()), created_on))<=%s"
+
+		return execute_scalar(cur, query, ip, seconds)
+
+	def count_requests_by_user_id(self, scope, user_id, seconds):
+		cur = scope.get_handle()
+		query = "select count(id) from request where user_id=%s and date_part('epoch'::text, age(timezone('utc'::text, now()), created_on))<=%s"
+
+		return execute_scalar(cur, query, user_id, seconds)

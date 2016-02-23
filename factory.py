@@ -57,3 +57,7 @@ def create_stream_db():
 ## Creates a database.MailDb instance.
 def create_mail_db():
 	return pgdb.PGMailDb()
+
+## Creates a database.RequestDb instance.
+def create_request_db():
+	return pgdb.PGRequestDb()

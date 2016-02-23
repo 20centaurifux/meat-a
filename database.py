@@ -190,6 +190,13 @@ class UserDb(object):
 	@abc.abstractmethod
 	def map_user_id(self, scope, user_id): return None
 
+	## Maps a user name to the associated id.
+	#  @param scope a transaction scope
+	#  @param username name to map
+	#  @return a user id
+	@abc.abstractmethod
+	def map_username(self, scope, username): return None
+
 	## Tests if a user account is blocked.
 	#  @param scope a transaction scope
 	#  @param username username to test
@@ -613,3 +620,26 @@ class MailDb(object):
 	#  @param id id of the email to flag
 	@abc.abstractmethod
 	def mark_sent(self, scope, id): return
+
+## This class provides access to the request store.
+class RequestDb(object):
+	## Adds a request to the request store.
+	#  @param scope a transaction scope
+	#  @param ip IP address of the request
+	#  @param user_id a user id
+	@abc.abstractmethod
+	def add_request(self, scope, ip, user_id=None): return
+
+	## Number of requests in the given timeframe assigned to an IP address.
+	#  @param scope a transaction scope
+	#  @param ip an IP address
+	#  @return number of requests
+	@abc.abstractmethod
+	def count_requests_by_ip(self, scope, ip, seconds): return None
+
+	## Number of requests in the given timeframe assigned to a user id.
+	#  @param scope a transaction scope
+	#  @param user_id a user id
+	#  @return number of requests
+	@abc.abstractmethod
+	def count_requests_by_user_id(self, scope, user_id, seconds): return None
