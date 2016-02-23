@@ -633,6 +633,7 @@ class RequestDb(object):
 	## Number of requests in the given timeframe assigned to an IP address.
 	#  @param scope a transaction scope
 	#  @param ip an IP address
+	#  @param seconds timeframe to test
 	#  @return number of requests
 	@abc.abstractmethod
 	def count_requests_by_ip(self, scope, ip, seconds): return None
@@ -640,6 +641,7 @@ class RequestDb(object):
 	## Number of requests in the given timeframe assigned to a user id.
 	#  @param scope a transaction scope
 	#  @param user_id a user id
+	#  @param seconds timeframe to test
 	#  @return number of requests
 	@abc.abstractmethod
 	def count_requests_by_user_id(self, scope, user_id, seconds): return None
