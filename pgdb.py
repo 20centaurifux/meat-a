@@ -1,4 +1,4 @@
-import database, psycopg2, psycopg2.extras, util, exception
+import database, psycopg2, psycopg2.extras, util, exception, config
 
 class PGTransactionScope(database.TransactionScope):
 	def __init__(self, db):
@@ -150,12 +150,12 @@ class PGUserDb(PGDb, database.UserDb):
 	def user_request_id_exists(self, scope, id):
 		cur = scope.get_handle()
 
-		return execute_scalar(cur, "select count(request_id) from user_request where request_id=%s", id) > 0
+		return execute_scalar(cur, "select count(request_id) from v_user_requests where request_id=%s and datediff<=%s", id, config.USER_REQUEST_TIMEOUT) > 0
 
 	def get_user_request(self, scope, id):
 		cur = scope.get_handle()
 
-		req = fetch_one(cur, "select request_id, request_code, username, email, created_on from user_request where request_id=%s", (id, ))
+		req = fetch_one(cur, "select request_id, request_code, username, email, created_on from v_user_requests where datediff<=%s and request_id=%s", config.USER_REQUEST_TIMEOUT, id)
 
 		if req is not None:
 			req = to_dict(req)
@@ -165,7 +165,7 @@ class PGUserDb(PGDb, database.UserDb):
 	def username_or_email_assigned(self, scope, username, email):
 		cur = scope.get_handle()
 
-		return execute_scalar(cur, "select user_name_or_email_assigned(%s, %s)", username, email)
+		return execute_scalar(cur, "select user_name_or_email_assigned(%s, %s, %s)", username, email, config.USER_REQUEST_TIMEOUT)
 
 	def create_user_request(self, scope, id, code, username, email):
 		cur = scope.get_handle()
@@ -173,7 +173,7 @@ class PGUserDb(PGDb, database.UserDb):
 
 	def activate_user(self, scope, id, code, password, salt):
 		cur = scope.get_handle()
-		id = execute_scalar(cur, "select * from user_activate(%s, %s, %s, %s)", id, code, password, salt)
+		id = execute_scalar(cur, "select * from user_activate(%s, %s, %s, %s, %s)", id, code, password, salt, config.USER_REQUEST_TIMEOUT)
 
 		if id is None:
 			raise exception.InternalFailureException("User activation failed.")
@@ -231,7 +231,7 @@ class PGUserDb(PGDb, database.UserDb):
 	def password_request_id_exists(self, scope, id):
 		cur = scope.get_handle()
 
-		return execute_scalar(cur, "select count(request_id) from password_request where request_id=%s", id) > 0
+		return execute_scalar(cur, "select count(request_id) from v_password_requests where request_id=%s and datediff<=%s", id, config.PASSWORD_REQUEST_TIMEOUT) > 0
 
 	def create_password_request(self, scope, id, code, user_id):
 		cur = scope.get_handle()
@@ -239,8 +239,10 @@ class PGUserDb(PGDb, database.UserDb):
 
 	def get_password_request(self, scope, id):
 		cur = scope.get_handle()
-		row = fetch_one(cur, "select request_id, request_code, username, blocked, deleted from password_request " + \
-		                     "inner join \"user\" on password_request.user_id=\"user\".id")
+		row = fetch_one(cur, "select request_id, request_code, username, blocked, deleted " + \
+		                     "from v_password_requests " + \
+		                     "inner join \"user\" on v_password_requests.user_id=\"user\".id " + \
+				     "where request_id=%s and datediff<=%s", id, config.PASSWORD_REQUEST_TIMEOUT)
 
 		request = {"request_id": row["request_id"], "request_code": row["request_code"]}
 		request["user"] = {"username": row["username"], "blocked": row["blocked"], "deleted": row["deleted"]}
@@ -250,7 +252,7 @@ class PGUserDb(PGDb, database.UserDb):
 	def reset_password(self, scope, id, code, password, salt):
 		cur = scope.get_handle()
 
-		if not execute_scalar(cur, "select * from user_reset_password(%s, %s, %s, %s)", id, code, password, salt):
+		if not execute_scalar(cur, "select * from user_reset_password(%s, %s, %s, %s, %s)", id, code, password, salt, config.PASSWORD_REQUEST_TIMEOUT):
 			raise exception.InternalFailureException("Password reset failed.")
 
 	def update_user_details(self, scope, username, email, firstname, lastname, gender, language, protected):
@@ -261,7 +263,7 @@ class PGUserDb(PGDb, database.UserDb):
 	def user_can_change_email(self, scope, username, email):
 		cur = scope.get_handle()
 
-		return execute_scalar(cur, "select * from user_can_change_email(%s, %s)", username, email)
+		return execute_scalar(cur, "select * from user_can_change_email(%s, %s, %s)", username, email, config.PASSWORD_REQUEST_TIMEOUT)
 
 	def update_avatar(self, scope, username, filename):
 		cur = scope.get_handle()

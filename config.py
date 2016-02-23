@@ -64,10 +64,6 @@ REQUEST_EXPIRY_TIME       = 60
 USER_REQUEST_TIMEOUT      = 600
 ## Specifies how long a request code for a new password is valid (in seconds).
 PASSWORD_REQUEST_TIMEOUT  = 600
-## Specifies the lifetime of a reset password email in the mail queue (in seconds).
-PASSWORD_RESET_TIMEOUT    = 600
-## Specifies the default lifetime of emails in the mail queue (in seconds).
-DEFAULT_EMAIL_LIFETIME    = 7200
 ## Length of generated request ids.
 REQUEST_ID_LENGTH         = 32
 ## Length of generated request codes.
