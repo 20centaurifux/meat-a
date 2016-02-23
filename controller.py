@@ -86,6 +86,7 @@ class Controller:
 			m = {"post": self.__post__, "get": self.__get__, "put": self.__put__, "delete": self.__delete__}
 
 			self.__start_process__(env, **kwargs)
+			self.__check_rate_limit__(env)
 
 			f = m[method.lower()]
 
@@ -117,11 +118,30 @@ class Controller:
 
 		return v
 
-	def __method_not_supported__(self):
-		return self.__exception_handler(exception.MethodNotSupportedException())
-
 	def __start_process__(self, env, **kwargs):
 		pass
+
+	def __check_rate_limit__(self, env):
+		if not config.LIMIT_REQUESTS_BY_IP:
+			return
+
+		address = env["REMOTE_ADDR"]
+
+		with factory.create_db_connection() as conn:
+			with conn.enter_scope() as scope:
+				db = factory.create_request_db()
+
+				count = db.count_requests_by_ip(scope, address, 3600)
+
+				if count > config.IP_REQUESTS_PER_HOUR:
+					raise exception.HTTPException(402, "IP request limit reached.")
+
+				db.add_request(scope, address)
+
+				scope.complete()
+
+	def __method_not_supported__(self):
+		return self.__exception_handler(exception.MethodNotSupportedException())
 
 	def __post__(self, env, *args):
 		return self.__method_not_supported__()
@@ -185,6 +205,35 @@ class AuthorizedController(Controller):
 
 		if not authenticated:
 			raise exception.NotAuthorizedException()
+
+	def __check_rate_limit__(self, env):
+		if not config.LIMIT_REQUESTS_BY_IP and not config.LIMIT_REQUESTS_BY_USER:
+			return
+
+		address = env["REMOTE_ADDR"]
+
+		with factory.create_db_connection() as conn:
+			with conn.enter_scope() as scope:
+				request_db = factory.create_request_db()
+				user_db = factory.create_user_db()
+
+				if config.LIMIT_REQUESTS_BY_IP:
+					count = request_db.count_requests_by_ip(scope, address, 3600)
+
+					if count > config.IP_REQUESTS_PER_HOUR:
+						raise exception.HTTPException(402, "IP request limit reached.")
+
+				user_id = user_db.map_username(scope, self.username)
+
+				if config.LIMIT_REQUESTS_BY_USER:
+					count = request_db.count_requests_by_user_id(scope, user_id, 3600)
+
+					if count > config.USER_REQUESTS_PER_HOUR:
+						raise exception.HTTPException(402, "User request limit reached.")
+
+				request_db.add_request(scope, address, user_id)
+
+				scope.complete()
 
 ## Requests new user accounts.
 class AccountRequest(Controller):

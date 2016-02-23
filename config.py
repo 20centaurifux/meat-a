@@ -93,13 +93,17 @@ AVATAR_DIR                = "images/users"
 WSGI_MAX_REQUEST_LENGTH   = 1048704
 
 ## Enable to limit HTTP requests from the same IP address.
-LIMIT_REQUESTS            = True
+LIMIT_REQUESTS_BY_IP      = True
+## Enable to limit HTTP requests from the same user account.
+LIMIT_REQUESTS_BY_USER    = True
 ## Number of allowed user account requests per hour from the same IP address.
 ACCOUNT_REQUESTS_PER_HOUR = 15
 ## Number of allowed reset password requests per hour from the same IP address.
 PASSWORD_RESETS_PER_HOUR  = 5
 ## Number of allowed HTTP requests per hour from the same IP address.
-REQUESTS_PER_HOUR         = 1800
+IP_REQUESTS_PER_HOUR      = 5000
+## Number of allowed HTTP requests per hour from the same user account.
+USER_REQUESTS_PER_HOUR    = 1000
 
 ## IP address where the mailer should listen.
 MAILER_HOST               = "127.0.0.1"
