@@ -37,7 +37,7 @@ from datetime import datetime
 from hashlib import sha256
 from bson import json_util
 from urllib2 import quote
-import random, string, json, uuid
+import random, string, json, uuid, os
 
 ## Gets the current timestamp (UTC) in milliseconds.
 #  @return a float
@@ -198,3 +198,53 @@ def split_strip_set(str, sep):
 #  @return an array element
 def pick_one(arr):
 	return arr[random.randint(0, len(arr) - 1)]
+
+## An iterator for reading data from a stream lazily.
+class StreamReader:
+	## The constructor.
+	#  @param stream stream to read data from
+	#  @param buffer_size number of bytes read on each iteration
+	def __init__(self, stream, buffer_size=81920):
+		self.__size = self.__get_stream_length__(stream)
+		self.__buffer_size = buffer_size
+		self.__generator = self.__create_generator__(stream)
+		self.__stream = stream
+
+	def __get_stream_length__(self, stream):
+		pos = stream.tell()
+		stream.seek(0, os.SEEK_END)
+		size = stream.tell()
+		stream.seek(pos, os.SEEK_SET)
+
+		return int(size)
+
+	def __len__(self):
+		return self.__size
+
+	def __iter__(self):
+		return self.__generator
+
+	def __del__(self):
+		if not self.__stream is None:
+			self.__stream.close()
+			self.__stream = None
+
+	def __create_generator__(self, stream):
+		while True:
+			bytes = stream.read(self.__buffer_size)
+
+			if bytes is None or len(bytes) == 0:
+				self.__size = 0
+				break
+
+			yield bytes
+
+## Creates a StreamReader reading data from the specified file.
+#  @param filename name of the file to open
+#  @param mode file mode
+#  @param block_size number of bytes read on each operation
+#  @return a new StreamReader
+def read_file(filename, mode="rb", block_size=81920):
+	f = open(filename, mode)
+
+	return StreamReader(f, block_size)
