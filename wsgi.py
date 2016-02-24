@@ -46,13 +46,11 @@ application = Application()
 ## Default form handler. It receives parameters from the query string and body, when
 #  the Content-Type is application/x-www-form-urlencoded.
 #  @param env WSGI environment
-def default_form_handler(env):
+def default_form_handler(method, env):
 	qs = urlparse.parse_qs(env.get("QUERY_STRING", ""))
 	params = {k: urllib.unquote(v[0]) for k, v in qs.items()}
 
 	size = int(env.get('CONTENT_LENGTH', 0))
-
-	method = env["REQUEST_METHOD"].upper()
 
 	if method in ["POST", "PUT"]:
 		content_type = env.get("CONTENT_TYPE", "application/x-www-form-urlencoded")
@@ -67,7 +65,7 @@ def default_form_handler(env):
 
 ## Receive avatar from multipart form.
 #  @param env WSGI environment
-def avatar_form_handler(env):
+def avatar_form_handler(method, env):
 	params = {}
 
 	try:
@@ -99,7 +97,7 @@ routing = [{"path": re.compile("^/json/registration$"), "controller": controller
            {"path": re.compile("^/json/user/(?P<username>[^/]+)/password$"), "controller": controller.UserPassword},
            {"path": re.compile("^/json/user/search/(?P<query>[^/]+)$"), "controller": controller.Search},
            {"path": re.compile("^/json/user/(?P<username>[^/]+)/friendship$"), "controller": controller.Friendship},
-	   {"path": re.compile("^/json/user/(?P<username>[^/]+)/avatar$"), "controller": controller.Avatar, "form-handler": avatar_form_handler},
+	   {"path": re.compile("^/json/user/(?P<username>[^/]+)/avatar$"), "controller": controller.Avatar, "form-handler": {"POST": avatar_form_handler}},
            {"path": re.compile("^/json/favorites$"), "controller": controller.Favorites},
            {"path": re.compile("^/json/messages$"), "controller": controller.Messages},
            {"path": re.compile("^/json/public$"), "controller": controller.PublicMessages},
@@ -145,16 +143,23 @@ def index(env, start_response):
 		if size > config.WSGI_MAX_REQUEST_LENGTH:
 			raise exception.StreamExceedsMaximumException()
 
-		# get parameters from query string/body:
-		handler = route.get("form-handler", default_form_handler)
-		params = handler(env)
+		# get & run form handler:
+		method = env["REQUEST_METHOD"].upper()
+
+		try:
+			handler = route["form-handler"].get(method, default_form_handler)
+
+		except KeyError:
+			handler = default_form_handler
+
+		params = handler(method, env)
 
 		# merge found parameters with parameters specified in path:
 		params.update({k: urllib.unquote(m.group(k)) for k, v in route["path"].groupindex.items()})
 
 		# execute controller:
 		c = route["controller"]()
-		v = c.handle_request(env["REQUEST_METHOD"], env, **params)
+		v = c.handle_request(method, env, **params)
 
 		status, headers = v.status, v.headers
 		response = v.render()
@@ -176,4 +181,4 @@ def index(env, start_response):
 
 	start_response("%d %s" % (status, httpcode.codes[status][0]), headers.items())
 
-	return [response]
+	return response

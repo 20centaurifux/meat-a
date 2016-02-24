@@ -32,7 +32,7 @@
 ## @package controller
 #  Controller classes.
 
-import config, app, view, exception, util, template, factory, re, sys, inspect
+import config, app, view, exception, util, template, factory, re, sys, inspect, os
 from base64 import b64decode, b64encode
 
 ## Converts an exception to a view.JSONView.
@@ -482,11 +482,40 @@ class Avatar(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
-	def __post__(self, env, *args):
-		username, filename, stream = args
+	def __post__(self, env, filename, file):
+		self.__test_required_parameters__(filename, file)
 
-	def __get__(self, env, *args):
-		username = args
+		name = self.app.update_avatar(self.username, filename, file)
+
+		v = view.JSONView(200)
+		m = {"filename": name}
+		v.bind(m)
+
+		return v
+
+	def __get__(self, env, username):
+		self.__test_required_parameters__(username)
+
+		details = self.app.get_user_details(self.username, username)
+
+		try:
+			avatar = details["avatar"]
+
+			if avatar is None:
+				raise exception.NotFoundException("Avatar not found.")
+
+			path = os.path.join(config.AVATAR_DIR, avatar)
+
+			if not os.path.isfile(path):
+				raise exception.NotFoundException("Avatar not found.")
+
+			v = view.FileView(200)
+			v.bind({"filename": path})
+
+			return v
+
+		except KeyError:
+			raise NotAuthorizedException()
 
 ## Searches the user database.
 class Search(AuthorizedController):
@@ -918,7 +947,7 @@ class Recommendation(AuthorizedController):
 
 		self.app.recommend(self.username, receivers, guid)
 
-		m = { "guid": guid, "receivers": receivers }
+		m = {"guid": guid, "receivers": receivers}
 
 		v = view.JSONView(200)
 		v.bind(m)

@@ -559,6 +559,8 @@ class Application(UserTools, ObjectTools):
 
 					scope.complete()
 
+					return filename
+
 				except EnvironmentError, err:
 					os.unlink(f.name)
 					raise exception.InternalFailureException(str(err))
