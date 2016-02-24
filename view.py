@@ -33,7 +33,7 @@
 #  Base class for views and implementations.
 
 from util import to_json
-import template
+import template, os, util
 
 ## A base class for views. A view can be exported to a string which contains binded data.
 class View(object):
@@ -104,3 +104,20 @@ class EmptyView(View):
 	#  @return an empty string
 	def render(self):
 		return ""
+
+## A view used for file downloads.
+class FileView(View):
+	## The constructor.
+	#  @param status an HTTP status code
+	def __init__(self, status):
+		View.__init__(self, "Application/Octet-status", status)
+
+	## Returns content of the given file.
+	#  @return a util.StreamReader instance
+	def render(self):
+		path = self.model["filename"]
+		filename = os.path.basename(path)
+
+		self.headers["Content-Disposition"] = "inline; filename=%s" % (filename)
+
+		return util.read_file(path)
