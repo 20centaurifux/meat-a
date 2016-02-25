@@ -46,7 +46,7 @@ a notification is stored in a global stream. Notifications are stored in a
 separated data store named database.StreamDb.
 
 Sometimes a user might receive an email. If you're going to create a new user
-profile an activation link sent, for example. Emails are stored in the
+profile an activation link is sent, for example. Emails are stored in the
 database.MailDb data store.
 
 A service (mailer.Mailer) sends emails in a user-defined interval. This process
