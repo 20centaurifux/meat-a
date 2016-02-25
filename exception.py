@@ -70,6 +70,9 @@ class BaseException:
 		## String describing the exception.
 		self.message = message
 
+	def __str__(self):
+		return "%s (HTTP status=%d, code=%d)" % (self.message, self.http_status, self.code)
+
 ## Exception used for internal failures.
 class InternalFailureException(BaseException):
 	## The constructor.

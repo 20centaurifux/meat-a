@@ -32,7 +32,7 @@
 ## @package controller
 #  Controller classes.
 
-import config, app, view, exception, util, template, factory, re, sys, inspect, os
+import config, app, view, exception, util, template, factory, re, sys, inspect, os, logger
 from base64 import b64decode, b64encode
 
 ## Converts an exception to a view.JSONView.
@@ -75,14 +75,19 @@ class Controller:
 		self.app = app.Application()
 		## Function to convert exceptions to a view.View instance.
 		self.__exception_handler = exception_handler
+		## A logger.
+		self.log = None
 
 	## Handles an HTTP request.
+	#  @param request_id id for identifying the request
 	#  @param method the HTTP method (post, get, put or delete)
 	#  @param env a dictionary providing environment details
 	#  @param kwargs received parameters
 	#  @return a view.View instance with a binded model
-	def handle_request(self, method, env, **kwargs):
+	def handle_request(self, request_id, method, env, **kwargs):
 		try:
+			self.log = logger.get_logger(request_id)
+
 			m = {"post": self.__post__, "get": self.__get__, "put": self.__put__, "delete": self.__delete__}
 
 			self.__start_process__(env, **kwargs)
@@ -114,6 +119,7 @@ class Controller:
 			v = apply(f, args)
 
 		except:
+			self.log.error("Couldn't handle request: %s", sys.exc_info()[1])
 			v = self.__exception_handler(sys.exc_info()[1])
 
 		return v
@@ -122,6 +128,8 @@ class Controller:
 		pass
 
 	def __check_rate_limit__(self, env):
+		self.log.debug("Checking rate limit.")
+
 		if not config.LIMIT_REQUESTS_BY_IP:
 			return
 
@@ -132,6 +140,8 @@ class Controller:
 				db = factory.create_request_db()
 
 				count = db.count_requests_by_ip(scope, address, 3600)
+
+				self.log.debug("'%s' has made %d of %d allowed requests.", address, count, config.IP_REQUESTS_PER_HOUR)
 
 				if count > config.IP_REQUESTS_PER_HOUR:
 					raise exception.HTTPException(402, "IP request limit reached.")
@@ -170,7 +180,11 @@ class AuthorizedController(Controller):
 	def __start_process__(self, env, **kwargs):
 		# get & decode Authorization header:
 		try:
+			self.log.debug( "Starting HTTP basic authentication.")
+
 			header = env["HTTP_AUTHORIZATION"]
+
+			self.log.debug("Found Authorization header: '%s'", header)
 
 			m = re.match("^Basic ([a-zA-Z0-9=/_\-]+)$", header)
 			auth = b64decode(m.group(1))
@@ -181,6 +195,8 @@ class AuthorizedController(Controller):
 				raise exception.HTTPException(400, "Bad request. Authorization header is malformed.")
 
 			self.username, password = auth[:index], auth[index + 1:]
+
+			self.log.debug("Parsed Authorization header: '%s:%s'", self.username, password)
 
 		except KeyError:
 			raise exception.AuthenticationFailedException()
@@ -207,6 +223,8 @@ class AuthorizedController(Controller):
 			raise exception.NotAuthorizedException()
 
 	def __check_rate_limit__(self, env):
+		self.log.debug("Checking rate limit.")
+
 		if not config.LIMIT_REQUESTS_BY_IP and not config.LIMIT_REQUESTS_BY_USER:
 			return
 
@@ -220,6 +238,8 @@ class AuthorizedController(Controller):
 				if config.LIMIT_REQUESTS_BY_IP:
 					count = request_db.count_requests_by_ip(scope, address, 3600)
 
+					self.log.debug("'%s' has made %d of %d allowed requests.", address, count, config.IP_REQUESTS_PER_HOUR)
+
 					if count > config.IP_REQUESTS_PER_HOUR:
 						raise exception.HTTPException(402, "IP request limit reached.")
 
@@ -227,6 +247,8 @@ class AuthorizedController(Controller):
 
 				if config.LIMIT_REQUESTS_BY_USER:
 					count = request_db.count_requests_by_user_id(scope, user_id, 3600)
+
+					self.log.debug("'%s' (%d) has made %d of %d allowed requests.", self.username, user_id, count, config.USER_REQUESTS_PER_HOUR)
 
 					if count > config.USER_REQUESTS_PER_HOUR:
 						raise exception.HTTPException(402, "User request limit reached.")

@@ -36,7 +36,7 @@
 #  meat-a is a WSGI based webservice for the organization of objects and
 #  related meta data.
 
-import controller, re, urlparse, urllib, sys, httpcode, config, exception
+import controller, re, urlparse, urllib, sys, httpcode, config, exception, logger, util
 from cgi import FieldStorage
 from app import Application
 
@@ -128,22 +128,40 @@ def index(env, start_response):
 	global application
 	global routing
 
+	# generate unique request id & logger instance:
+	request_id = util.new_guid()
+
+	log = logger.get_logger(request_id)
+
+	# get url:
 	url = env["PATH_INFO"]
+
+	log.info("New request from '%s': '%s'", env["REMOTE_ADDR"], url)
+	log.debug("Environment: %s", env)
+
 	parameters = {}
 	controller = None
 
 	try:
 		# find route:
+		log.debug("Processing request, searching route.")
+
 		f = lambda route: [route, route["path"].match(url)]
 		route, m = next(pair for pair in map(f, routing) if pair[1] is not None)
 
 		# test request length:
+		log.debug("Found route: %s, detecting request size", route)
+
 		size = int(env.get('CONTENT_LENGTH', 0))
 
 		if size > config.WSGI_MAX_REQUEST_LENGTH:
 			raise exception.StreamExceedsMaximumException()
 
+		log.debug("Size found: %d", size)
+
 		# get & run form handler:
+		log.debug("Detecting form handler.")
+
 		method = env["REQUEST_METHOD"].upper()
 
 		try:
@@ -152,33 +170,69 @@ def index(env, start_response):
 		except KeyError:
 			handler = default_form_handler
 
+		log.debug("Running form handler: %s", handler)
+
 		params = handler(method, env)
 
+		log.debug("Found parameters: %s", parameters)
+
 		# merge found parameters with parameters specified in path:
+		log.debug("Merging parameters.")
+
 		params.update({k: urllib.unquote(m.group(k)) for k, v in route["path"].groupindex.items()})
+
+		log.debug("Merged parameters: %s", params)
 
 		# execute controller:
 		c = route["controller"]()
-		v = c.handle_request(method, env, **params)
+
+		log.debug("Running controller: %s", c)
+
+		v = c.handle_request(request_id, method, env, **params)
+
+		log.debug("Rendering view: %s", v)
 
 		status, headers = v.status, v.headers
 		response = v.render()
 
 	except StopIteration:
+		log.info("Route not found.")
+
 		status, headers = 404, {"Content-Type": "text/plain"}
 		response = "Not Found"
 
 	except exception.BaseException as e:
+		log.error("Request failed: %s", e.message)
+
 		status, headers = e.http_status, {"Content-Type": "text/plain"}
 		response = e.message
 
 	except:
+		log.error("Internal failure: %s", sys.exc_info[1])
+
 		status, headers = 500, {"Content-Type", "text/plain"}
 		response = sys.exc_info()[1]
 
 	# add content length header, start response & return body:
-	headers["Content-Length"] = str(len(response))
+	try:
+		log.debug("Writing response.")
 
-	start_response("%d %s" % (status, httpcode.codes[status][0]), headers.items())
+		headers["Content-Length"] = str(len(response))
+		headers = headers.items()
 
-	return response
+		log.debug("status=%s, headers=%s", status, headers)
+
+		if isinstance(response, str):
+			log.debug("*** BEGIN OF RESPONSE ***")
+			log.debug(response)
+			log.debug("*** END OF RESPONSE ***")
+
+		start_response("%d %s" % (status, httpcode.codes[status][0]), headers)
+
+		log.debug("Finished successfully.")
+
+		return response
+
+	except Exception as e:
+		log.error("Internal failure occurred: %s", sys.exc_info[1])
+		raise e
