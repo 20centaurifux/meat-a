@@ -32,7 +32,7 @@
 ## @package factory
 #  Various factory functions.
 
-import config, pgdb, smtp
+import config, pgdb
 
 ## Creates a database.Connection instance.
 def create_db_connection():
