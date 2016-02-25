@@ -40,7 +40,7 @@ def create_db_connection():
 
 ## Creates a database.TestDb instance.
 def create_test_db():
-	return pgdb.TestDb()
+	return pgdb.PGTestDb()
 
 ## Creates a database.UserDb instance.
 def create_user_db():

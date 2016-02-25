@@ -1,4 +1,5 @@
-﻿delete from public_message
+﻿delete from request
+delete from public_message
 delete from user_favorite
 delete from user_recommendation
 delete from object_score

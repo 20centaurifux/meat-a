@@ -120,7 +120,7 @@ class PGDb:
 
 		return objs
 
-class TestDb(PGDb, database.TestDb):
+class PGTestDb(PGDb, database.TestDb):
 	def __init__(self):
 		database.TestDb.__init__(self)
 		PGDb.__init__(self)
@@ -128,6 +128,7 @@ class TestDb(PGDb, database.TestDb):
 	def clear(self, scope):
 		cur = scope.get_handle()
 
+		cur.execute("delete from request")
 		cur.execute("delete from public_message")
 		cur.execute("delete from user_favorite")
 		cur.execute("delete from user_recommendation")
