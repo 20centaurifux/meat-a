@@ -110,7 +110,7 @@ class FileView(View):
 	## The constructor.
 	#  @param status an HTTP status code
 	def __init__(self, status):
-		View.__init__(self, "Application/Octet-status", status)
+		View.__init__(self, "Application/Octet-Stream", status)
 
 	## Returns content of the given file.
 	#  @return a util.StreamReader instance

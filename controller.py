@@ -459,8 +459,6 @@ class UserAccount(AuthorizedController):
 
 		self.app.update_user_details(self.username, email, firstname, lastname, gender, language, util.to_bool(protected))
 
-		url = util.build_url("/account/%s", config.WEBSITE_URL, self.username)
-
 		v = view.JSONView(200)
 		m = self.app.get_full_user_details(self.username)
 		v.bind(m)
