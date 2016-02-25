@@ -42,11 +42,11 @@ Users are organized in a separate user store (database.UserDb).
 
 Several activities generate notifications. If a user writes a comment friends
 receive a notification, for instance. If the user profile is not protected
-a notification is stored in a global stream. Notifications are stored in
+a notification is stored in a global stream. Notifications are stored in a
 separated data store named database.StreamDb.
 
 Sometimes a user might receive an email. If you're going to create a new user
-profile a request code is sent, for example. Emails are stored in the
+profile an activation link sent, for example. Emails are stored in the
 database.MailDb data store.
 
 A service (mailer.Mailer) sends emails in a user-defined interval. This process
