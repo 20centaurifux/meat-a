@@ -32,6 +32,8 @@
 ## @package config
 #  Configuration settings.
 
+import logging
+
 ## Application REALM.
 REALM                     = "meat-a"
 
@@ -56,6 +58,15 @@ PG_PWD  = "123456"
 LANGUAGES                 = ["en"]
 ## Default language.
 DEFAULT_LANGUAGE          = "en"
+
+## Logger name.
+LOGGING_NAME              = "meat-a"
+## Verbosity level.
+LOGGING_VERBOSITY         = logging.DEBUG
+## Logging handler.
+LOGGING_HANDLER           = logging.StreamHandler
+## Log format.
+LOGGING_FORMAT            = "%(levelname)s %(message)s"
 
 ## Specifies how long a timestamp sent within a request is valid (in seconds).
 REQUEST_EXPIRY_TIME       = 60
