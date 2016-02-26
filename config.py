@@ -72,9 +72,9 @@ LOGGING_FORMAT            = "%(levelname)s %(message)s"
 REQUEST_EXPIRY_TIME       = 60
 
 ## Specifies how long a request code for a user account is valid (in seconds).
-USER_REQUEST_TIMEOUT      = 600
+USER_REQUEST_TIMEOUT      = 3600
 ## Specifies how long a request code for a new password is valid (in seconds).
-PASSWORD_REQUEST_TIMEOUT  = 600
+PASSWORD_REQUEST_TIMEOUT  = 10800
 ## Length of generated request ids.
 REQUEST_ID_LENGTH         = 32
 ## Length of generated request codes.
@@ -112,7 +112,7 @@ ACCOUNT_REQUESTS_PER_HOUR = 15
 ## Number of allowed reset password requests per hour from the same IP address.
 PASSWORD_RESETS_PER_HOUR  = 5
 ## Number of allowed HTTP requests per hour from the same IP address.
-IP_REQUESTS_PER_HOUR      = 5000
+IP_REQUESTS_PER_HOUR      = 2000
 ## Number of allowed HTTP requests per hour from the same user account.
 USER_REQUESTS_PER_HOUR    = 1000
 
