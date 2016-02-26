@@ -32,7 +32,7 @@
 ## @package factory
 #  Various factory functions.
 
-import config, pgdb
+import config, pgdb, smtp
 
 ## Creates a database.Connection instance.
 def create_db_connection():
@@ -61,3 +61,7 @@ def create_mail_db():
 ## Creates a database.RequestDb instance.
 def create_request_db():
 	return pgdb.PGRequestDb()
+
+## Creates a mailer.MTA instance.
+def create_mta():
+	return smtp.SMTP_MTA(config.SMTP_HOST, config.SMTP_PORT, config.SMTP_SSL, config.SMTP_ADDRESS, config.SMTP_USERNAME, config.SMTP_PASSWORD)
