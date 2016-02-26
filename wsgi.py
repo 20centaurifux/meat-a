@@ -139,7 +139,7 @@ def index(env, start_response):
 	log.info("New request from '%s': '%s'", env["REMOTE_ADDR"], url)
 	log.debug("Environment: %s", env)
 
-	parameters = {}
+	params = {}
 	controller = None
 
 	try:
@@ -174,7 +174,7 @@ def index(env, start_response):
 
 		params = handler(method, env)
 
-		log.debug("Found parameters: %s", parameters)
+		log.debug("Found parameters: %s", params)
 
 		# merge found parameters with parameters specified in path:
 		log.debug("Merging parameters.")
