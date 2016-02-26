@@ -34,7 +34,7 @@
 
 from mailer import MTA
 from email.mime.text import MIMEText
-import smtplib, logging, traceback
+import smtplib, logging, traceback, logger
 
 ## MTA sending emails via SMTP.
 class SMTP_MTA(MTA):
@@ -48,8 +48,11 @@ class SMTP_MTA(MTA):
 	def __init__(self, host, port, ssl, address, username, password):
 		self.server, self.port, self.ssl, self.address, self.username, self.password = host, port, ssl, address, username, password
 		self.__client = None
+		self.__logger = logger.get_logger()
 
 	def start_session(self):
+		self.__logger.debug("Starting mailer session.")
+
 		if self.ssl:
 			self.__client = smtplib.SMTP_SSL()
 		else:
@@ -60,6 +63,8 @@ class SMTP_MTA(MTA):
 
 	def send(self, subject, body, receiver):
 		try:
+			self.__logger.info("Sending mail '%s' to '%s'", subject, receiver)
+
 			msg = MIMEText(body, 'plain', 'utf-8')
 
 			msg['Subject'] = subject
@@ -71,10 +76,11 @@ class SMTP_MTA(MTA):
 			return True
 
 		except Exception, ex:
-			logging.error(str(ex))
-			logging.error(traceback.print_exc())
+			self.__logger.error(ex)
+			self.__logger.error(traceback.print_exc())
 
 		return False
 
 	def end_session(self):
+		self.__logger.debug("Stopping mailer session.")
 		self.__client.quit()

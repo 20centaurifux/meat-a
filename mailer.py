@@ -34,7 +34,7 @@
 #  A service sending mails found in the mail queue. Mails will be sent after an interval.
 #  This process can also be triggered by UDP.
 
-import abc, socket, threading, logging, traceback, factory, config
+import abc, socket, threading, logging, traceback, factory, config, logger
 
 ## Base class for mail transfer agents.
 class MTA():
@@ -65,6 +65,8 @@ class Mailer:
 	#  @param port port of the service
 	#  @param mta a MTA instance used to send mails
 	def __init__(self, host, port, mta):
+		self.__logger = logger.get_logger()
+
 		self.host = host
 		self.port = port
 
@@ -84,6 +86,8 @@ class Mailer:
 
 	## Starts the service.
 	def start(self):
+		self.__logger.info("Starting mailer.")
+
 		self.socket.bind((self.host, self.port))
 		self.__set_running__(True)
 
@@ -95,17 +99,25 @@ class Mailer:
 
 	## Stops the service.
 	def quit(self):
+		self.__logger.info("Stopping mailer.")
+
 		# unset "running" flag:
 		self.__set_running__(False)
 
 		# wait for consumer:
+		self.__logger.debug("Waiting for consumer thread.")
+
 		self.__notify__()
 		self.__consumer_thread.join()
 
 		# wait for network thread & close socket:
+		self.__logger.debug("Waiting for UDP listener thread.")
+
 		self.__udp_thread.join()
 		self.socket.close()
 		self.socket= None
+
+		self.__logger.debug("mailer stopped successfully.")
 
 	## Tests if the service is running.
 	#  @return True if the service is running
@@ -126,9 +138,13 @@ class Mailer:
 			try:
 				data, addr = self.socket.recvfrom(128)
 
+				self.__logger.debug("UDP request received from: '%s'", addr)
+
 				if addr[0] in config.MAILER_ALLOWED_CLIENTS:
 					if data == "ping\n":
 						self.__notify__()
+				else:
+					self.__logger.warning("Client not in list of allowed clients.")
 
 			except socket.timeout:
 				pass
@@ -137,6 +153,8 @@ class Mailer:
 		db = factory.create_mail_db()
 
 		while True:
+			self.__logger.debug("mailer waits for events.")
+
 			self.__consumer_cond.acquire()
 			self.__consumer_cond.wait(config.MAIL_CHECK_INTERVAL)
 			self.__consumer_cond.release()
@@ -145,11 +163,15 @@ class Mailer:
 				break
 
 			# get & send mails:
+			self.__logger.debug("Searching for mails to send.")
+
 			with factory.create_db_connection() as conn:
 				with conn.enter_scope() as scope:
 					mails = db.get_unsent_messages(scope, 100)
 
 				if len(mails) > 0:
+					self.__logger.info("Found %d mail(s) to send.", len(mails))
+
 					try:
 						self.__mta.start_session()
 
@@ -164,9 +186,9 @@ class Mailer:
 
 						self.__mta.end_session()
 
-					except Exception, ex:
-						logging.error(ex.message)
-						logging.error(traceback.print_exc())
+					except Exception as e:
+						self.__logger.error(e)
+						self.__logger.error(traceback.print_exc())
 
 	def __notify__(self):
 		self.__consumer_cond.acquire()
