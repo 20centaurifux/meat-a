@@ -55,11 +55,11 @@ def default_form_handler(method, env):
 	if method in ["POST", "PUT"]:
 		content_type = env.get("CONTENT_TYPE", "application/x-www-form-urlencoded")
 
-		if content_type == "application/x-www-form-urlencoded":
+		if content_type.startswith("application/x-www-form-urlencoded"):
 			qs = urlparse.parse_qs(env['wsgi.input'].read(size))
 			params.update({k: urllib.unquote(v[0]) for k, v in qs.items()})
 		else:
-			raise exception.HTTPException(400, "Bad Request: Content-Type not supported")
+			raise exception.HTTPException(400, "Bad Request: Content-Type '%s' not supported" % content_type)
 
 	return params
 
