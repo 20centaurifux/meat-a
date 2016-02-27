@@ -45,6 +45,9 @@ def exception_to_json_view(e):
 	m = {}
 	m["message"] = e.message
 
+        if isinstance(e, exception.InvalidParameterException):
+                m["field"] = e.parameter
+
 	v = view.JSONView(e.http_status)
 	v.bind(m)
 
