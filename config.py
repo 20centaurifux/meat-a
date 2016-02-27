@@ -139,3 +139,11 @@ SMTP_ADDRESS              = ""
 SMTP_USERNAME             = ""
 ## Password of the configured SMTP user.
 SMTP_PASSWORD             = ""
+
+
+## Path to images.
+IMAGE_LIBRARY_PATH           = "library"
+## Thumbnail folder.
+IMAGE_LIBRARY_THUMBNAIL_PATH = "library-thumbs"
+## Thumbnail size.
+IMAGE_LIBRARY_THUMBNAIL_SIZE = 512, 512
