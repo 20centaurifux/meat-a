@@ -118,7 +118,9 @@ routing = [{"path": re.compile("^/rest/registration$"), "controller": controller
            {"path": re.compile("^/rest/objects/popular$"), "controller": controller.PopularObjects},
            {"path": re.compile("^/rest/objects/random$"), "controller": controller.RandomObjects},
            {"path": re.compile("^/rest/recommendations$"), "controller": controller.Recommendations},
-           {"path": re.compile("^/rest/recommendations/page/(?P<page>[\d+])$"), "controller": controller.Recommendations}]
+           {"path": re.compile("^/rest/recommendations/page/(?P<page>[\d+])$"), "controller": controller.Recommendations},
+           {"path": re.compile("^/images/(?P<filename>[^/]+)$"), "controller": controller.Image},
+           {"path": re.compile("^/thumbnails/(?P<filename>[^/]+)$"), "controller": controller.Thumbnail}]
 
 ## The WSGI callback function.
 #  @param env WSGI environment

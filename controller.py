@@ -32,7 +32,7 @@
 ## @package controller
 #  Controller classes.
 
-import config, app, view, exception, util, template, factory, re, sys, inspect, os, logger
+import config, app, view, exception, util, template, factory, re, sys, inspect, os, logger, mimetypes
 from base64 import b64decode, b64encode
 
 ## Converts an exception to a view.JSONView.
@@ -997,3 +997,38 @@ class ReportAbuse(AuthorizedController):
 		v.bind(m)
 
 		return v
+
+## Serve static file.
+class StaticFile(AuthorizedController):
+	def __init__(self):
+		AuthorizedController.__init__(self)
+
+	def __get_file__(self, basedir, filename):
+		path = os.path.join(basedir, filename)
+
+		# search & serve file:
+		self.log.debug("Searching file: '%s'", path)
+
+		if not os.path.isfile(path):
+			raise exception.NotFoundException("File not found.")
+
+		v = view.FileView(200, mimetypes.guess_type(path) or "Application/Octet-Stream")
+		v.bind({"filename": path})
+
+		return v
+
+## Gets an image file.
+class Image(StaticFile):
+	def __init__(self):
+		StaticFile.__init__(self)
+
+	def __get__(self, env, filename):
+		return self.__get_file__(config.IMAGE_LIBRARY_PATH, filename)
+
+## Gets a thumbnail.
+class Thumbnail(StaticFile):
+	def __init__(self):
+		StaticFile.__init__(self)
+
+	def __get__(self, env, filename):
+		return self.__get_file__(config.IMAGE_LIBRARY_THUMBNAIL_PATH, filename)
