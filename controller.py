@@ -1048,6 +1048,7 @@ class Thumbnail(StaticFile):
 	def __get__(self, env, filename):
 		return self.__get_file__(config.IMAGE_LIBRARY_THUMBNAIL_PATH, filename)
 
+## A controller for serving static files - don't use in production :)
 class App(Controller):
 	def __init__(self):
 		Controller.__init__(self)
