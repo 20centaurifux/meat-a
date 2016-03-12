@@ -10,22 +10,6 @@ SET check_function_bodies = false;
 SET client_min_messages = warning;
 
 --
--- Name: meat-a; Type: DATABASE; Schema: -; Owner: -
---
-
-CREATE DATABASE "meat-a" WITH TEMPLATE = template0 ENCODING = 'UTF8' LC_COLLATE = 'C' LC_CTYPE = 'C';
-
-
-\connect "meat-a"
-
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SET check_function_bodies = false;
-SET client_min_messages = warning;
-
---
 -- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -603,6 +587,30 @@ CREATE TABLE public_message (
     target character varying(64),
     type message_type NOT NULL,
     source character varying(64) NOT NULL
+);
+
+
+--
+-- Name: seq_request_id; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE seq_request_id
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: request; Type: TABLE; Schema: public; Owner: -; Tablespace: 
+--
+
+CREATE TABLE request (
+    id bigint DEFAULT nextval('seq_request_id'::regclass),
+    user_id bigint,
+    address character varying(64) NOT NULL,
+    created_on timestamp without time zone DEFAULT timezone('utc'::text, now())
 );
 
 
@@ -1191,6 +1199,14 @@ ALTER TABLE ONLY user_recommendation
 
 ALTER TABLE ONLY mail
     ADD CONSTRAINT mail_receiver_id FOREIGN KEY (receiver_id) REFERENCES "user"(id);
+
+
+--
+-- Name: user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY request
+    ADD CONSTRAINT user_id FOREIGN KEY (user_id) REFERENCES "user"(id);
 
 
 --
