@@ -45,7 +45,7 @@ def exception_to_json_view(e):
 	m = {}
 	m["message"] = e.message
 
-        if isinstance(e, exception.InvalidParameterException):
+        if isinstance(e, exception.InvalidParameterException) or isinstance(e, exception.MissingParameterException):
                 m["field"] = e.parameter
 
 	v = view.JSONView(e.http_status)
@@ -115,6 +115,12 @@ class Controller:
 					if values[i] is None and i >= diff:
 						values[i] = defaults[diff - i]
 
+			# test required parameters:
+			if hasattr(f, "__required__"):
+				for k, v in dict(zip(argnames, values)).items():
+					if k in f.__required__ and v is None:
+						raise exception.MissingParameterException(k)
+
 			# merge argument list:
 			args = [env] + values
 
@@ -167,11 +173,6 @@ class Controller:
 
 	def __delete__(self, env, *args):
 		return self.__method_not_supported__()
-
-	def __test_required_parameters__(self, *params):
-		for p in params:
-			if p is None:
-				raise exception.MissingParameterException()
 
 ## A controller with HTTP basic authentication support.
 class AuthorizedController(Controller):
@@ -271,8 +272,6 @@ class AccountRequest(Controller):
 	#  @param email email address of the requested user account
 	#  @return URL of the registration website
 	def __post__(self, env, username, email):
-		self.__test_required_parameters__(username, email)
-
 		id, code = self.app.request_account(username, email)
 
 		url = util.build_url("/html/registration/%s", config.WEBSITE_URL, id)
@@ -285,6 +284,8 @@ class AccountRequest(Controller):
 
 		return v
 
+	__post__.__required__ = ["username", "email"]
+
 ## Activates requested user account with corresponding id & code.
 class AccountActivation(Controller):
 	def __init__(self):
@@ -296,8 +297,6 @@ class AccountActivation(Controller):
 	#  @param code activation code (optional)
 	#  @return a website
 	def __get__(self, env, id, code):
-		self.__test_required_parameters__(id)
-
 		with factory.create_db_connection() as connection:
 			db = factory.create_user_db()
 
@@ -310,6 +309,8 @@ class AccountActivation(Controller):
 
 		return v
 
+	__get__.__required__ = ["id"]
+
 	## Activates a user account.
 	#  @param env environment data
 	#  @param id request id
@@ -318,8 +319,6 @@ class AccountActivation(Controller):
 	#  @param new_password2 repeated password
 	#  @return a website displaying a success message or a website for entering the request code
 	def __post__(self, env, id, code, new_password1, new_password2):
-		self.__test_required_parameters__(id, code)
-
 		tpl = template.AccountActivatedPage
 		status = 200
 
@@ -337,6 +336,8 @@ class AccountActivation(Controller):
 
 		return v
 
+	__post__.__required__ = ["id", "code"]
+
 ## Updates user password.
 class UserPassword(AuthorizedController):
 	def __init__(self):
@@ -349,8 +350,6 @@ class UserPassword(AuthorizedController):
 	#  @param new_password2 repeated new password
 	#  @return the new password (on success)
 	def __post__(self, env, old_password, new_password1, new_password2):
-		self.__test_required_parameters__(old_password, new_password1, new_password2)
-
 		self.app.change_password(self.username, old_password, new_password1, new_password2)
 
 		v = view.JSONView(200)
@@ -358,6 +357,8 @@ class UserPassword(AuthorizedController):
 		v.bind(m)
 
 		return v
+
+	__post__.__required__ = ["old_password", "new_password1", "new_password2"]
 
 ## Requests a new password.
 class PasswordRequest(Controller):
@@ -370,8 +371,6 @@ class PasswordRequest(Controller):
 	#  @param email the user's email address
 	#  @return location of the generated resource to change the password
 	def __post__(self, env, username, email):
-		self.__test_required_parameters__(username, email)
-
 		id, code = self.app.request_new_password(username, email)
 
 		url = util.build_url("/html/user/%s/password/reset/%s", config.WEBSITE_URL, username, id)
@@ -384,6 +383,8 @@ class PasswordRequest(Controller):
 
 		return v
 
+	__post__.__required__ = ["username", "email"]
+
 ## Resets a password using a corresponding code & id.
 class PasswordChange(Controller):
 	def __init__(self):
@@ -395,8 +396,6 @@ class PasswordChange(Controller):
 	#  @param code a related code (optional)
 	#  @return a website
 	def __get__(self, env, id, code):
-		self.__test_required_parameters__(id)
-
 		with factory.create_db_connection() as connection:
 			db = factory.create_user_db()
 
@@ -409,6 +408,8 @@ class PasswordChange(Controller):
 
 		return v
 
+	__get__.__required__ = ["id"]
+
 	## Sets a new password.
 	#  @param env environment data
 	#  @param id password change request id
@@ -417,8 +418,6 @@ class PasswordChange(Controller):
 	#  @param new_password2 repeated password
 	#  @return a website displaying a success message or a website for entering the new password and request code
 	def __post__(self, env, id, code, new_password1, new_password2):
-		self.__test_required_parameters__(id, code)
-
 		tpl = template.PasswordChangedPage
 		status = 200
 
@@ -443,6 +442,8 @@ class PasswordChange(Controller):
 
 		return v
 
+	__post__.__required__ = ["id", "code"]
+
 ## Updates, gets or deletes a user account.
 class UserAccount(AuthorizedController):
 	def __init__(self):
@@ -458,8 +459,6 @@ class UserAccount(AuthorizedController):
 	#  @param protected protected status to set
 	#  @return new user details
 	def __post__(self, env, email, firstname, lastname, gender, language, protected):
-		self.__test_required_parameters__(email)
-
 		self.app.update_user_details(self.username, email, firstname, lastname, gender, language, util.to_bool(protected))
 
 		v = view.JSONView(200)
@@ -468,13 +467,13 @@ class UserAccount(AuthorizedController):
 
 		return v
 
+	__post__.__required__ = ["email"]
+
 	## Gets user details.
 	#  @param env environment data
 	#  @param username name of the user to get details from
 	#  @return user details
 	def __get__(self, env, username):
-		self.__test_required_parameters__(username)
-
 		if username.lower() == self.username.lower():
 			m = self.app.get_full_user_details(username)
 		else:
@@ -485,19 +484,21 @@ class UserAccount(AuthorizedController):
 
 		return v
 
+	__get__.__required = ["username"]
+
 	## Disables a user account.
 	#  @param env environment data
 	#  @param username name of the user to deactivate
 	#  @return no content (status 204)
 	def __delete__(self, env, username):
-		self.__test_required_parameters__(username)
-
 		if not username.lower() == username:
 			raise exception.NotAuthorizedException()
 
 		self.app.disable_user(username)
 
 		return view.EmptyView(204)
+
+	__delete__.__required = ["username"]
 
 ## Updates or downloads an avatar.
 #  @todo not implemented yet
@@ -506,8 +507,6 @@ class Avatar(AuthorizedController):
 		AuthorizedController.__init__(self)
 
 	def __post__(self, env, filename, file):
-		self.__test_required_parameters__(filename, file)
-
 		name = self.app.update_avatar(self.username, filename, file)
 
 		v = view.JSONView(200)
@@ -516,9 +515,9 @@ class Avatar(AuthorizedController):
 
 		return v
 
-	def __get__(self, env, username):
-		self.__test_required_parameters__(username)
+	__post__.__required__ = ["filename", "file"]
 
+	def __get__(self, env, username):
 		details = self.app.get_user_details(self.username, username)
 
 		try:
@@ -539,6 +538,8 @@ class Avatar(AuthorizedController):
 
 		except KeyError:
 			raise NotAuthorizedException()
+
+	__get__.__required__ = ["username"]
 
 ## Searches the user database.
 class Search(AuthorizedController):
@@ -567,27 +568,27 @@ class Friendship(AuthorizedController):
 	#  @param username user to get friendship status from
 	#  @return friendship details
 	def __get__(self, env, username):
-		self.__test_required_parameters__(username)
-
 		return self.__get_friendship__(username)
+
+	__get__.__required__ = ["username"]
 
 	## Follows a user.
 	#  @param env environment data
 	#  @param username user to follow
 	#  @return friendship details
 	def __put__(self, env, username):
-		self.__test_required_parameters__(username)
-
 		return self.__change_friendship__(username, True)
+
+	__put__.__required__ = ["username"]
 
 	## Unfollows a user.
 	#  @param env environment data
 	#  @param username user to unfollow
 	#  @return friendship details
 	def __delete__(self, env, username):
-		self.__test_required_parameters__(username)
-
 		return self.__change_friendship__(username, False)
+
+	__delete__.__required__ = ["username"]
 
 	def __change_friendship__(self, username, friendship):
 		try:
@@ -743,14 +744,14 @@ class Object(AuthorizedController):
 	#  @param guid guid of the object to get details from
 	#  @return object details
 	def __get__(self, env, guid):
-		self.__test_required_parameters__(guid)
-
 		m = self.app.get_object(guid)
 
 		v = view.JSONView(200)
 		v.bind(m)
 
 		return v
+
+	__get__.__required__ = ["guid"]
 
 ## Gets or sets object tag(s).
 class ObjectTags(AuthorizedController):
@@ -762,9 +763,9 @@ class ObjectTags(AuthorizedController):
 	#  @param guid guid of the object to get tags from
 	#  @return a tag list
 	def __get__(self, env, guid):
-		self.__test_required_parameters__(guid)
-
 		return self.__get_tags__(guid)
+
+	__get__.__required__ = ["guid"]
 
 	## Assigns tags to an object.
 	#  @param env environment data
@@ -772,8 +773,6 @@ class ObjectTags(AuthorizedController):
 	#  @param tags comma-separated list of tags
 	#  @return a tag list
 	def __put__(self, env, guid, tags):
-		self.__test_required_parameters__(guid, tags)
-
 		tags = list(util.split_strip_set(tags, ","))
 
 		if len(tags) == 0:
@@ -782,6 +781,8 @@ class ObjectTags(AuthorizedController):
 		self.app.add_tags(guid, self.username, tags)
 
 		return self.__get_tags__(guid)
+
+	__put__.__required__ = ["guid", "tags"]
 
 	def __get_tags__(self, guid):
 		obj = self.app.get_object(guid)
@@ -802,9 +803,9 @@ class Voting(AuthorizedController):
 	#  @param guid object guid
 	#  @return the vote
 	def __get__(self, env, guid):
-		self.__test_required_parameters__(guid)
-
 		return self.__get_voting__(guid)
+
+	__get__.__required__ = ["guid"]
 
 	## Votes an object.
 	#  @param env environment data
@@ -812,11 +813,11 @@ class Voting(AuthorizedController):
 	#  @param up up or downvote flag
 	#  @return the vote
 	def __post__(self, env, guid, up):
-		self.__test_required_parameters__(guid, up)
-
 		self.app.vote(self.username, guid, util.to_bool(up))
 
 		return self.__get_voting__(guid)
+
+	__post__.__required__ = ["guid", "up"]
 
 	def __get_voting__(self, guid):
 		up = self.app.get_voting(self.username, guid)
@@ -840,9 +841,9 @@ class Comments(AuthorizedController):
 	#  @param page_size page size
 	#  @return object comments
 	def __get__(self, env, guid, page=0, page_size=50):
-		self.__test_required_parameters__(guid)
-
 		return self.__get_comments__(guid, page, page_size)
+
+	__get__.__required__ = ["guid"]
 
 	## Adds a comment to an object.
 	#  @param env environment data
@@ -850,15 +851,13 @@ class Comments(AuthorizedController):
 	#  @param text the comment
 	#  @return object comments
 	def __post__(self, env, guid, text):
-		self.__test_required_parameters__(guid, text)
-
 		self.app.add_comment(guid, self.username, text)
 
 		return self.__get_comments__(guid)
 
-	def __get_comments__(self, guid, page=0, page_size=50):
-		self.__test_required_parameters__(guid)
+	__post__.__required__ = ["guid", "text"]
 
+	def __get_comments__(self, guid, page=0, page_size=50):
 		m = self.app.get_comments(guid, self.username, page, page_size)
 
 		v = view.JSONView(200)
@@ -885,32 +884,12 @@ class Comment(AuthorizedController):
 
 		return v
 
-## Gets or updates favorites.
-class Favorites(AuthorizedController):
+	__get__.__required__ = ["id"]
+
+## Favorite base methods.
+class FavoriteBase(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
-
-	## Gets the favorites of the user.
-	#  @param env environment data
-	#  @return the user's favorite list
-	def __get__(self, env):
-		return self.__get_favorites__()
-
-	## Adds an object to the user's favorite list.
-	#  @param env environment data
-	#  @param guid guid of the object to add
-	#  @return the user's favorite list
-	def __put__(self, env, guid):
-		self.__test_required_parameters__(guid)
-
-		return self.__change_favorite__(guid, True)
-
-	## Removes an object from the user's favorite list.
-	#  @param env environment data
-	#  @param guid guid of the object to remove
-	#  @return the user's favorite list
-	def __delete__(self, env, guid):
-		return self.__change_favorite__(guid, False)
 
 	def __change_favorite__(self, guid, favorite):
 		try:
@@ -932,6 +911,40 @@ class Favorites(AuthorizedController):
 
 		return v
 
+## Gets favorites.
+class Favorites(FavoriteBase):
+	def __init__(self):
+		FavoriteBase.__init__(self)
+
+	## Gets the favorites of the user.
+	#  @param env environment data
+	#  @return the user's favorite list
+	def __get__(self, env):
+		return self.__get_favorites__()
+
+## Add/remove favorite.
+class Favorite(FavoriteBase):
+	def __init__(self):
+		FavoriteBase.__init__(self)
+
+	## Adds an object to the user's favorite list.
+	#  @param env environment data
+	#  @param guid guid of the object to add
+	#  @return the user's favorite list
+	def __put__(self, env, guid):
+		return self.__change_favorite__(guid, True)
+
+	__put__.__required__ = ["guid"]
+
+	## Removes an object from the user's favorite list.
+	#  @param env environment data
+	#  @param guid guid of the object to remove
+	#  @return the user's favorite list
+	def __delete__(self, env, guid):
+		return self.__change_favorite__(guid, False)
+
+	__delete__.__required__ = ["guid"]
+
 ## Gets recommendations.
 class Recommendations(AuthorizedController):
 	def __init__(self):
@@ -943,7 +956,7 @@ class Recommendations(AuthorizedController):
 	#  @param page_size page size
 	#  @return recommended objects
 	def __get__(self, env, page=0, page_size=10):
-		m = self.app.get_recommendations(self.username, page, page_size)
+		m = self.app.get_recommendations(self.username, int(page), int(page_size))
 
 		v = view.JSONView(200)
 		v.bind(m)
@@ -961,8 +974,6 @@ class Recommendation(AuthorizedController):
 	#  @param receivers comma-separated list of users to recommend the object to
 	#  @return users the object has been recommended to
 	def __put__(self, env, guid, receivers):
-		self.__test_required_parameters__(guid, receivers)
-
 		receivers = list(util.split_strip_set(receivers, ","))
 
 		if len(receivers) == 0:
@@ -976,6 +987,8 @@ class Recommendation(AuthorizedController):
 		v.bind(m)
 
 		return v
+
+	__put__.__required__ = ["guid", "receivers"]
 
 ## Flags object abused.
 class ReportAbuse(AuthorizedController):
@@ -998,6 +1011,8 @@ class ReportAbuse(AuthorizedController):
 
 		return v
 
+	__put__.__required__ = ["guid"]
+
 ## Serve static file.
 class StaticFile(AuthorizedController):
 	def __init__(self):
@@ -1012,7 +1027,7 @@ class StaticFile(AuthorizedController):
 		if not os.path.isfile(path):
 			raise exception.NotFoundException("File not found.")
 
-		v = view.FileView(200, mimetypes.guess_type(path) or "Application/Octet-Stream")
+		v = view.FileView(200, mimetypes.guess_type(path)[0] or "Application/Octet-Stream")
 		v.bind({"filename": path})
 
 		return v
@@ -1032,3 +1047,20 @@ class Thumbnail(StaticFile):
 
 	def __get__(self, env, filename):
 		return self.__get_file__(config.IMAGE_LIBRARY_THUMBNAIL_PATH, filename)
+
+class App(Controller):
+	def __init__(self):
+		Controller.__init__(self)
+
+        def __get__(self, env, filename):
+		path = os.path.join("static", filename)
+
+		if not os.path.isfile(path):
+			raise exception.NotFoundException("File not found.")
+
+                content_type = mimetypes.guess_type(path)
+
+		v = view.FileView(200, mimetypes.guess_type(path)[0] or "Application/Octet-Stream")
+		v.bind({"filename": path})
+
+		return v
