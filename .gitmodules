@@ -1,0 +1,3 @@
+[submodule "meatjs"]
+	path = meatjs
+	url = git@github.com:20centaurifux/meatjs.git
