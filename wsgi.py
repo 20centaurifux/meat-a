@@ -121,7 +121,8 @@ routing = [{"path": re.compile("^/rest/registration$"), "controller": controller
            {"path": re.compile("^/rest/recommendations$"), "controller": controller.Recommendations},
            {"path": re.compile("^/rest/recommendations/page/(?P<page>[\d+])$"), "controller": controller.Recommendations},
            {"path": re.compile("^/images/(?P<filename>[^/]+)$"), "controller": controller.Image},
-           {"path": re.compile("^/thumbnails/(?P<filename>[^/]+)$"), "controller": controller.Thumbnail}]
+           {"path": re.compile("^/thumbnails/(?P<filename>[^/]+)$"), "controller": controller.Thumbnail},
+           {"path": re.compile("^/jqm/(?P<filename>.+)$"), "controller": controller.StaticFile}]
 
 ## The WSGI callback function.
 #  @param env WSGI environment
@@ -225,7 +226,7 @@ def index(env, start_response):
 
 		log.debug("status=%s, headers=%s", status, headers)
 
-		if isinstance(response, str):
+		if isinstance(response, str) and len(response) <= 512:
 			log.debug("*** BEGIN OF RESPONSE ***")
 			log.debug(response)
 			log.debug("*** END OF RESPONSE ***")

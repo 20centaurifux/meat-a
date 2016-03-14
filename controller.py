@@ -1014,7 +1014,7 @@ class ReportAbuse(AuthorizedController):
 	__put__.__required__ = ["guid"]
 
 ## Serve static file.
-class StaticFile(AuthorizedController):
+class Base64Image(AuthorizedController):
 	def __init__(self):
 		AuthorizedController.__init__(self)
 
@@ -1027,34 +1027,38 @@ class StaticFile(AuthorizedController):
 		if not os.path.isfile(path):
 			raise exception.NotFoundException("File not found.")
 
-		v = view.FileView(200, mimetypes.guess_type(path)[0] or "Application/Octet-Stream")
+		v = view.FileView(200, "text/plain")
 		v.bind({"filename": path})
 
 		return v
 
-## Gets an image file.
-class Image(StaticFile):
+## Gets a base64 encoded image file.
+class Image(Base64Image):
 	def __init__(self):
-		StaticFile.__init__(self)
+		Base64Image.__init__(self)
 
 	def __get__(self, env, filename):
-		return self.__get_file__(config.IMAGE_LIBRARY_PATH, filename)
+		index = filename.rfind(".")
+
+		return self.__get_file__(config.IMAGE_LIBRARY_BASE64_PATH, "%s.base64" % filename[:index])
 
 ## Gets a thumbnail.
-class Thumbnail(StaticFile):
+class Thumbnail(Base64Image):
 	def __init__(self):
-		StaticFile.__init__(self)
+		Base64Image.__init__(self)
 
 	def __get__(self, env, filename):
-		return self.__get_file__(config.IMAGE_LIBRARY_THUMBNAIL_PATH, filename)
+		index = filename.rfind(".")
+
+		return self.__get_file__(config.IMAGE_LIBRARY_BASE64_PATH, "%s.thumbnail.base64" % filename[:index])
 
 ## A controller for serving static files - don't use in production :)
-class App(Controller):
+class StaticFile(Controller):
 	def __init__(self):
 		Controller.__init__(self)
 
         def __get__(self, env, filename):
-		path = os.path.join("static", filename)
+		path = os.path.join("meatjs", filename)
 
 		if not os.path.isfile(path):
 			raise exception.NotFoundException("File not found.")
