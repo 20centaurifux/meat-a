@@ -32,7 +32,7 @@
 ## @package imagelibrary
 #  An image library.
 
-import config, os, factory, util, logger
+import config, os, factory, util, mimetypes, logger, cStringIO
 from PIL import Image
 
 def import_images():
@@ -47,17 +47,40 @@ def import_images():
 			log.info("Found file: '%s'", filename)
 
 			path = os.path.join(config.IMAGE_LIBRARY_PATH, filename)
-			thumbnail = os.path.join(config.IMAGE_LIBRARY_THUMBNAIL_PATH, filename)
+			mime = mimetypes.guess_type(path)[0]
 
-			if os.path.isfile(path) and not os.path.exists(thumbnail):
-				log.info("Creating thumbnail: '%s'", thumbnail)
+			index = filename.rfind(".")
+			name = filename[:index]
+
+			b64_origin = os.path.join(config.IMAGE_LIBRARY_BASE64_PATH, "%s.base64" % name)
+			b64_thumbnail = os.path.join(config.IMAGE_LIBRARY_BASE64_PATH, "%s.thumbnail.base64" % name)
+
+			if os.path.isfile(path) and (not os.path.exists(b64_origin) or not os.path.exists(b64_thumbnail)):
+				log.info("Importing file...")
 
 				with conn.enter_scope() as scope:
 					db.create_object(scope, util.new_guid(), filename)
 
+					log.info("Creating file: %s" % b64_origin)
+
+					with open(path, "rb") as f:
+						b64 = "data:%s;base64,%s" % (mime, f.read().encode("base64"))
+
+					with open(b64_origin, "w") as f:
+						f.write(b64)
+
+					log.info("Creating file: %s" % b64_thumbnail)
+
 					image = Image.open(path)
 					image.thumbnail(config.IMAGE_LIBRARY_THUMBNAIL_SIZE, Image.ANTIALIAS)
-					image.save(thumbnail)
+
+					buffer = cStringIO.StringIO()
+					image.save(buffer, "PNG")
+
+					b64 = "data:png;base64,%s" % buffer.getvalue().encode("base64")
+
+					with open(b64_thumbnail, "w") as f:
+						f.write(b64)
 
 					scope.complete()
 			else:

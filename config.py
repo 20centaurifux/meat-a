@@ -144,6 +144,6 @@ SMTP_PASSWORD             = ""
 ## Path to images.
 IMAGE_LIBRARY_PATH           = "library"
 ## Thumbnail folder.
-IMAGE_LIBRARY_THUMBNAIL_PATH = "library-thumbs"
+IMAGE_LIBRARY_BASE64_PATH    = "library-base64"
 ## Thumbnail size.
 IMAGE_LIBRARY_THUMBNAIL_SIZE = 512, 512
