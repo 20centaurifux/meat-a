@@ -1028,6 +1028,7 @@ class Base64Image(AuthorizedController):
 			raise exception.NotFoundException("File not found.")
 
 		v = view.FileView(200, "text/plain")
+		v.headers["Cache-Control"] = "max-age=31536000"
 		v.bind({"filename": path})
 
 		return v
