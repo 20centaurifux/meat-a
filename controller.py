@@ -529,18 +529,39 @@ class Avatar(AuthorizedController):
 			if avatar is None:
 				raise exception.NotFoundException("Avatar not found.")
 
-			path = os.path.join(config.AVATAR_DIR, avatar)
-
 			if not os.path.isfile(path):
 				raise exception.NotFoundException("Avatar not found.")
 
-			v = view.FileView(200)
+			# build path & get mime type:
+			path = os.path.join(config.AVATAR_DIR, avatar)
+			mime = mimetypes.guess_type(path)[0]
+
+			# send base64 encoded image?
+			if "text/plain" in env["HTTP_ACCEPT"]:
+				# build path to base64 encoded file:
+				index = path.rfind(".")
+				b64_path = path[:index] + ".b64"
+
+				# does file exist?
+				if not os.path.isfile(b64_path):
+					# file not found => convert image to plain text:
+					with open(path, "rb") as f:
+						b64 = "data:%s;base64,%s" % (mime, f.read().encode("base64"))
+
+					with open(b64_path, "w") as f:
+						f.write(b64)
+
+				path = b64_path
+				mime = "text/plain"
+
+			v = view.FileView(200, mime)
+			v.headers["Cache-Control"] = "max-age=900"
 			v.bind({"filename": path})
 
 			return v
 
 		except KeyError:
-			raise NotAuthorizedException()
+			raise exception.NotAuthorizedException()
 
 	__get__.__required__ = ["username"]
 
