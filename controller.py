@@ -127,6 +127,9 @@ class Controller:
 			# call method:
 			v = apply(f, args)
 
+			if not v.headers.has_key("Cache-Control"):
+				v.headers["Cache-Control"] = "no-cache"
+
 		except:
 			self.log.error("Couldn't handle request: %s", sys.exc_info()[1])
 			v = self.__exception_handler(sys.exc_info()[1])
