@@ -529,29 +529,17 @@ class Avatar(AuthorizedController):
 			if avatar is None:
 				raise exception.NotFoundException("Avatar not found.")
 
-			if not os.path.isfile(path):
-				raise exception.NotFoundException("Avatar not found.")
-
 			# build path & get mime type:
 			path = os.path.join(config.AVATAR_DIR, avatar)
 			mime = mimetypes.guess_type(path)[0]
 
+			if not os.path.isfile(path):
+				raise exception.NotFoundException("Avatar not found.")
+
 			# send base64 encoded image?
 			if "text/plain" in env["HTTP_ACCEPT"]:
-				# build path to base64 encoded file:
-				index = path.rfind(".")
-				b64_path = path[:index] + ".b64"
-
-				# does file exist?
-				if not os.path.isfile(b64_path):
-					# file not found => convert image to plain text:
-					with open(path, "rb") as f:
-						b64 = "data:%s;base64,%s" % (mime, f.read().encode("base64"))
-
-					with open(b64_path, "w") as f:
-						f.write(b64)
-
-				path = b64_path
+				filename, _ = os.path.splitext(path)
+				path = "%s.b64" % filename
 				mime = "text/plain"
 
 			v = view.FileView(200, mime)

@@ -519,51 +519,23 @@ class Application(UserTools, ObjectTools):
 	#  @param filename filename of the image
 	#  @param stream input stream for reading image data
 	def update_avatar(self, username, filename, stream):
-		# get file extension:
-		ext = os.path.splitext(filename)[1]
-
-		if not ext.lower() in config.AVATAR_EXTENSIONS:
-			raise exception.InvalidImageFormatException()
-
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				# test if user is active:
 				self.__test_active_user__(scope, username)
 
-				# write temporary file:
-				with tempfile.NamedTemporaryFile(mode="wb", dir=config.TMP_DIR, delete=False) as f:
-					map(f.write, util.read_from_stream(stream, max_size = config.AVATAR_MAX_FILESIZE))
+				# validate image:
+				if not validate_image_file(stream, config.AVATAR_MAX_FILESIZE, config.AVATAR_MAX_WIDTH, config.AVATAR_MAX_HEIGHT, config.AVATAR_FORMATS):
+					raise exception.InvalidImageFormatException()
 
-				# validate image format:
-				try:
-					if not validate_image_file(f.name, config.AVATAR_MAX_FILESIZE, config.AVATAR_MAX_WIDTH, config.AVATAR_MAX_HEIGHT, config.AVATAR_FORMATS):
-						raise exception.InvalidImageFormatException()
+				# save avatar:
+				avatar = util.save_avatar(stream)
 
-				except:
-					os.unlink(f.name)
-					raise sys.exc_info()[1]
+				# update user profile:
+				self.__user_db.update_avatar(scope, username, avatar)
+				scope.complete()
 
-				# move file to avatar folder:
-				try:
-					while True:
-						filename = "%s%s" % (util.hash("%s-%s-%s-%s" % (util.now(), util.generate_junk(32), username, filename)), ext)
-						path = os.path.join(config.AVATAR_DIR, filename)
-
-						if not os.path.exists(path):
-							break
-
-					os.rename(f.name, path)
-
-					# update database:
-					self.__user_db.update_avatar(scope, username, filename)
-
-					scope.complete()
-
-					return filename
-
-				except EnvironmentError, err:
-					os.unlink(f.name)
-					raise exception.InternalFailureException(str(err))
+				return avatar
 
 	## Gets all details of a user account excepting blocked status and password.
 	#  @param username a user account
