@@ -137,10 +137,11 @@ def index(env, start_response):
 
 	log = logger.get_logger(request_id)
 
-	# get url:
+	# get method & url:
+	method = env["REQUEST_METHOD"].upper()
 	url = env["PATH_INFO"]
 
-	log.info("New request from '%s': '%s'", env["REMOTE_ADDR"], url)
+	log.info("New request from '%s': %s '%s'", env["REMOTE_ADDR"], method, url)
 	log.debug("Environment: %s", env)
 
 	params = {}
@@ -165,8 +166,6 @@ def index(env, start_response):
 
 		# get & run form handler:
 		log.debug("Detecting form handler.")
-
-		method = env["REQUEST_METHOD"].upper()
 
 		try:
 			handler = route["form-handler"].get(method, default_form_handler)
