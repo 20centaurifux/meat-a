@@ -482,9 +482,9 @@ class PGStreamDb(PGDb, database.StreamDb):
 		PGDb.__init__(self)
 
 	def get_messages(self, scope, user, limit=100, older_than=None):
-		query = "select message.id, target, source, message.created_on, type from message "                + \
-		        "inner join \"user\" on \"user\".id=receiver_id "                                          + \
-		        "where iusername=lower(%s) and (%s is null or message.created_on<%s) order by created_on " + \
+		query = "select message.id, target, source, message.created_on, type from message "                     + \
+		        "inner join \"user\" on \"user\".id=receiver_id "                                               + \
+		        "where iusername=lower(%s) and (%s is null or message.created_on<%s) order by created_on desc " + \
 		        "limit %s"
 
 		cur = scope.get_handle()
