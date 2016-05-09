@@ -220,6 +220,9 @@ def index(env, start_response):
 	try:
 		log.debug("Writing response.")
 
+		if response is None:
+			response = ""
+
 		headers["Content-Length"] = str(len(response))
 		headers = headers.items()
 

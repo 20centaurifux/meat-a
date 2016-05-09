@@ -91,6 +91,9 @@ class Controller:
 		try:
 			self.log = logger.get_logger(request_id)
 
+			if method == "OPTIONS":
+				return self.__options__()
+
 			m = {"post": self.__post__, "get": self.__get__, "put": self.__put__, "delete": self.__delete__}
 
 			self.__start_process__(env, **kwargs)
@@ -127,8 +130,12 @@ class Controller:
 			# call method:
 			v = apply(f, args)
 
+			# default headers:
 			if not v.headers.has_key("Cache-Control"):
 				v.headers["Cache-Control"] = "no-cache"
+
+			v.headers["Access-Control-Allow-Origin"] = "*"
+			v.headers["Access-Control-Allow-Headers"] = "accept, authorization"
 
 		except:
 			self.log.error("Couldn't handle request: %s", sys.exc_info()[1])
@@ -164,6 +171,24 @@ class Controller:
 
 	def __method_not_supported__(self):
 		return self.__exception_handler(exception.MethodNotSupportedException())
+
+	def __options__(self):
+		methods = ["OPTIONS"]
+
+		for m in ["__get__", "__post__", "__delete__", "__put__"]:
+			f = getattr(self, m).__func__
+			b = getattr(Controller, m).__func__
+
+			if not f is b:
+				methods.append(m[2:-2].upper())
+
+		v = view.View("text/plain", 200)
+
+		v.headers["Access-Control-Allow-Methods"] = ", ".join(methods)
+		v.headers["Access-Control-Allow-Origin"] = "*"
+		v.headers["Access-Control-Allow-Headers"] = "accept, authorization"
+
+		return v
 
 	def __post__(self, env, *args):
 		return self.__method_not_supported__()
