@@ -495,14 +495,14 @@ class PGStreamDb(PGDb, database.StreamDb):
 
 		return messages
 
-	def get_public_messages(self, scope, limit=100, older_than=None):
+	def get_public_messages(self, scope, limit=100, after=None):
 		query = "select id, target, source, created_on, type from public_message " + \
 		        "where (%s is null or created_on<%s) order by created_on desc limit %s"
 
 		cur = scope.get_handle()
 		messages = []
 
-		for row in fetch_all(cur, query, older_than, older_than, limit):
+		for row in fetch_all(cur, query, after, after, limit):
 			messages.append(to_dict(row))
 
 		return messages
