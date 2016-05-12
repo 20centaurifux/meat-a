@@ -574,11 +574,11 @@ class StreamDb(object):
 #  @param scope a transaction scope
 	#  @param user name of a user account
 	#  @param limit maximum number of messages to receive
-	#  @param older_than filter to get only messages older than the given timeframe
+	#  @param after filter to get only messages created after the given timestamp
 	#  @return an array, each element is a dictionary holding a message: { "id": int,
 	#          "target": str, "source": str, "type": str, "created_on": datetime }
 	@abc.abstractmethod
-	def get_messages(self, scope, user, limit=100, older_than=None): return None
+	def get_messages(self, scope, user, limit=100, after=None): return None
 
 	## Gets public messages.
 	#  @param scope a transaction scope

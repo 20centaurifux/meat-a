@@ -655,10 +655,10 @@ class Messages(AuthorizedController):
 	## Gets messages.
 	#  @param env environment data
 	#  @param limit maximum number of received messages
-	#  @param timestamp only get messages older than timestamp
+	#  @param after only get messages created after the given timestamp
 	#  @return messages sent to the user account
-	def __get__(self, env, limit=50, timestamp=None):
-		m = self.app.get_messages(self.username, int(limit), timestamp)
+	def __get__(self, env, limit=50, after=None):
+		m = self.app.get_messages(self.username, int(limit), after)
 
 		v = view.JSONView(200)
 		v.bind(m)

@@ -35,6 +35,7 @@
 import factory, exception, util, config, tempfile, os, sys, template, mailer
 from validators import *
 from base64 import b64encode
+from datetime import datetime
 
 ## Shared user account management methods.
 class UserTools:
@@ -982,11 +983,11 @@ class Application(UserTools, ObjectTools):
 	## Gets messages sent to a user account.
 	#  @param username a user account
 	#  @param limit number of messages to receive
-	#  @param older_than filter to get only messages older than the specified timestamp
+	#  @param after filter to get only messages created after the given timestamp
 	#  @return an array, each element is a dictionary holding a message ({ "type_id": int, "timestamp": float,
 	#          "sender": { "name": str, "firstname": str, "lastname": str, "gender": str, "avatar": str, "blocked": bool },
 	#          [ optional fields depending on message type] })
-	def get_messages(self, username, limit=100, older_than=None):
+	def get_messages(self, username, limit=100, after=None):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				self.__test_active_user__(scope, username)
@@ -994,7 +995,10 @@ class Application(UserTools, ObjectTools):
 				messages = []
 				cache = UserCache(self.__user_db, username)
 
-				for msg in self.__stream_db.get_messages(scope, username, limit, older_than):
+				if after is not None:
+					after = datetime.fromtimestamp(int(after))
+
+				for msg in self.__stream_db.get_messages(scope, username, limit, after):
 					messages.append(self.__build_message__(scope, username, cache, msg))
 
 				return messages
