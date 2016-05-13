@@ -27,10 +27,10 @@
 
 ##
 #  @file imagelibrary.py
-#  An image library.
+#  Import images into the object database.
 
 ## @package imagelibrary
-#  An image library.
+#  Import images into the object database.
 
 import config, os, factory, util, mimetypes, logger, cStringIO
 from PIL import Image
