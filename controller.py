@@ -1089,21 +1089,3 @@ class Thumbnail(Base64Image):
 		index = filename.rfind(".")
 
 		return self.__get_file__(config.IMAGE_LIBRARY_BASE64_PATH, "%s.thumbnail.base64" % filename[:index])
-
-## A controller for serving static files - don't use in production :)
-class StaticFile(Controller):
-	def __init__(self):
-		Controller.__init__(self)
-
-        def __get__(self, env, filename):
-		path = os.path.join("meatjs", filename)
-
-		if not os.path.isfile(path):
-			raise exception.NotFoundException("File not found.")
-
-                content_type = mimetypes.guess_type(path)
-
-		v = view.FileView(200, mimetypes.guess_type(path)[0] or "Application/Octet-Stream")
-		v.bind({"filename": path})
-
-		return v
