@@ -1050,6 +1050,7 @@ class ReportAbuse(AuthorizedController):
 
 	__put__.__required__ = ["guid"]
 
+"""
 ## Serve static file.
 class Base64Image(AuthorizedController):
 	def __init__(self):
@@ -1089,3 +1090,4 @@ class Thumbnail(Base64Image):
 		index = filename.rfind(".")
 
 		return self.__get_file__(config.IMAGE_LIBRARY_BASE64_PATH, "%s.thumbnail.base64" % filename[:index])
+"""
