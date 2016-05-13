@@ -402,7 +402,7 @@ class Application(UserTools, ObjectTools):
 					id = util.generate_junk(config.REQUEST_ID_LENGTH)
 
 				code = util.generate_junk(config.REQUEST_CODE_LENGTH)
-				url = util.build_url("/html/user/%s/password/reset/%s&code=%s", config.WEBSITE_URL, username, id, code)
+				url = util.build_url("/html/user/%s/password/reset/%s?code=%s", config.WEBSITE_URL, username, id, code)
 
 				# save password request:
 				self.__user_db.create_password_request(scope, id, code, user["id"])
