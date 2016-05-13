@@ -245,7 +245,7 @@ HEADERS    : Authorization
 RESPONSE   : text/plain
 STATUS CODE: 204
 
-Only users can delete themselves.
+Users can only delete themselves.
 
 
 ---------------------------------------
@@ -400,7 +400,7 @@ STATUS CODE: 200
 URL        : /rest/messages
 METHOD     : GET
 HEADERS    : Authorization
-PARAMETERS : limit (optional, maximum number of messages)
+PARAMETERS : limit (optional, maximum number of messages), after (optional)
 RESPONSE   : application/json
 STATUS CODE: 200
 
@@ -415,6 +415,9 @@ A message can have one of the following types:
 Each message has a type field, a source (the sender) and a target (e.g. a voted
 or recommended object).
 
+The "after" parameter may provide an UNIX timestamp (UTC). Only messages
+created after this timestamp will be returned.
+
 
 ---------------------------------------
 - 1.16. Get public messages
@@ -422,7 +425,7 @@ or recommended object).
 URL        : /rest/public
 METHOD     : GET
 HEADERS    : Authorization
-PARAMETERS : limit (optional, maximum number of messages)
+PARAMETERS : limit (optional, maximum number of messages), after (optional)
 RESPONSE   : application/json
 STATUS CODE: 200
 
@@ -433,6 +436,9 @@ A message can have one of the following types:
 
 Each message has a type field, a source (the sender) and a target (e.g. a voted
 object).
+
+The "after" parameter may provide an UNIX timestamp (UTC). Only messages
+created after this timestamp will be returned.
 
 
 #################################################
