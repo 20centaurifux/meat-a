@@ -98,6 +98,7 @@ routing = [{"path": re.compile("^/rest/registration$"), "controller": controller
            {"path": re.compile("^/rest/user/search/(?P<query>[^/]+)$"), "controller": controller.Search},
            {"path": re.compile("^/rest/user/(?P<username>[^/]+)/friendship$"), "controller": controller.Friendship},
 	   {"path": re.compile("^/rest/user/(?P<username>[^/]+)/avatar$"), "controller": controller.Avatar, "form-handler": {"POST": avatar_form_handler}},
+           {"path": re.compile("^/rest/favorites/(?P<guid>[^/]+)$"), "controller": controller.Favorite},
            {"path": re.compile("^/rest/favorites$"), "controller": controller.Favorites},
            {"path": re.compile("^/rest/messages$"), "controller": controller.Messages},
            {"path": re.compile("^/rest/public$"), "controller": controller.PublicMessages},
@@ -108,7 +109,7 @@ routing = [{"path": re.compile("^/rest/registration$"), "controller": controller
            {"path": re.compile("^/rest/object/(?P<guid>[^/]+)/comments/page/((?P<page>[\d]+))$"), "controller": controller.Comments},
            {"path": re.compile("^/rest/object/(?P<guid>[^/]+)/abuse$"), "controller": controller.ReportAbuse},
            {"path": re.compile("^/rest/comment/(?P<id>[\d]+)$"), "controller": controller.Comment},
-           {"path": re.compile("^/rest/object/(?P<guid>[^/]+)/recommend$"), "controller": controller.Recommendations},
+           {"path": re.compile("^/rest/object/(?P<guid>[^/]+)/recommend$"), "controller": controller.Recommendation},
            {"path": re.compile("^/rest/objects$"), "controller": controller.Objects},
            {"path": re.compile("^/rest/objects/page/(?P<page>[\d]+)$"), "controller": controller.Objects},
            {"path": re.compile("^/rest/objects/tag/(?P<tag>[^/]+)/page/(?P<page>[\d]+)$"), "controller": controller.TaggedObjects},
@@ -118,7 +119,9 @@ routing = [{"path": re.compile("^/rest/registration$"), "controller": controller
            {"path": re.compile("^/rest/objects/popular$"), "controller": controller.PopularObjects},
            {"path": re.compile("^/rest/objects/random$"), "controller": controller.RandomObjects},
            {"path": re.compile("^/rest/recommendations$"), "controller": controller.Recommendations},
-           {"path": re.compile("^/rest/recommendations/page/(?P<page>[\d+])$"), "controller": controller.Recommendations}]
+           {"path": re.compile("^/rest/recommendations/page/(?P<page>[\d+])$"), "controller": controller.Recommendations},
+           {"path": re.compile("^/images/(?P<filename>[^/]+)$"), "controller": controller.Image},
+           {"path": re.compile("^/thumbnails/(?P<filename>[^/]+)$"), "controller": controller.Thumbnail}]
 
 ## The WSGI callback function.
 #  @param env WSGI environment
@@ -133,10 +136,11 @@ def index(env, start_response):
 
 	log = logger.get_logger(request_id)
 
-	# get url:
+	# get method & url:
+	method = env["REQUEST_METHOD"].upper()
 	url = env["PATH_INFO"]
 
-	log.info("New request from '%s': '%s'", env["REMOTE_ADDR"], url)
+	log.info("New request from '%s': %s '%s'", env["REMOTE_ADDR"], method, url)
 	log.debug("Environment: %s", env)
 
 	params = {}
@@ -161,8 +165,6 @@ def index(env, start_response):
 
 		# get & run form handler:
 		log.debug("Detecting form handler.")
-
-		method = env["REQUEST_METHOD"].upper()
 
 		try:
 			handler = route["form-handler"].get(method, default_form_handler)
@@ -217,12 +219,15 @@ def index(env, start_response):
 	try:
 		log.debug("Writing response.")
 
+		if response is None:
+			response = ""
+
 		headers["Content-Length"] = str(len(response))
 		headers = headers.items()
 
 		log.debug("status=%s, headers=%s", status, headers)
 
-		if isinstance(response, str):
+		if isinstance(response, str) and len(response) <= 512:
 			log.debug("*** BEGIN OF RESPONSE ***")
 			log.debug(response)
 			log.debug("*** END OF RESPONSE ***")

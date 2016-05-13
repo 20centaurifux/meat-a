@@ -37,7 +37,8 @@ from datetime import datetime
 from hashlib import sha256
 from bson import json_util
 from urllib2 import quote
-import random, string, json, uuid, os
+from PIL import Image
+import random, string, json, uuid, os, tempfile, config, cStringIO
 
 ## Gets the current timestamp (UTC) in milliseconds.
 #  @return a float
@@ -248,3 +249,38 @@ def read_file(filename, mode="rb", block_size=81920):
 	f = open(filename, mode)
 
 	return StreamReader(f, block_size)
+
+## Reads the specified (image) stream and stores the image in the avatar folder.
+#  @param stream image data
+#  @return filename of the stored avatar
+def save_avatar(stream):
+	# compute file hash & build destination path(s):
+	stream.seek(0)
+	hash = stream_hash(stream)
+
+	path = os.path.join(config.AVATAR_DIR, "%s.png" % hash)
+	b64_path = os.path.join(config.AVATAR_DIR, "%s.b64" % hash)
+
+	# does avatar already exist?
+	if not os.path.isfile(path) or not os.path.isfile(b64_path):
+		try:
+			# resize image:
+			stream.seek(0)
+			img = Image.open(stream)
+			img.thumbnail(config.AVATAR_IMAGE_SIZE, Image.ANTIALIAS)
+
+			# file not found => save avatar:
+			img.save(path, "PNG")
+
+			# save base64 encoded image:
+			buffer = cStringIO.StringIO()
+			img.save(buffer, "PNG")
+
+			with open(b64_path, "w") as f:
+				f.write("data:image/png;base64,%s" % buffer.getvalue().encode("base64"))
+
+		except EnvironmentError, ex:
+			from exception import InternalFailureException
+			raise InternalFailureException(str(ex))
+
+	return os.path.basename(path)

@@ -138,17 +138,20 @@ def validate_language(language):
 	return language in LANGUAGES
 
 ## Validates an image.
-#  @param filename filename of the image
+#  @param stream image data
 #  @param max_file_size maximum file size
 #  @param max_width maximum width of the image
 #  @param max_height maximum height of the image
 #  @param formats array holding allowed image formats (e.g. [ "PNG", "JPEG" ])
 #  @return True if the image is valid
-def validate_image_file(filename, max_file_size, max_width, max_height, formats):
-	img = Image.open(filename)
-	info = os.stat(filename)
+def validate_image_file(stream, max_file_size, max_width, max_height, formats):
+	stream.seek(0, os.SEEK_END)
+	size = stream.tell()
+	stream.seek(0)
 
-	if info.st_size > max_file_size:
+	img = Image.open(stream)
+
+	if size > max_file_size:
 		return False
 
 	if img.size[0] > max_width or img.size[1] > max_height:

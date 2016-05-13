@@ -62,7 +62,7 @@ DEFAULT_LANGUAGE          = "en"
 ## Logger name.
 LOGGING_NAME              = "meat-a"
 ## Verbosity level.
-LOGGING_VERBOSITY         = logging.DEBUG
+LOGGING_VERBOSITY         = logging.INFO
 ## Logging handler.
 LOGGING_HANDLER           = logging.StreamHandler
 ## Log format.
@@ -88,20 +88,22 @@ PASSWORD_SALT_LENGTH      = 32
 TMP_DIR                   = "tmp"
 
 ## Maximum file size of avatar images (in bytes).
-AVATAR_MAX_FILESIZE       = 1048576
-## Maximum width allowed for avatar images.
-AVATAR_MAX_WIDTH          = 180
-## Maximum height allowed for avatar images.
-AVATAR_MAX_HEIGHT         = 180
+AVATAR_MAX_FILESIZE       = 8388608
+# Maximum width allowed for uploaded avatar images.
+AVATAR_MAX_WIDTH          = 4096
+# Maximum height allowed for uploaded avatar images.
+AVATAR_MAX_HEIGHT         = 4096
 ## Allowed avatar image formats.
 AVATAR_FORMATS            = ["JPEG", "PNG", "GIF"]
 ## Allowed avatar file extensions (always use lower case).
 AVATAR_EXTENSIONS         = [".jpg", ".jpeg", ".png", ".gif"]
 ## Location for uploaded images.
 AVATAR_DIR                = "images/users"
+## Avatar size.
+AVATAR_IMAGE_SIZE         = 180, 180
 
 ## Maximum HTTP request length.
-WSGI_MAX_REQUEST_LENGTH   = 1048704
+WSGI_MAX_REQUEST_LENGTH   = AVATAR_MAX_FILESIZE + 1024
 
 ## Enable to limit HTTP requests from the same IP address.
 LIMIT_REQUESTS_BY_IP      = True
@@ -139,3 +141,11 @@ SMTP_ADDRESS              = ""
 SMTP_USERNAME             = ""
 ## Password of the configured SMTP user.
 SMTP_PASSWORD             = ""
+
+
+## Path to images.
+IMAGE_LIBRARY_PATH           = "library"
+## Thumbnail folder.
+IMAGE_LIBRARY_BASE64_PATH    = "library-base64"
+## Thumbnail size.
+IMAGE_LIBRARY_THUMBNAIL_SIZE = 80, 80

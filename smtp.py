@@ -67,9 +67,9 @@ class SMTP_MTA(MTA):
 
 			msg = MIMEText(body, 'plain', 'utf-8')
 
-			msg['Subject'] = subject
-			msg['From'] = self.address
-			msg['To'] = receiver
+			msg['Subject'] = subject.strip()
+			msg['From'] = self.address.strip()
+			msg['To'] = receiver.strip()
 
 			self.__client.sendmail(self.address, [ receiver ], msg.as_string())
 

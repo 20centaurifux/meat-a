@@ -107,14 +107,16 @@ class NotAuthorizedException(BaseException):
 
 ## Exception raised when at least one parameter is missing.
 class MissingParameterException(BaseException):
-	def __init__(self):
+	def __init__(self, parameter=None):
 		BaseException.__init__(self, ErrorCode.MISSING_PARAMETER, 400, "Missing parameter(s).")
+		## name of the missing parameter.
+		self.parameter = parameter
 
 ## Exception raised when a specified parameter is invalid.
 class InvalidParameterException(BaseException):
 	## The constructor.
 	#  @param parameter name of the invalid parameter
-	def __init__(self, parameter):
+	def __init__(self, parameter=None):
 		BaseException.__init__(self, ErrorCode.INVALID_PARAMETER, 422, "Invalid parameter: \"%s\"" % (parameter))
 		## name of the invalid parameter
 		self.parameter = parameter

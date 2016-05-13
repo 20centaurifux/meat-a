@@ -123,7 +123,7 @@ class CheetahMailTemplate(Template):
 		subject = Cheetah.Template.Template(self.__defs[0], searchList = [ self.__namespace ])
 		body = Cheetah.Template.Template(self.__defs[1], searchList = [ self.__namespace ])
 
-		return str(subject), str(body)
+		return str(subject).strip(), str(body).strip()
 
 ## A Template implementation used for sending account request id & codes.
 class AccountRequestMail(CheetahMailTemplate):

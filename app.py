@@ -35,6 +35,7 @@
 import factory, exception, util, config, tempfile, os, sys, template, mailer
 from validators import *
 from base64 import b64encode
+from datetime import datetime
 
 ## Shared user account management methods.
 class UserTools:
@@ -401,7 +402,7 @@ class Application(UserTools, ObjectTools):
 					id = util.generate_junk(config.REQUEST_ID_LENGTH)
 
 				code = util.generate_junk(config.REQUEST_CODE_LENGTH)
-				url = util.build_url("/html/user/%s/password/reset/%s&code=%s", config.WEBSITE_URL, username, id, code)
+				url = util.build_url("/html/user/%s/password/reset/%s?code=%s", config.WEBSITE_URL, username, id, code)
 
 				# save password request:
 				self.__user_db.create_password_request(scope, id, code, user["id"])
@@ -519,51 +520,23 @@ class Application(UserTools, ObjectTools):
 	#  @param filename filename of the image
 	#  @param stream input stream for reading image data
 	def update_avatar(self, username, filename, stream):
-		# get file extension:
-		ext = os.path.splitext(filename)[1]
-
-		if not ext.lower() in config.AVATAR_EXTENSIONS:
-			raise exception.InvalidImageFormatException()
-
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				# test if user is active:
 				self.__test_active_user__(scope, username)
 
-				# write temporary file:
-				with tempfile.NamedTemporaryFile(mode="wb", dir=config.TMP_DIR, delete=False) as f:
-					map(f.write, util.read_from_stream(stream, max_size = config.AVATAR_MAX_FILESIZE))
+				# validate image:
+				if not validate_image_file(stream, config.AVATAR_MAX_FILESIZE, config.AVATAR_MAX_WIDTH, config.AVATAR_MAX_HEIGHT, config.AVATAR_FORMATS):
+					raise exception.InvalidImageFormatException()
 
-				# validate image format:
-				try:
-					if not validate_image_file(f.name, config.AVATAR_MAX_FILESIZE, config.AVATAR_MAX_WIDTH, config.AVATAR_MAX_HEIGHT, config.AVATAR_FORMATS):
-						raise exception.InvalidImageFormatException()
+				# save avatar:
+				avatar = util.save_avatar(stream)
 
-				except:
-					os.unlink(f.name)
-					raise sys.exc_info()[1]
+				# update user profile:
+				self.__user_db.update_avatar(scope, username, avatar)
+				scope.complete()
 
-				# move file to avatar folder:
-				try:
-					while True:
-						filename = "%s%s" % (util.hash("%s-%s-%s-%s" % (util.now(), util.generate_junk(32), username, filename)), ext)
-						path = os.path.join(config.AVATAR_DIR, filename)
-
-						if not os.path.exists(path):
-							break
-
-					os.rename(f.name, path)
-
-					# update database:
-					self.__user_db.update_avatar(scope, username, filename)
-
-					scope.complete()
-
-					return filename
-
-				except EnvironmentError, err:
-					os.unlink(f.name)
-					raise exception.InternalFailureException(str(err))
+				return avatar
 
 	## Gets all details of a user account excepting blocked status and password.
 	#  @param username a user account
@@ -1010,11 +983,11 @@ class Application(UserTools, ObjectTools):
 	## Gets messages sent to a user account.
 	#  @param username a user account
 	#  @param limit number of messages to receive
-	#  @param older_than filter to get only messages older than the specified timestamp
+	#  @param after filter to get only messages created after the given timestamp
 	#  @return an array, each element is a dictionary holding a message ({ "type_id": int, "timestamp": float,
 	#          "sender": { "name": str, "firstname": str, "lastname": str, "gender": str, "avatar": str, "blocked": bool },
 	#          [ optional fields depending on message type] })
-	def get_messages(self, username, limit=100, older_than=None):
+	def get_messages(self, username, limit=100, after=None):
 		with self.__create_db_connection__() as conn:
 			with conn.enter_scope() as scope:
 				self.__test_active_user__(scope, username)
@@ -1022,7 +995,10 @@ class Application(UserTools, ObjectTools):
 				messages = []
 				cache = UserCache(self.__user_db, username)
 
-				for msg in self.__stream_db.get_messages(scope, username, limit, older_than):
+				if after is not None:
+					after = datetime.fromtimestamp(int(after))
+
+				for msg in self.__stream_db.get_messages(scope, username, limit, after):
 					messages.append(self.__build_message__(scope, username, cache, msg))
 
 				return messages
