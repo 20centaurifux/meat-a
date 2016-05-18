@@ -753,18 +753,30 @@ CREATE VIEW v_password_requests AS
 -- Name: v_popular_objects; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE VIEW v_popular_objects AS
- SELECT v_objects.guid,
-    v_objects.source,
-    v_objects.created_on,
-    v_objects.locked,
-    v_objects.reported,
-    v_objects.up,
-    v_objects.down,
-    v_objects.favorites,
-    v_objects.comments
-   FROM v_objects
-  ORDER BY ((v_objects.up - v_objects.down) + v_objects.favorites) DESC, v_objects.created_on DESC;
+CREATE VIEW v_popular_objects AS 
+ SELECT object.guid,
+    object.source,
+    object.created_on,
+    object.locked,
+    object.reported,
+    object.up,
+    object.down,
+    object.favorites,
+    object.comments,
+    object.score
+   FROM ( SELECT v_objects.guid,
+            v_objects.source,
+            v_objects.created_on,
+            v_objects.locked,
+            v_objects.reported,
+            v_objects.up,
+            v_objects.down,
+            v_objects.favorites,
+            v_objects.comments,
+            v_objects.up - v_objects.down + v_objects.favorites AS score
+           FROM v_objects
+          ORDER BY v_objects.up - v_objects.down + v_objects.favorites DESC, v_objects.created_on DESC) object
+  WHERE object.score > 0;
 
 
 --
