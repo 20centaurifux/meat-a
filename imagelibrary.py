@@ -47,44 +47,60 @@ def import_images():
 			log.info("Found file: '%s'", filename)
 
 			path = os.path.join(config.IMAGE_LIBRARY_PATH, filename)
-			mime = mimetypes.guess_type(path)[0]
 
+			mime = mimetypes.guess_type(path)[0]
 			index = filename.rfind(".")
 			name = filename[:index]
 
 			b64_origin = os.path.join(config.IMAGE_LIBRARY_BASE64_PATH, "%s.base64" % name)
 			b64_thumbnail = os.path.join(config.IMAGE_LIBRARY_BASE64_PATH, "%s.thumbnail.base64" % name)
 
-			if os.path.isfile(path) and (not os.path.exists(b64_origin) or not os.path.exists(b64_thumbnail)):
-				log.info("Importing file...")
+                        try:
+                            if os.path.isfile(path) and (not os.path.exists(b64_origin) or not os.path.exists(b64_thumbnail)):
+                                    log.info("Importing file...")
 
-				with conn.enter_scope() as scope:
-					db.create_object(scope, util.new_guid(), filename)
+                                    with conn.enter_scope() as scope:
+                                            db.create_object(scope, util.new_guid(), filename)
 
-					log.info("Creating file: %s" % b64_origin)
+                                            log.info('Creating file: "%s"' % b64_origin)
 
-					with open(path, "rb") as f:
-						b64 = "data:%s;base64,%s" % (mime, f.read().encode("base64"))
+                                            with open(path, "rb") as f:
+                                                    b64 = "data:%s;base64,%s" % (mime, f.read().encode("base64"))
 
-					with open(b64_origin, "w") as f:
-						f.write(b64)
+                                            with open(b64_origin, "w") as f:
+                                                    f.write(b64)
 
-					log.info("Creating file: %s" % b64_thumbnail)
+                                            log.info('Creating file: "%s"' % b64_thumbnail)
 
-					image = Image.open(path)
-					image.thumbnail(config.IMAGE_LIBRARY_THUMBNAIL_SIZE, Image.ANTIALIAS)
+                                            image = Image.open(path)
+                                            image.thumbnail(config.IMAGE_LIBRARY_THUMBNAIL_SIZE, Image.ANTIALIAS)
 
-					buffer = cStringIO.StringIO()
-					image.save(buffer, "PNG")
+                                            buffer = cStringIO.StringIO()
+                                            image.save(buffer, "PNG")
 
-					b64 = "data:png;base64,%s" % buffer.getvalue().encode("base64")
+                                            b64 = "data:png;base64,%s" % buffer.getvalue().encode("base64")
 
-					with open(b64_thumbnail, "w") as f:
-						f.write(b64)
+                                            with open(b64_thumbnail, "w") as f:
+                                                    f.write(b64)
 
-					scope.complete()
-			else:
-				log.debug("Ignoring file.")
+                                            scope.complete()
+                            else:
+                                    log.debug("Ignoring file.")
+
+                        except:
+                            dst = os.path.join(config.IMAGE_LIBRARY_FAILURE_PATH, filename)
+
+                            log.error('Import failed, moving file "%s" to "%s"' % (path, dst))
+
+                            os.rename(path, dst)
+
+                            for f in [b64_origin, b64_thumbnail]:
+                                try:
+                                    log.info('Deleting file: "%s"' % f)
+                                    os.remove(f)
+
+                                except:
+                                    pass
 
 if __name__ == "__main__":
 	import_images()

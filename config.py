@@ -149,3 +149,5 @@ IMAGE_LIBRARY_PATH           = "library"
 IMAGE_LIBRARY_BASE64_PATH    = "library-base64"
 ## Thumbnail size.
 IMAGE_LIBRARY_THUMBNAIL_SIZE = 80, 80
+## Directory moving invalid pictures to.
+IMAGE_LIBRARY_FAILURE_PATH   = "library-fail"
