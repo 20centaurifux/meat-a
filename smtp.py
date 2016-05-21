@@ -59,7 +59,9 @@ class SMTP_MTA(MTA):
 			self.__client = smtplib.SMTP()
 
 		self.__client.connect(self.server, self.port)
-		self.__client.login(self.username, self.password)
+
+                if len(self.username) > 0 and len(self.password) > 0:
+                    self.__client.login(self.username, self.password)
 
 	def send(self, subject, body, receiver):
 		try:
