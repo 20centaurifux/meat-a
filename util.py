@@ -85,17 +85,20 @@ def new_guid():
 #                    parameter has not been specified string.ascii_letters + string.digits
 #                    will be used
 #  @return a string
-def generate_junk(length, characters = None):
+def generate_junk(length, characters = None, secure = False):
 	if characters is None:
 		characters = string.ascii_letters + string.digits
 
 	result = []
 
-	for i in xrange(length):
-		index = random.randint(0, len(characters) - 1)
-		result.append(characters[index])
+	if secure:
+		rng = random.SystemRandom()
+	else:
+		rng = random
 
-	random.shuffle(result)
+	for i in xrange(length):
+		index = rng.randint(0, len(characters) - 1)
+		result.append(characters[index])
 
 	return "".join(result)
 

@@ -216,12 +216,12 @@ class Application(UserTools, ObjectTools):
 					raise exception.ConflictException("Username or email already assigned.")
 
 				# generate request id & code:
-				id = util.generate_junk(config.REQUEST_ID_LENGTH)
+				id = util.generate_junk(config.REQUEST_ID_LENGTH, secure=True)
 
 				while self.__user_db.user_request_id_exists(scope, id):
-					id = util.generate_junk(config.REQUEST_ID_LENGTH)
+					id = util.generate_junk(config.REQUEST_ID_LENGTH, secure=True)
 
-				code = util.generate_junk(config.REQUEST_CODE_LENGTH)
+				code = util.generate_junk(config.REQUEST_CODE_LENGTH, secure=True)
 
 				# save user request:
 				self.__user_db.create_user_request(scope, id, code, username, email)
@@ -258,8 +258,8 @@ class Application(UserTools, ObjectTools):
 					raise exception.InvalidRequestCodeException()
 
 				# activate user account:
-				password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH)
-				salt = util.generate_junk(config.PASSWORD_SALT_LENGTH)
+				password = util.generate_junk(config.DEFAULT_PASSWORD_LENGTH, secure=True)
+				salt = util.generate_junk(config.PASSWORD_SALT_LENGTH, secure=True)
 
 				user_id = self.__user_db.activate_user(scope, id, code, util.password_hash(password, salt), salt)
 
@@ -345,7 +345,7 @@ class Application(UserTools, ObjectTools):
 
 				if self.__validate_password__(scope, username, old_password):
 					# change password:
-					salt = util.generate_junk(config.PASSWORD_SALT_LENGTH)
+					salt = util.generate_junk(config.PASSWORD_SALT_LENGTH, secure=True)
 					hash = util.password_hash(new_password1, salt)
 
 					self.__user_db.update_user_password(scope, username, hash, salt)
@@ -396,12 +396,12 @@ class Application(UserTools, ObjectTools):
 				self.__user_db.remove_password_requests_by_user_id(scope, user["id"])
 
 				# create request id & code:
-				id = util.generate_junk(config.REQUEST_ID_LENGTH)
+				id = util.generate_junk(config.REQUEST_ID_LENGTH, secure=True)
 
 				while self.__user_db.password_request_id_exists(scope, id):
-					id = util.generate_junk(config.REQUEST_ID_LENGTH)
+					id = util.generate_junk(config.REQUEST_ID_LENGTH, secure=True)
 
-				code = util.generate_junk(config.REQUEST_CODE_LENGTH)
+				code = util.generate_junk(config.REQUEST_CODE_LENGTH, secure=True)
 				url = util.build_url("/html/user/%s/password/reset/%s?code=%s", config.WEBSITE_URL, username, id, code)
 
 				# save password request:
@@ -450,7 +450,7 @@ class Application(UserTools, ObjectTools):
 					raise exception.InvalidRequestCodeException()
 
 				# change password:
-				salt = util.generate_junk(config.PASSWORD_SALT_LENGTH)
+				salt = util.generate_junk(config.PASSWORD_SALT_LENGTH, secure=True)
 
 				hash = util.password_hash(new_password1, salt)
 				self.__user_db.reset_password(scope, id, code, hash, salt)
