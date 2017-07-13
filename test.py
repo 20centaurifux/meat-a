@@ -816,7 +816,9 @@ class TestObjectDb(unittest.TestCase, TestBase):
 
 			# paging:
 			eq = lambda a, b: a["guid"] == b["guid"] and a["source"] == b["source"]
-			self.assertPaging(len(objects), eq, db.get_popular_objects, scope)
+			result = filter(lambda obj: (obj["score"]["up"] - obj["score"]["down"]  + obj["score"]["fav"]) > 0, objects)
+
+			self.assertPaging(len(result), eq, db.get_popular_objects, scope)
 
 			# test sort order:
 			prev_score = size * 4
@@ -1821,8 +1823,7 @@ class TestApp(unittest.TestCase, TestBase):
 
 		for i in range(3):
 			page = self.app.get_popular_objects(i, page_size)
-
-			self.assertTrue(len(page), page_size)
+			self.assertLessEqual(len(page), page_size)
 
 			for obj in page:
 				for index in range(len(objects)):
